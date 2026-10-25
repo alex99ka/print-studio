@@ -24,7 +24,7 @@ class SummaryWidget : HomeWidgetProvider() {
         val lines = if (titles == null) emptyList() else (0 until titles.length()).map { "• " + titles.getString(it) }
         for (id in ids) {
             val views = RemoteViews(context.packageName, R.layout.widget_summary).apply {
-                setTextViewText(R.id.title, if (open == 0) "הכול בוצע" else "$open פתוחים")
+                setTextViewText(R.id.title, if (open == 0) "אין ממתינים לאישור" else "$open ממתינים לאישור")
                 setTextViewText(R.id.body, lines.joinToString("\n"))
                 setOnClickPendingIntent(R.id.root, open(context, "open"))
             }

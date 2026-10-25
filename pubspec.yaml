@@ -40,7 +40,7 @@ flutter:
   uses-material-design: true
   fonts:
     # Hebrew sans, bundled (works offline, no runtime font fetch). OFL:
-    # assets/fonts/Rubik-OFL.txt.
-    - family: Rubik
+    # assets/fonts/Heebo-OFL.txt. The same Heebo as the Flag Maker and the portal.
+    - family: Heebo
       fonts:
-        - asset: assets/fonts/Rubik.ttf
+        - asset: assets/fonts/Heebo.ttf

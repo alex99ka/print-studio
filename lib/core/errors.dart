@@ -12,7 +12,8 @@ import 'app_info.dart';
 /// Hebrew, with a code that tells the builder which failure it was.
 ///
 /// Letters: N connection · A account · G Google sign-in · D data (Firestore)
-/// · U updates · S the home server · P the device · X unexpected.
+/// · U updates · S the home server · P the device · F design files and the
+/// studio's tools · X unexpected.
 /// A new app adds its own letters (Y for an invoicing API, C for AI…) and a
 /// line per code in test/errors_test.dart. Never bare numbers: they read as
 /// HTTP statuses.
@@ -78,13 +79,25 @@ abstract final class Errors {
       'באייפד התראות עובדות רק מהאפליקציה שבמסך הבית',
       'בספארי: שיתוף › הוספה למסך הבית, ופותחים משם');
 
+  static const noServer = AppError('F1', 'בגרסה הזו אין כתובת לשרת הקבצים',
+      'צריך לבנות את האפליקציה עם SERVER_URL. שולחים את הקוד');
+  static const requestLocked = AppError('F2', 'הבקשה כבר אושרה ונעולה',
+      'שינוי אחרי אישור הוא בקשה חדשה');
+  static const badFile = AppError('F3', 'הקובץ לא תקין או גדול מ-60MB',
+      'מייצאים שוב מה-Flag Maker ומעלים את הקבצים מהייצוא');
+  static const slicerFailed = AppError('F4', 'Bambu Studio לא נפתח',
+      'בודקים ש-Bambu Studio מותקן ושקבצי 3MF נפתחים בו בלחיצה כפולה');
+  static const noPreview = AppError('F5', 'לא נבחרה תמונת PNG',
+      'בוחרים את כל קבצי הייצוא, כולל ה-PNG');
+
   /// Every code, for the test that keeps them unique.
   static const all = <AppError>[
     noConnection, tooSlow, notAllowed, signedOut, accountDisabled,
     tooManyTries, googleCancelled, googleNotSetUp, googleFailed, noPermission,
     dataUnavailable, quotaExceeded, updateCheckFailed, updateCorrupt,
     updateNotAllowed, updateTooOld, serverDown, serverBug, noBiometrics,
-    notificationsBlocked, notificationsNeedHomeScreen,
+    notificationsBlocked, notificationsNeedHomeScreen, noServer, requestLocked,
+    badFile, slicerFailed, noPreview,
   ];
 }
 
@@ -116,6 +129,8 @@ AppError classify(Object e) => switch (e) {
       ServerException(status: 401 || 403) => Errors.notAllowed,
       ServerException(status: 502 || 503) => Errors.serverDown,
       ServerException(status: 504) => Errors.tooSlow,
+      ServerException(status: 409) => Errors.requestLocked,
+      ServerException(status: 413 || 422) => Errors.badFile,
       ServerException() => Errors.serverBug,
       _ => _unexpected(e),
     };

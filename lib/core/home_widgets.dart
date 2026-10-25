@@ -10,7 +10,7 @@ import 'package:home_widget/home_widget.dart';
 /// A new app replaces both with its own 2–3 (today / a key number / quick
 /// actions) and keeps this plumbing.
 const _package = 'com.alex99ka.printstudio';
-const widgets = {'SummaryWidget': 'סיכום', 'QuickAddWidget': 'הוספה מהירה'};
+const widgets = {'SummaryWidget': 'ממתינים לאישור', 'QuickAddWidget': 'בקשה חדשה'};
 
 bool get homeWidgetsSupported =>
     !kIsWeb && defaultTargetPlatform == TargetPlatform.android;

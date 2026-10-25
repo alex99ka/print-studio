@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// The collections Settings › "ייצוא נתונים" writes out. A new app lists its own.
-const exportedCollections = ['items'];
+const exportedCollections = ['customers', 'requests', 'versions', 'quotes', 'comments'];
 
 /// One JSON with everything, plus a CSV per collection for a spreadsheet.
 /// Android and the web: the share sheet (the web downloads). Windows: a save

@@ -18,9 +18,8 @@ import 'update.dart';
 ///
 /// The types every app starts with. A new app adds its own.
 const notificationTypes = <String, String>{
-  'items': 'כשמישהו אחר מוסיף משהו',
+  'client': 'כשלקוח מעיר או מאשר',
   'updates': 'כשיש גרסה חדשה',
-  'morning': 'סיכום בוקר',
 };
 
 final _local = FlutterLocalNotificationsPlugin();

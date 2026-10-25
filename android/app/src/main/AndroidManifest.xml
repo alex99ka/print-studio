@@ -59,13 +59,13 @@
             </intent-filter>
         </receiver>
         <!-- Home screen widgets (HomeWidgets.kt; data from lib/core/home_widgets.dart). -->
-        <receiver android:name=".SummaryWidget" android:label="סיכום" android:exported="false">
+        <receiver android:name=".SummaryWidget" android:label="ממתינים לאישור" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>
             <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_summary_info" />
         </receiver>
-        <receiver android:name=".QuickAddWidget" android:label="הוספה מהירה" android:exported="false">
+        <receiver android:name=".QuickAddWidget" android:label="בקשה חדשה" android:exported="false">
             <intent-filter>
                 <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
             </intent-filter>

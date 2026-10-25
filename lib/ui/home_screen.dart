@@ -1,7 +1,5 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../config.dart';
@@ -13,13 +11,16 @@ import '../core/notifications.dart';
 import '../core/tour.dart';
 import '../core/update.dart';
 import '../core/web_update.dart';
+import 'customers_view.dart';
+import 'requests_view.dart';
+import 'ribbon.dart';
 import 'settings_page.dart';
-import 'skeleton.dart';
+import 'studio_actions.dart';
+import 'theme.dart';
 import 'update_banner.dart';
 
-/// The example feature: one shared list. It exists to show every UI standard
-/// working (skeleton, quick add, long-press menu, undo, pull to refresh,
-/// empty state) and to be replaced by the real app's screens.
+/// Tabs along the top like Word's (בית · לקוחות · הגדרות), the ribbon under
+/// them, and the tab's page below.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -27,11 +28,10 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-final _items = FirebaseFirestore.instance.collection('items');
+const _tabs = ['בית', 'לקוחות', 'הגדרות'];
 
 class _HomeScreenState extends State<HomeScreen> {
-  final _add = TextEditingController();
-  final _addFocus = FocusNode();
+  int _tab = 0;
   late final AppLifecycleListener _lifecycle;
   StreamSubscription<Uri?>? _widgetTaps;
 
@@ -42,9 +42,9 @@ class _HomeScreenState extends State<HomeScreen> {
     _checkUpdates();
     _lifecycle = AppLifecycleListener(onResume: _checkUpdates);
     WidgetsBinding.instance.addPostFrameCallback((_) => _afterFirstFrame());
-    // The quick-add home widget opens the app ready to type.
+    // The quick-add home widget opens the app on a new request.
     _widgetTaps = listenWidgetTaps((action) {
-      if (action == 'add') _addFocus.requestFocus();
+      if (action == 'add' && mounted) newRequest(context);
     });
   }
 
@@ -53,10 +53,17 @@ class _HomeScreenState extends State<HomeScreen> {
     WebUpdate.instance.check();
   }
 
+  void _openFromPush(Map<String, dynamic> data) {
+    final id = data['id'];
+    if (data['route'] == '/request' && id is String && mounted) {
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RequestPage(requestId: id)));
+    }
+  }
+
   Future<void> _afterFirstFrame() async {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    setUpNotifications(messenger).ignore();
+    setUpNotifications(messenger, onOpen: _openFromPush).ignore();
     // The whole tour on a new device; after an update, what it brought.
     final steps = await tourForThisLaunch(AppInfo.version);
     if (steps != null && steps.isNotEmpty) {
@@ -101,172 +108,79 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     _lifecycle.dispose();
     _widgetTaps?.cancel();
-    _add.dispose();
-    _addFocus.dispose();
     super.dispose();
   }
 
-  Future<void> _addItem(String text) async {
-    final title = text.trim();
-    if (title.isEmpty) return;
-    _add.clear();
-    final u = FirebaseAuth.instance.currentUser!;
-    // Not awaited: Firestore applies it locally at once and queues it offline.
-    _items.add({
-      'title': title,
-      'done': false,
-      'by': u.uid,
-      'byName': u.displayName,
-      'createdAt': FieldValue.serverTimestamp(),
-    }).catchError((Object e) {
-      if (mounted) showError(ScaffoldMessenger.of(context), e, 'ההוספה נכשלה');
-      return _items.doc();
-    });
-  }
-
-  /// Delete now, undo for 5 seconds: no confirm dialog for what can be undone.
-  void _delete(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
-    final data = doc.data();
-    doc.reference.delete();
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      duration: const Duration(seconds: 5),
-      content: Text('"${data['title']}" נמחק'),
-      action: SnackBarAction(label: 'ביטול', onPressed: () => doc.reference.set(data)),
-    ));
-  }
-
-  Future<void> _rename(QueryDocumentSnapshot<Map<String, dynamic>> doc) async {
-    final c = TextEditingController(text: '${doc['title']}');
-    final title = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('עריכה'),
-        content: TextField(controller: c, autofocus: true, onSubmitted: (v) => Navigator.pop(ctx, v)),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ביטול')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, c.text), child: const Text('שמירה')),
-        ],
-      ),
-    );
-    if (title != null && title.trim().isNotEmpty) doc.reference.update({'title': title.trim()});
-  }
-
-  void _menu(QueryDocumentSnapshot<Map<String, dynamic>> doc) => showModalBottomSheet<void>(
-        context: context,
-        builder: (c) => SafeArea(
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
-            ListTile(
-              leading: const Icon(Icons.edit_outlined),
-              title: const Text('עריכה'),
-              onTap: () {
-                Navigator.pop(c);
-                _rename(doc);
-              },
-            ),
-            ListTile(
-              leading: const Icon(Icons.delete_outline),
-              title: const Text('מחיקה'),
-              onTap: () {
-                Navigator.pop(c);
-                _delete(doc);
-              },
-            ),
-          ]),
-        ),
-      );
-
   @override
   Widget build(BuildContext context) {
+    final s = context.studio;
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text(AppConfig.name),
-        actions: [
-          TourTarget(
-            'settings',
-            child: IconButton(
-              tooltip: 'הגדרות',
-              icon: const Icon(Icons.settings_outlined),
-              onPressed: () => Navigator.push(context,
-                  MaterialPageRoute<void>(builder: (_) => const SettingsPage())),
-            ),
-          ),
-        ],
-      ),
       body: Column(children: [
-        const UpdateBanner(),
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-          child: TourTarget(
-            'home.add',
-            child: TextField(
-              controller: _add,
-              focusNode: _addFocus,
-              textInputAction: TextInputAction.done,
-              onSubmitted: _addItem,
-              decoration: const InputDecoration(
-                hintText: 'הוספה מהירה…',
-                prefixIcon: Icon(Icons.add),
-                border: OutlineInputBorder(),
-              ),
-            ),
+        Container(
+          color: s.bar,
+          padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+          child: SizedBox(
+            height: 48,
+            child: Row(children: [
+              const SizedBox(width: 16),
+              Icon(Icons.view_in_ar_outlined, color: s.barInk, size: 22),
+              const SizedBox(width: 10),
+              Text(AppConfig.name, style: TextStyle(color: s.barInk, fontWeight: FontWeight.w700, fontSize: 16)),
+              const Spacer(),
+              Text(AppInfo.version, textDirection: TextDirection.ltr,
+                  style: TextStyle(color: s.barInk.withValues(alpha: .75), fontSize: 12)),
+              const SizedBox(width: 16),
+            ]),
           ),
         ),
-        Expanded(
-          child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-            stream: _items.orderBy('createdAt', descending: true).snapshots(),
-            builder: (context, snap) {
-              if (snap.hasError) {
-                return Center(child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Text(errorText(snap.error!, 'טעינת הרשימה נכשלה'),
-                      textAlign: TextAlign.center),
-                ));
-              }
-              if (!snap.hasData) return const SkeletonList();
-              final docs = snap.data!.docs;
-              final open = docs.where((d) => d['done'] != true);
-              updateHomeWidgets(
-                  open: open.length,
-                  titles: [for (final d in open.take(3)) '${d['title']}']);
-              return RefreshIndicator(
-                // Live already; a pull also checks for updates and re-reads
-                // from the server, so it's never a dead gesture.
-                onRefresh: () async {
-                  _checkUpdates();
-                  await _items.get(const GetOptions(source: Source.server))
-                      .timeout(const Duration(seconds: 10))
-                      .catchError((_) => snap.data!);
-                },
-                child: docs.isEmpty
-                    ? ListView(children: const [
-                        SizedBox(height: 120),
-                        Center(child: Text('הרשימה ריקה. מוסיפים בשורה למעלה.')),
-                      ])
-                    : ListView.builder(
-                        itemCount: docs.length,
-                        itemBuilder: (_, i) {
-                          final d = docs[i];
-                          final tile = CheckboxListTile(
-                            value: d['done'] == true,
-                            onChanged: (v) => d.reference.update({'done': v}),
-                            title: Text('${d['title']}'),
-                            subtitle: d['by'] != FirebaseAuth.instance.currentUser?.uid
-                                ? Text('נוסף ע״י ${d.data()['byName'] ?? ''}')
-                                : null,
-                            controlAffinity: ListTileControlAffinity.leading,
-                          );
-                          return GestureDetector(
-                            key: ValueKey(d.id),
-                            onLongPress: () => _menu(d),
-                            child: i == 0 ? TourTarget('home.first', child: tile) : tile,
-                          );
-                        },
-                      ),
-              );
-            },
+        Material(
+          color: scheme.surface,
+          child: Container(
+            decoration: BoxDecoration(border: Border(bottom: BorderSide(color: s.line))),
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            alignment: AlignmentDirectional.centerStart,
+            child: Row(children: [
+              for (final (i, label) in _tabs.indexed)
+                if (i == 2) TourTarget('settings', child: _tabButton(i, label)) else _tabButton(i, label),
+            ]),
           ),
+        ),
+        if (_tab < 2) const Ribbon(),
+        const UpdateBanner(),
+        Expanded(
+          child: IndexedStack(index: _tab, children: const [
+            RequestsView(),
+            CustomersView(),
+            SettingsPage(embedded: true),
+          ]),
         ),
       ]),
+    );
+  }
+
+  Widget _tabButton(int i, String label) {
+    final selected = _tab == i;
+    final scheme = Theme.of(context).colorScheme;
+    return Semantics(
+      selected: selected,
+      button: true,
+      child: InkWell(
+        onTap: () => setState(() => _tab = i),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            border: Border(bottom: BorderSide(color: selected ? scheme.primary : AppTokens.lightBg.withValues(alpha: 0), width: 3)),
+          ),
+          child: Text(label,
+              style: TextStyle(
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w400,
+                color: selected ? scheme.onSurface : context.studio.muted,
+              )),
+        ),
+      ),
     );
   }
 }

@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../config.dart';
 import '../core/app_info.dart';
@@ -17,13 +18,18 @@ import '../core/settings_store.dart';
 import '../core/tour.dart';
 import '../core/update.dart';
 import '../core/web_update.dart';
+import '../studio/desktop.dart';
+import '../studio/studio.dart';
 import 'skeleton.dart';
 
 /// The standard set, in this order: updates, sign-in and security, look,
 /// notifications, help, data, account. A new app adds its own section above
 /// "עזרה".
 class SettingsPage extends StatefulWidget {
-  const SettingsPage({super.key});
+  const SettingsPage({super.key, this.embedded = false});
+
+  /// A tab of the home screen (no title bar of its own) rather than a page.
+  final bool embedded;
 
   @override
   State<SettingsPage> createState() => _SettingsPageState();
@@ -88,7 +94,7 @@ class _SettingsPageState extends State<SettingsPage> {
   void _whatsNew() {
     // This version's own steps, else its release notes as one card.
     final steps = whatsNew(AppInfo.previousVersion(), AppInfo.version);
-    Navigator.pop(context);
+    Navigator.maybePop(context);
     runningTour.value = steps.isNotEmpty
         ? steps
         : [
@@ -97,12 +103,45 @@ class _SettingsPageState extends State<SettingsPage> {
           ];
   }
 
+  Future<void> _pairFlagMaker() async {
+    final messenger = ScaffoldMessenger.of(context);
+    final String key;
+    try {
+      key = await pairFlagMaker();
+    } catch (e) {
+      showError(messenger, e, 'החיבור נכשל');
+      return;
+    }
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text('מפתח ל-Flag Maker'),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('ב-Flag Maker: "Send to CRM" › Settings, מדביקים את הכתובת ואת המפתח. '
+              'המפתח מוצג רק עכשיו.'),
+          const SizedBox(height: 12),
+          SelectableText(AppConfig.serverUrl, textDirection: TextDirection.ltr),
+          const SizedBox(height: 8),
+          SelectableText(key, textDirection: TextDirection.ltr, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Clipboard.setData(ClipboardData(text: key)),
+            child: const Text('העתקת המפתח'),
+          ),
+          FilledButton(onPressed: () => Navigator.pop(c), child: const Text('סיום')),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
     final updater = AppUpdater.instance;
     return Scaffold(
-      appBar: AppBar(title: const Text('הגדרות')),
+      appBar: widget.embedded ? null : AppBar(title: const Text('הגדרות')),
       body: ListView(children: [
         _Section('עדכונים'),
         TourTarget(
@@ -227,6 +266,21 @@ class _SettingsPageState extends State<SettingsPage> {
             ]),
           ),
 
+        _Section('Flag Maker'),
+        ListTile(
+          leading: const Icon(Icons.link),
+          title: const Text('חיבור ה-Flag Maker'),
+          subtitle: const Text('מפתח חדש להדבקה ב-Flag Maker. הקודם מפסיק לעבוד'),
+          onTap: _pairFlagMaker,
+        ),
+        if (isWindows)
+          ListTile(
+            leading: const Icon(Icons.folder_open_outlined),
+            title: const Text('איפה ה-Flag Maker במחשב'),
+            subtitle: const Text('קובץ ה-EXE, ל"פתיחה ב-Flag Maker"'),
+            onTap: () => flagMakerExe(choose: true),
+          ),
+
         _Section('עזרה'),
         TourTarget(
           'settings.tour',
@@ -235,7 +289,7 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('סיור באפליקציה'),
             subtitle: const Text('הדרכה אינטראקטיבית בכל מה שיש כאן'),
             onTap: () {
-              Navigator.pop(context);
+              Navigator.maybePop(context); // a tab has nothing to close
               runningTour.value = fullTour;
             },
           ),
