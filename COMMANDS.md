@@ -4,11 +4,12 @@ Run from the repo root unless noted. Flutter: `/c/src/flutter/bin/flutter` (not 
 
 | Command | What it does |
 |---|---|
-| `python tool/new_app.py --name … --slug … --id …` | Turns a copy of the starter into a new app. |
 | `flutter run -d windows` | Runs the app with hot reload (`r`, `R`, `q`). |
 | `flutter analyze && flutter test` | Static checks and the unit tests. Must be clean. |
 | `cd firestore-tests && npm test` | Every allow/deny of the rules, in the emulator. On Windows, kill the java process left on :8080 afterwards. |
-| `cd server && .venv/Scripts/pytest -q` | Server tests (no network). |
+| `cd server && .venv/Scripts/pytest -q` | Server tests without Firestore (the studio tests skip). |
+| `cd server && npx -y firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json ".venv\Scripts\pytest.exe -q"` | All server tests, studio included, against the emulator. Kill the java on :8080 afterwards. |
+| `git archive HEAD:server \| ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "tar -x -C ~/docker/print-studio"` then on the Pi `docker compose up -d --build` | Deploys the server (README › The home server). |
 | `firebase.cmd deploy --only firestore:rules --project <id>` | Deploys the rules. Before the release that needs them. |
 | `git tag X.Y.Z && git push --atomic origin main X.Y.Z` | Releases (prerelease for early users). |
 | `gh workflow run promote.yml -f version=X.Y.Z` | Makes a release everyone's, web included. |

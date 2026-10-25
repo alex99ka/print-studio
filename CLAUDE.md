@@ -1,23 +1,32 @@
 # print-studio: context
 
-This is the **starter** for every new app (the `make-an-app` skill in
-`~/.claude/skills/make-an-app` points here). A change here changes every
-future app, so keep it generic: no app-specific features, only the core in the
-skill's `references/checklist.md`. Read that checklist and
-`references/lessons.md` before changing an area.
+Alex's CRM for the 3D-printing studio (README › What it does). Built from the
+`app-shell` starter (`make-an-app` skill): read that skill's
+`references/checklist.md` and `references/lessons.md` before changing an area.
+Improvements to `lib/core/` go back into the starter.
 
-- `lib/config.dart` is the only per-app file in `lib/`; `tool/new_app.py`
-  renames everything else. If you add a file that names the app, add it to the
-  script's replacements and re-test the script on a copy.
-- `lib/core/` = the standard (auth, lock, update, errors, tour, notifications,
-  diagnostics, report, export, home widgets). `lib/ui/` = screens.
-  The example feature is `items`.
-- Keep green: `flutter analyze`, `flutter test`, `firestore-tests`, `server`
-  pytest. CI runs all four.
-- Decisions already made (2026-10-15, don't re-ask): Flutter; Firebase Spark +
-  Pi when needed; Android + Web + Windows; Hebrew RTL, light + dark; Google
-  sign-in + opt-in fingerprint; silent updates from GitHub Releases;
-  tag-triggered releases; prerelease → promote (patient zero).
-- Firebase packages are pinned to firebase_core 4 / auth 6 (proven in other
-  apps). Moving to core 5 / auth 7 is a planned upgrade: it also clears the
-  Kotlin Gradle Plugin warning.
+- `lib/core/` = the standard. `lib/studio/` = records, money, links (and
+  `desktop.dart`, PC only). `lib/ui/` = screens: `home_screen` (tabs + ribbon),
+  `requests_view`, `customers_view`, `ribbon`, `studio_actions`, `studio_dialogs`.
+- Server: `server/app/studio.py` (versions, Flag Maker key, portal) and
+  `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\app\crm_link.py`
+  (follow that repo's AGENTS.md: its releases need its acceptance suite).
+- Money is integer **agorot**; VAT 18% rounded half up, computed identically in
+  `lib/studio/studio.dart` and `studio.py` (both have the same test cases).
+- Keep green: `flutter analyze`, `flutter test`, `firestore-tests`, server
+  pytest (`test_studio.py` needs the Firestore emulator; COMMANDS.md). CI runs all.
+
+## Decided 25.10.2026 (don't re-ask)
+
+Multiple customers, one permanent portal link each (token only; client Google
+sign-in later). Request → versions; only Alex creates requests. Versions land
+as drafts; Alex publishes. Comments: thread + pins on 2D/3D/assembled. Quote
+before VAT + VAT + total, re-quote until accepted, one-step approval of design
++ price, then locked. Statuses טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן →
+נמסר → שולם. Alerts to Alex: FCM push only; the client is told by a WhatsApp
+link Alex sends. Portal Hebrew + English toggle. Flag Maker ↔ CRM two-way, PC
+only. Allowlist: alex99ka@gmail.com, alex98ka@gmail.com. Palette A (graphite +
+blue, green only for the client's approve button), Heebo, Word-style top tabs
++ ribbon. Design: https://claude.ai/artifact/XGArLBxz3caJm9xYcBRFaf
+
+Firebase packages stay on core 4 / auth 6 (the starter's pin).

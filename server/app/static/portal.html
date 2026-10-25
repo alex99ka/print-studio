@@ -15,6 +15,7 @@
 --line:#2A2F38;--accent:#7C9BFF;--on-accent:#0B1020;--accent-soft:#1E2A4D;--warn-soft:#3A2A12;--warn-ink:#F8C77E;
 --ok-soft:#133526;--ok-ink:#7FDDB0;--ok:#34D399;--on-ok:#052E1F;--danger:#F97066;color-scheme:dark}}
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Heebo,system-ui,sans-serif}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer}
@@ -330,8 +331,8 @@ async function show3d(stage, url, markers, onPick) {
   const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
   renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
   const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10000);
-  scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 2.2));
-  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(0.6, 1, 1.2); camera.add(sun); scene.add(camera);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb0b6c2, 2.8));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.4); sun.position.set(0.6, 1, 1.2); camera.add(sun); scene.add(camera);
   const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
   stage.prepend(renderer.domElement);
   let alive = true, model = null;

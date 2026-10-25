@@ -2,15 +2,35 @@
 
 # סטודיו הדפסה
 
-The starter every new app is built from (the `make-an-app` skill). One Flutter
-codebase for **Android, Web (installable, the iPad) and Windows**, with the core
-already working: Google sign-in, fingerprint unlock, silent in-app updates from
-GitHub Releases, a patient-zero rollout, minimum-version kill switch, push
-notifications, Hebrew error codes, problem reports to Telegram, a diagnostics
-screen, an interactive walkthrough with what's-new per release, home widgets,
-data export, daily Drive backups, light and dark themes, RTL.
+CRM for a one-person 3D-printing studio (microphone flags from the
+[Flag Maker](../3d)). Built on the `app-shell` starter: one Flutter codebase
+for **Android, Web (installable, the iPad) and Windows**, with Google sign-in,
+fingerprint, silent updates, pushes, error codes, diagnostics, walkthrough,
+export, Drive backups, light/dark, RTL.
 
-The example feature is one shared list (`items`). A new app replaces it.
+## What it does
+
+- **Customers**, each with one permanent **portal link** (a secret token; no
+  account) that shows all their orders: waiting for approval / approved.
+- **Requests → versions.** A version is a Flag Maker export: preview PNG, the
+  Bambu 3MF, the design recipe, and two GLBs (the print plate, and the flag
+  assembled on the microphone). It lands as a **draft**; "פרסם ללקוח" shows it
+  on the portal.
+- **Portal** (`server/app/static/portal.html`, Hebrew/English): 2D / 3D /
+  on-the-mic views, comments **pinned** on the picture or the 3D model, a
+  quote before VAT + 18% VAT + total, and **one-step approval** of the current
+  version and price. Approval locks the request (version, price, quantity).
+- **Statuses**: טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן → נמסר → שולם.
+  Customer comments and approvals push to the app (type `client`).
+- **Flag Maker link** (PC): "Send to CRM" in the Flag Maker uploads the next
+  version with a paired key (CRM › הגדרות › חיבור ה-Flag Maker); the CRM opens a
+  version back in the Flag Maker (`--crm-version`) and the approved 3MF in
+  Bambu Studio.
+
+Records are in Firestore (the rules check every app write). Files live on the
+Pi (`DATA_DIR/files/<version id>/`; Firebase Storage needs Blaze) and are
+zipped to Drive once each by the daily backup. The customer only ever talks to
+the Pi, which writes their comments and approvals with the Admin SDK.
 
 ## Start a new app from this
 

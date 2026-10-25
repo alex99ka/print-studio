@@ -2,23 +2,44 @@
 
 ## עליך
 
-(יתווספו כשהקוד מוכן: פרויקט Firebase, לקוחות OAuth, מפתח חתימה, סודות GitHub, פריסה ל-Pi.)
+לפי הסדר (README › Start a new app, שלבים 1–5). הקוד מוכן ונבדק; בלי אלה
+האפליקציה לא מתחברת לשום דבר.
 
-## אצל Claude — בנייה ראשונה (MVP)
+1. **פרויקט Firebase** (Spark, חינם): `firebase.cmd projects:create print-studio-<משהו>`.
+   בקונסול: Authentication › Google; Firestore (me-west1). רושמים אפליקציית Web
+   ו-Android ושולחים לי את ה-config (ציבורי, לא סוד) — אני ממלא את
+   `lib/firebase_options.dart` ו-`web/firebase-messaging-sw.js`.
+2. ב-Firestore יוצרים ידנית: `config/access` = `{emails: ["alex99ka@gmail.com", "alex98ka@gmail.com"], earlyUsers: ["alex99ka@gmail.com"]}`
+   ו-`config/app` = `{minVersion: "0.0.0"}`. אחר כך: `firebase.cmd deploy --only firestore:rules --project <id>`.
+3. **לקוחות OAuth** (Google Cloud › Credentials): מזהה ה-Web client, ולקוח
+   חדש מסוג Desktop app ל-Windows.
+4. **מפתח חתימה** (`keytool` ב-README שלב 4) ב-`~/.keystores/print-studio.p12`,
+   **וגיבוי שלו ל-Drive מיד**.
+5. **ריפו ב-GitHub** `alex99ka/print-studio` (ציבורי) + הסודות והמשתנים מ-README שלב 5.
+6. **Pi**: `mkdir -p ~/docker/print-studio/data`, `.env` (GOOGLE_CLOUD_PROJECT,
+   GITHUB_REPO, APP_NAME=סטודיו הדפסה, PORT=8010, טלגרם מה-.env של אפליקציה
+   אחרת), מפתח שירות (Datastore User + FCM Admin) ב-`data/service-account.json`.
+   החלטה: איך לפרסם ב-Funnel — 8443 תפוס ע״י וירמשולקה. אפשרות: נתיב
+   (`--set-path /print-studio`) על אותו פורט.
+7. אחרי שהשרת עולה: בהגדרות ה-CRM › "חיבור ה-Flag Maker", ומדביקים כתובת
+   ומפתח ב-Flag Maker › Send to CRM.
 
-החלטות: `CLAUDE.md` (נסגרו 25.10.2026, לא לשאול שוב). עיצוב מאושר: פלטה A,
-https://claude.ai/artifact/XGArLBxz3caJm9xYcBRFaf
+## אצל Claude
 
-1. ✅ שרת: `server/app/studio.py` (העלאת גרסאות, מפתח Flag Maker, פורטל לקוח,
-   הערות עם נעיצה, אישור בצעד אחד), `static/portal.html`, כללי Firestore, גיבוי
-   קבצים ל-Drive, בדיקות (שרת מול אמולטור, כללים).
-2. אפליקציה (Flutter): פלטה A ב-`lib/ui/theme.dart`; לשוניות עליונות כמו Word
-   (בית · לקוחות · הגדרות) + רצועת כלים; בקשות (רשימה + פרטים: 2D עם נעיצות,
-   גרסאות, הצעת מחיר עם מע״מ, הערות, פרסום, וואטסאפ, תצוגה בדפדפן); לקוחות
-   (קישור פורטל, החלפת קישור); העלאת גרסה ידנית; Windows: פתיחה ב-Bambu,
-   פתיחה ב-Flag Maker, צימוד Flag Maker. התראות מסוג `client`, ייצוא, סיור,
-   ווידג'טים.
-3. Flag Maker (`C:\claude projects\3d`): "שליחה ל-CRM" (3MF + PNG + מתכון +
-   GLB לוח ו-GLB מורכב), טעינת מתכון מ-CRM (`--crm-version`), בדיקות קבלה
-   ואריזה לפי ה-AGENTS.md שלו.
-4. README, COMMANDS, CHANGELOG, סיור, אייקון.
+1. ✅ שרת, פורטל, כללים, גיבוי קבצים, בדיקות (שרת 15, כללים 12).
+2. ✅ אפליקציה: פלטה A, לשוניות + רצועה, בקשות, לקוחות, מחירים, הערות, PC
+   (Bambu, Flag Maker). בדיקות 20. **לא נבדק עדיין על מסך** — צריך Firebase
+   (שלב 1 אצלך). אז: הרצה ב-Windows ובטלפון, צילומי מסך, תיקונים.
+3. ✅ קוד ב-Flag Maker (`3d/app/crm_link.py`, כפתור Send to CRM,
+   `--crm-version`). נבדק מקצה לקצה מול שרת מקומי: ייצוא אמיתי של Bambu,
+   GLB לוח + מורכב, העלאה v1/v2, מתכון חוזר, ובדפדפן: 2D/3D/על המיקרופון,
+   נעיצה בתלת-ממד, אישור, אנגלית. **לא נעשה commit בריפו של 3d ולא נבנתה
+   גרסה 5.6.0** — אחרי שהשרת חי: בדיקות הקבלה של ה-Flag Maker ואריזה.
+4. אחרי Firebase: אייקון, גרסה ראשונה (tag) על הטלפון, עדכון שני לבדיקת
+   עדכון מתוך האפליקציה, ניטור Uptime Kuma ל-`/health`, דף פרטיות.
+
+## אחרי ה-MVP (לא נבנה, להחליט)
+
+- צירוף תמונה להערה מהפורטל (בעיצוב היה כפתור; לא נבנה).
+- כניסת לקוח עם Google (במקום קישור בלבד).
+- חיפוש ברשימת הבקשות; פתיחה מחדש של בקשה מאושרת.
