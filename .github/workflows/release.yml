@@ -1,0 +1,275 @@
+name: Release
+
+# Push a tag equal to pubspec's version (1.4.0, no "v"). Builds Android,
+# Windows and web, publishes a GitHub *prerelease* (only early users'
+# apps take it: patient zero) and puts the web build on the Hosting
+# preview channel "next". promote.yml then makes it everyone's.
+on:
+  push:
+    tags:
+      - '[0-9]+.[0-9]+.[0-9]+'
+
+permissions: {}
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: 3.47.4
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - id: v
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          version=$(sed -n 's/^version: *\([0-9.]*\).*/\1/p' pubspec.yaml)
+          if [[ ! "$version" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::pubspec version $version is not MAJOR.MINOR.PATCH"; exit 1
+          fi
+          if (( 10#${BASH_REMATCH[2]} > 999 || 10#${BASH_REMATCH[3]} > 999 )); then
+            echo "::error::minor and patch must stay below 1000 (Android versionCode)"; exit 1
+          fi
+          if [ "$TAG" != "$version" ]; then
+            echo "::error::tag $TAG does not match pubspec version $version"; exit 1
+          fi
+          # This version's CHANGELOG section: the release notes and the
+          # what's-new text compiled into the app.
+          awk -v v="$version" '$0 ~ "^## \\[" v "\\]" {on=1; next} /^## \[/ {on=0} on' CHANGELOG.md > notes.md
+          if [ ! -s notes.md ]; then
+            echo "::error::CHANGELOG.md has no section for [$version]"; exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: notes
+          path: notes.md
+          retention-days: 1
+
+  # Built with the debug key (no key.properties here); android-sign re-signs
+  # it on a runner that runs no Gradle or pub code next to the keystore.
+  android:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+      - name: Build
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.GOOGLE_WEB_CLIENT_ID }}
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        run: |
+          flutter build apk --release --target-platform android-arm64 \
+            --dart-define=GOOGLE_WEB_CLIENT_ID="$GOOGLE_WEB_CLIENT_ID" \
+            --dart-define=SERVER_URL="$SERVER_URL" \
+            --dart-define=RELEASE_NOTES="$(head -c 1500 notes.md | base64 -w0)"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: android-debug-signed
+          path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: error
+          retention-days: 1
+
+  android-sign:
+    needs: [version, android]
+    runs-on: ubuntu-latest
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: android-debug-signed
+          path: in
+      - name: Align, sign and verify
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ vars.ANDROID_KEY_ALIAS }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ]; then
+            echo "::error::secrets ANDROID_KEYSTORE_BASE64, ANDROID_KEYSTORE_PASSWORD and variable ANDROID_KEY_ALIAS are required"; exit 1
+          fi
+          keystore="$RUNNER_TEMP/release.keystore"
+          (umask 077 && printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > "$keystore")
+          tools="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          mkdir -p out
+          # Drop the debug signature, then align and sign with the release key.
+          zip -q -d in/app-release.apk 'META-INF/*.SF' 'META-INF/*.RSA' 'META-INF/*.MF' || true
+          "$tools/zipalign" -P 16 -f 4 in/app-release.apk "$RUNNER_TEMP/aligned.apk"
+          "$tools/apksigner" sign --ks "$keystore" --ks-key-alias "$ANDROID_KEY_ALIAS" \
+            --ks-pass env:ANDROID_KEYSTORE_PASSWORD --key-pass env:ANDROID_KEYSTORE_PASSWORD \
+            --out "out/print-studio-$VERSION.apk" "$RUNNER_TEMP/aligned.apk"
+          rm -f "$keystore"
+          "$tools/apksigner" verify --print-certs "out/print-studio-$VERSION.apk"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-android
+          path: out/*.apk
+          if-no-files-found: error
+          retention-days: 14
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    timeout-minutes: 45
+    env:
+      VERSION: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+      - name: Build
+        shell: bash
+        env:
+          GOOGLE_DESKTOP_CLIENT_ID: ${{ vars.GOOGLE_DESKTOP_CLIENT_ID }}
+          GOOGLE_DESKTOP_CLIENT_SECRET: ${{ secrets.GOOGLE_DESKTOP_CLIENT_SECRET }}
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        run: |
+          flutter build windows --release \
+            --dart-define=GOOGLE_DESKTOP_CLIENT_ID="$GOOGLE_DESKTOP_CLIENT_ID" \
+            --dart-define=GOOGLE_DESKTOP_CLIENT_SECRET="$GOOGLE_DESKTOP_CLIENT_SECRET" \
+            --dart-define=SERVER_URL="$SERVER_URL" \
+            --dart-define=RELEASE_NOTES="$(head -c 1500 notes.md | base64 -w0)"
+          # The VC++ runtime next to the exe: starts on a PC that never installed it.
+          for f in msvcp140.dll vcruntime140.dll vcruntime140_1.dll; do
+            cp "/c/Windows/System32/$f" build/windows/x64/runner/Release/
+          done
+      - name: Installer
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc -ErrorAction SilentlyContinue)) { choco install innosetup -y --no-progress | Out-Null }
+          $iscc = (Get-Command iscc -ErrorAction SilentlyContinue).Source
+          if (-not $iscc) { $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" }
+          & $iscc /Q "/DAppVersion=$env:VERSION" installer\app.iss
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+      - uses: actions/upload-artifact@v7
+        with:
+          name: release-windows
+          path: dist/*.exe
+          if-no-files-found: error
+          retention-days: 14
+
+  web:
+    needs: version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: ${{ env.FLUTTER_VERSION }}
+          cache: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+      - env:
+          SERVER_URL: ${{ vars.SERVER_URL }}
+        run: |
+          flutter build web --release \
+            --dart-define=SERVER_URL="$SERVER_URL" \
+            --dart-define=RELEASE_NOTES="$(head -c 1500 notes.md | base64 -w0)"
+      - uses: actions/upload-artifact@v7
+        with:
+          name: web
+          path: build/web
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    needs: [version, android-sign, windows, web]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.version.outputs.version }}
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist
+          merge-multiple: true
+      - uses: actions/download-artifact@v8
+        with:
+          name: notes
+      - name: Publish as a prerelease
+        working-directory: dist
+        run: |
+          files=(*.apk *.exe)
+          sha256sum "${files[@]}" > SHA256SUMS
+          { cat ../notes.md; printf '\n---\nAndroid: print-studio-%s.apk · Windows: print-studio-setup-%s.exe. Installed apps update themselves.\n' "$TAG" "$TAG"; } > ../body.md
+          gh release create "$TAG" "${files[@]}" SHA256SUMS --verify-tag --prerelease --title "$TAG" --notes-file ../body.md
+
+  # The web build goes to the preview channel "next" (early users test it
+  # there); promote.yml clones it to live. Nothing from the repo runs here.
+  hosting:
+    needs: [version, release]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    concurrency:
+      group: hosting
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: web
+          path: build/web
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Deploy to the "next" channel
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
+        run: |
+          if [ -z "$FIREBASE_SERVICE_ACCOUNT" ] || [ -z "$FIREBASE_PROJECT" ]; then
+            echo "::error::secret FIREBASE_SERVICE_ACCOUNT and variable FIREBASE_PROJECT are required"; exit 1
+          fi
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          trap 'rm -f "$GOOGLE_APPLICATION_CREDENTIALS"' EXIT
+          (umask 077 && printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS")
+          npx --yes firebase-tools@15.15.0 hosting:channel:deploy next --expires 30d \
+            --project "$FIREBASE_PROJECT" --non-interactive

@@ -1,0 +1,60 @@
+rules_version = '2';
+
+// The rules are the backend: the app talks to Firestore directly.
+// One allowlist, config/access.emails, edited by hand in the console; the app
+// and the home server read the same document. Every allow and deny below has
+// a case in firestore-tests/rules.test.mjs.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function allowed() {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && request.auth.token.email in
+           get(/databases/$(database)/documents/config/access).data.emails;
+    }
+
+    // minVersion and its message: read before sign-in, so even a signed-out
+    // old build learns it must update.
+    match /config/app {
+      allow read: if true;
+    }
+
+    // The allowlist and the early (patient-zero) users. Readable only by
+    // those on it: the app's access check is exactly this read succeeding.
+    match /config/access {
+      allow read: if allowed();
+    }
+
+    // Each person's own profile: sign-in times, push tokens, notification switches.
+    match /users/{uid} {
+      allow read: if allowed() && request.auth.uid == uid;
+      allow create, update: if allowed() && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly([
+             'name', 'email', 'lastSignIn', 'previousSignIn',
+             'previousPlatform', 'lastPlatform', 'fcmTokens', 'notify']);
+    }
+
+    // The starter's example list; a new app replaces it with its own.
+    match /items/{id} {
+      allow read, delete: if allowed();
+      // Create also serves undo, which restores another member's item, so
+      // `by` is not bound to the caller (accepted: a household app).
+      allow create: if allowed()
+        && request.resource.data.keys().hasOnly(['title', 'done', 'by', 'byName', 'createdAt'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 500;
+      allow update: if allowed()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'done'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() <= 500;
+    }
+
+    // Problem reports when there is no home server: write-only; the notifier
+    // forwards them to Telegram with the Admin SDK.
+    match /reports/{id} {
+      allow create: if allowed() && request.resource.data.uid == request.auth.uid;
+    }
+  }
+}

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_summary_description">כמה פתוחים, ומה הם</string>
+    <string name="widget_quick_add_description">הוספה בלחיצה אחת</string>
+</resources>

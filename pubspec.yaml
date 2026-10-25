@@ -1,0 +1,46 @@
+name: print_studio
+description: "The make-an-app starter: sign-in, updates, walkthrough, errors, release."
+publish_to: 'none'
+version: 0.1.0+1
+
+environment:
+  sdk: ^3.13.3
+
+dependencies:
+  cloud_firestore: 6.10.0
+  crypto: ^3.0.7
+  file_selector: ^1.1.0
+  firebase_auth: 6.7.0
+  firebase_core: 4.15.0
+  firebase_messaging: 16.7.0
+  flutter:
+    sdk: flutter
+  flutter_local_notifications: ^22.3.2
+  flutter_localizations:
+    sdk: flutter
+  google_sign_in: ^7.2.0
+  home_widget: ^0.10.0
+  http: ^1.6.0
+  local_auth: ^3.0.2
+  package_info_plus: ^10.2.2
+  path_provider: ^2.1.6
+  share_plus: ^13.3.1
+  shared_preferences: ^2.5.6
+  url_launcher: ^6.3.3
+  web: ^1.1.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
+  flutter_native_splash: ^2.4.8
+
+flutter:
+  uses-material-design: true
+  fonts:
+    # Hebrew sans, bundled (works offline, no runtime font fetch). OFL:
+    # assets/fonts/Rubik-OFL.txt.
+    - family: Rubik
+      fonts:
+        - asset: assets/fonts/Rubik.ttf

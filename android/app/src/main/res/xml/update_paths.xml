@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the FileProvider may hand to the system installer: the updater's
+     download folder in the cache (lib/core/update.dart, folder()). -->
+<paths>
+    <cache-path name="updates" path="updates/" />
+</paths>

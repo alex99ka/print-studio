@@ -1,0 +1,43 @@
+name: Promote
+
+# Patient zero is happy: the prerelease becomes everyone's update, and the
+# web build on the "next" channel becomes the live site.
+#   gh workflow run promote.yml -f version=1.4.0
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: The release to promote (e.g. 1.4.0)
+        required: true
+
+permissions: {}
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: hosting
+      cancel-in-progress: false
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ inputs.version }}
+    steps:
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Web first, then the release
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
+        run: |
+          [ "$(gh release view "$TAG" --json isPrerelease --jq .isPrerelease)" = true ] \
+            || { echo "::error::$TAG is not a prerelease"; exit 1; }
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          trap 'rm -f "$GOOGLE_APPLICATION_CREDENTIALS"' EXIT
+          (umask 077 && printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$GOOGLE_APPLICATION_CREDENTIALS")
+          npx --yes firebase-tools@15.15.0 hosting:clone "$FIREBASE_PROJECT:next" "$FIREBASE_PROJECT:live" \
+            --project "$FIREBASE_PROJECT" --non-interactive
+          gh release edit "$TAG" --prerelease=false --latest

@@ -1,0 +1,32 @@
+# On the Pi: ~/docker/<app>/ holds this, .env (mode 600) and data/.
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    # Docker keeps logs forever by default; the Pi's disk is shared.
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      GOOGLE_CLOUD_PROJECT: ${GOOGLE_CLOUD_PROJECT:?set GOOGLE_CLOUD_PROJECT in .env}
+      GITHUB_REPO: ${GITHUB_REPO:?set GITHUB_REPO in .env}
+      APP_NAME: ${APP_NAME:-האפליקציה}
+      # Firestore + FCM, least privilege (README: "The server's key").
+      GOOGLE_APPLICATION_CREDENTIALS: /data/service-account.json
+      # Optional: each feature stays off until its secret is set.
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+      DRIVE_CLIENT_ID: ${DRIVE_CLIENT_ID:-}
+      DRIVE_CLIENT_SECRET: ${DRIVE_CLIENT_SECRET:-}
+      DRIVE_REFRESH_TOKEN: ${DRIVE_REFRESH_TOKEN:-}
+      DATA_DIR: /data
+    volumes:
+      - type: bind
+        source: ./data
+        target: /data
+        bind:
+          create_host_path: false
+    # Loopback only: Tailscale Funnel publishes it (README).
+    ports:
+      - "127.0.0.1:${PORT:-8010}:8000"
