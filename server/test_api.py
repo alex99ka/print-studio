@@ -76,11 +76,11 @@ def test_send_to_respects_switches_and_drops_dead_tokens(monkeypatch):
     monkeypatch.setattr(firebase, "db", lambda: Db())
     people = [
         ("a", {"fcmTokens": ["t1", "dead"]}),
-        ("b", {"fcmTokens": ["t2"], "notify": {"items": False}}),
+        ("b", {"fcmTokens": ["t2"], "notify": {"client": False}}),
         ("c", {}),
     ]
-    jobs.send_to(people, "items", "title", "body")
-    assert pushed == [["t1", "dead"], []]  # b turned items off; c has no tokens
+    jobs.send_to(people, "client", "title", "body")
+    assert pushed == [["t1", "dead"], []]  # b turned client pushes off; c has no tokens
     assert removed == ["users/a", "users/c"]
 
 

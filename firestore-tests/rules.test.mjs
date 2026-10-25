@@ -18,6 +18,12 @@ const db = (who) =>
   who ? env.authenticatedContext(who.uid, { email: who.email, email_verified: who.email_verified }).firestore()
       : env.unauthenticatedContext().firestore();
 
+const customer = { name: 'INTERVIEW', lang: 'he', portalToken: 'x'.repeat(22), createdAt: new Date() };
+const request = { customerId: 'c1', customerName: 'INTERVIEW', title: 'אלכס ❤ אביטל', qty: 2, status: 'draft',
+  latestVersion: 0, createdAt: new Date(), updatedAt: new Date() };
+const quote = { requestId: 'draft', customerId: 'c1', unit: 18000, qty: 2, vatPercent: 18, note: '', createdAt: new Date(), by: 'alex' };
+const comment = { requestId: 'draft', customerId: 'c1', versionId: 'v2', versionN: 1, from: 'studio', text: 'הלב הוגדל', pin: null, createdAt: new Date() };
+
 before(async () => {
   env = await initializeTestEnvironment({
     projectId: 'demo-print-studio',
@@ -34,11 +40,16 @@ beforeEach(async () => {
       emails: ['alex@example.com', 'alex2@example.com'],
       earlyUsers: ['alex@example.com'],
     });
-    await setDoc(doc(f, 'items/one'), { title: 'חלב', done: false, by: 'alex', byName: 'Alex' });
+    await setDoc(doc(f, 'customers/c1'), { name: 'INTERVIEW', lang: 'he', portalToken: 't'.repeat(22) });
+    await setDoc(doc(f, 'requests/draft'), { ...request, status: 'draft' });
+    await setDoc(doc(f, 'requests/done'), { ...request, status: 'approved', publishedVersionId: 'v1', quoteId: 'q1' });
+    await setDoc(doc(f, 'versions/v1'), { requestId: 'done', customerId: 'c1', n: 1, state: 'approved', note: '' });
+    await setDoc(doc(f, 'versions/v2'), { requestId: 'draft', customerId: 'c1', n: 1, state: 'draft', note: '' });
+    await setDoc(doc(f, 'versions/v3'), { requestId: 'draft', customerId: 'c1', n: 2, state: 'draft', note: '' });
+    await setDoc(doc(f, 'comments/client'), { requestId: 'done', from: 'client', text: 'x' });
   });
 });
 
-const item = { title: 'לחם', done: false, by: 'alex', byName: 'Alex', createdAt: new Date() };
 
 test('config/app is public, read-only', async () => {
   await assertSucceeds(getDoc(doc(db(null), 'config/app')));
@@ -63,28 +74,72 @@ test('users: own profile only, known fields only', async () => {
   await assertFails(deleteDoc(doc(db(ALEX), 'users/alex')));
 });
 
-test('items: allowed read and write, strangers nothing', async () => {
-  await assertSucceeds(getDoc(doc(db(ALEX), 'items/one')));
-  await assertSucceeds(addDoc(collection(db(ALEX), 'items'), item));
-  await assertFails(getDoc(doc(db(STRANGER), 'items/one')));
-  await assertFails(addDoc(collection(db(STRANGER), 'items'), item));
-  await assertFails(addDoc(collection(db(null), 'items'), item));
+test('studio collections: allowed only', async () => {
+  for (const path of ['customers/c1', 'requests/draft', 'versions/v1', 'comments/client']) {
+    await assertSucceeds(getDoc(doc(db(ALEX), path)));
+    await assertFails(getDoc(doc(db(STRANGER), path)));
+    await assertFails(getDoc(doc(db(null), path)));
+  }
+  await assertFails(addDoc(collection(db(STRANGER), 'customers'), customer));
+  await assertFails(addDoc(collection(db(null), 'requests'), request));
 });
 
-test('items: shape is enforced', async () => {
-  await assertFails(addDoc(collection(db(ALEX), 'items'), { ...item, extra: 1 }));
-  await assertFails(addDoc(collection(db(ALEX), 'items'), { ...item, title: '' }));
-  await assertFails(addDoc(collection(db(ALEX), 'items'), { ...item, title: 'x'.repeat(501) }));
-  await assertFails(addDoc(collection(db(ALEX), 'items'), { ...item, title: 5 }));
+test('customers: shape, and a portal token long enough not to guess', async () => {
+  await assertSucceeds(addDoc(collection(db(ALEX), 'customers'), customer));
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, portalToken: 'short' }));
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, lang: 'fr' }));
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, name: '' }));
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, extra: 1 }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { portalToken: 'n'.repeat(22) }));
 });
 
-test('items: update touches only title and done; delete for the allowed', async () => {
-  await assertSucceeds(updateDoc(doc(db(ALEX), 'items/one'), { done: true }));
-  await assertSucceeds(updateDoc(doc(db(ALEX), 'items/one'), { title: 'חלב 3%' }));
-  await assertFails(updateDoc(doc(db(ALEX), 'items/one'), { by: 'someone' }));
-  await assertFails(updateDoc(doc(db(STRANGER), 'items/one'), { done: true }));
-  await assertFails(deleteDoc(doc(db(STRANGER), 'items/one')));
-  await assertSucceeds(deleteDoc(doc(db(ALEX), 'items/one')));
+test("requests: created as drafts, approval fields are the server's", async () => {
+  await assertSucceeds(addDoc(collection(db(ALEX), 'requests'), request));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, status: 'approved' }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, latestVersion: 3 }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, qty: 0 }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'waiting', publishedVersionId: 'v2', quoteId: 'q', needsReply: false }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { approvedVersionId: 'v2' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { latestVersion: 9 }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'lost' }));
+});
+
+test('requests: an approved one keeps its version, price and quantity; moves along the pipeline', async () => {
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { status: 'printing' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { quoteId: 'cheaper' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { publishedVersionId: 'v9' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { qty: 5 }));
+  await assertFails(deleteDoc(doc(db(ALEX), 'requests/done')));
+  await assertSucceeds(deleteDoc(doc(db(ALEX), 'requests/draft')));
+});
+
+test('versions: only the server creates; the app publishes; approved is frozen', async () => {
+  await assertFails(setDoc(doc(db(ALEX), 'versions/new'), { requestId: 'draft', n: 2, state: 'draft' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'versions/v2'), { state: 'published', publishedAt: new Date() }));
+  await assertFails(updateDoc(doc(db(ALEX), 'versions/v2'), { state: 'approved' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'versions/v2'), { n: 7 }));
+  await assertFails(updateDoc(doc(db(ALEX), 'versions/v1'), { state: 'published' }));
+  await assertFails(deleteDoc(doc(db(ALEX), 'versions/v1')));
+  await assertFails(deleteDoc(doc(db(ALEX), 'versions/v2')));  // published: the customer may have seen it
+  await assertSucceeds(deleteDoc(doc(db(ALEX), 'versions/v3')));
+});
+
+test('quotes: created whole, in agorot, never edited', async () => {
+  await assertSucceeds(setDoc(doc(db(ALEX), 'quotes/q1'), quote));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, unit: 180.5 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, unit: -1 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, vatPercent: 117 }));
+  await assertFails(updateDoc(doc(db(ALEX), 'quotes/q1'), { unit: 1 }));
+  await assertFails(deleteDoc(doc(db(ALEX), 'quotes/q1')));
+});
+
+test('comments: the app writes only as the studio, and deletes only its own', async () => {
+  await assertSucceeds(setDoc(doc(db(ALEX), 'comments/mine'), comment));
+  await assertFails(addDoc(collection(db(ALEX), 'comments'), { ...comment, from: 'client' }));
+  await assertFails(addDoc(collection(db(ALEX), 'comments'), { ...comment, text: '' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'comments/mine'), { text: 'edited' }));
+  await assertFails(deleteDoc(doc(db(ALEX), 'comments/client')));
+  await assertSucceeds(deleteDoc(doc(db(ALEX), 'comments/mine')));
 });
 
 test('reports: create-only, own uid', async () => {

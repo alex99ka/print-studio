@@ -1,9 +1,9 @@
 """What the Pi does on its own, since Firebase's free plan has no Cloud
 Functions:
 
-- every minute: push "someone added X" to the other members, push a new
-  release (prereleases to early users only), forward Firestore `reports`
-  to Telegram;
+- every minute: push a new release (prereleases to early users only),
+  forward Firestore `reports` to Telegram (customer comments and approvals
+  are pushed as they happen, from studio.py);
 - every day at 03:00 Israel time: back up Firestore to Drive.
 
 A job that fails sends one Telegram alert and the loop carries on.
@@ -18,7 +18,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import requests
-from google.cloud.firestore_v1 import ArrayRemove, FieldFilter
+from google.cloud.firestore_v1 import ArrayRemove
 
 from . import backup, firebase, telegram
 
@@ -74,25 +74,6 @@ def send_to(people: list[tuple[str, dict]], kind: str, title: str, body: str, da
 # --- the minute loop ------------------------------------------------------------
 
 
-def new_items(state: dict) -> None:
-    since = datetime.fromisoformat(state.get("items_since") or datetime.now(timezone.utc).isoformat())
-    docs = (
-        firebase.db()
-        .collection("items")
-        .where(filter=FieldFilter("createdAt", ">", since))
-        .order_by("createdAt")
-        .stream()
-    )
-    people = None
-    for d in docs:
-        item = d.to_dict()
-        people = people or users()
-        others = [(uid, u) for uid, u in people if uid != item.get("by")]
-        send_to(others, "items", f"{item.get('byName') or 'מישהו'} הוסיף", item.get("title", ""), {"route": "/items", "id": d.id})
-        since = item["createdAt"]
-    state["items_since"] = since.isoformat()
-
-
 def new_release(state: dict) -> None:
     r = requests.get(
         f"https://api.github.com/repos/{os.environ['GITHUB_REPO']}/releases?per_page=5",
@@ -129,7 +110,7 @@ def forward_reports(state: dict) -> None:
         d.reference.delete()
 
 
-MINUTE_JOBS = [("התראות על פריטים", new_items), ("הודעה על גרסה", new_release), ("העברת דיווחים", forward_reports)]
+MINUTE_JOBS = [("הודעה על גרסה", new_release), ("העברת דיווחים", forward_reports)]
 
 
 async def every_minute() -> None:

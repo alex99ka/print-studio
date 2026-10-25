@@ -1,0 +1,378 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>סטודיו הדפסה</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap">
+<style>
+/* Palette A, the same values as lib/ui/theme.dart. */
+:root{--ground:#F4F5F7;--surface:#FFFFFF;--sunk:#EBEDF1;--ink:#15171C;--muted:#555C69;--line:#DFE2E8;
+--accent:#2F5BEA;--on-accent:#FFFFFF;--accent-soft:#E6ECFD;--warn-soft:#FDF0DC;--warn-ink:#7A4A05;
+--ok-soft:#DDF3E8;--ok-ink:#0F5A37;--ok:#047857;--on-ok:#FFFFFF;--danger:#B42318;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--ground:#0F1115;--surface:#181B21;--sunk:#1F232A;--ink:#ECEEF2;--muted:#A0A7B3;
+--line:#2A2F38;--accent:#7C9BFF;--on-accent:#0B1020;--accent-soft:#1E2A4D;--warn-soft:#3A2A12;--warn-ink:#F8C77E;
+--ok-soft:#133526;--ok-ink:#7FDDB0;--ok:#34D399;--on-ok:#052E1F;--danger:#F97066;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Heebo,system-ui,sans-serif}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.wrap{max-width:720px;margin:0 auto}
+header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+header .wrap{display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:60px}
+.brand{display:flex;flex-direction:column;line-height:1.2}
+.brand b{font-size:15px}.brand span{font-size:12px;color:var(--muted)}
+.icon-btn{min-width:44px;min-height:44px;border:0;background:transparent;display:flex;align-items:center;justify-content:center;border-radius:10px}
+.lang{margin-inline-start:auto;border:1px solid var(--line);background:transparent;border-radius:99px;min-width:48px;min-height:36px;font-size:13px;font-weight:500}
+main .wrap{padding:16px;display:flex;flex-direction:column;gap:14px}
+.seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--sunk);border-radius:12px;padding:4px}
+.seg button{border:0;border-radius:9px;min-height:44px;background:transparent;color:var(--muted);font-size:14px}
+.seg button[aria-selected=true]{background:var(--surface);color:var(--ink);font-weight:700}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
+.order{display:flex;gap:12px;align-items:center;padding:12px;text-align:start;width:100%}
+.thumb{flex:none;width:72px;height:72px;border-radius:10px;background:var(--sunk);display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb img{width:66px;height:66px;object-fit:contain}
+.grow{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.muted{color:var(--muted);font-size:13px}
+.chip{display:inline-block;font-size:12px;font-weight:500;padding:2px 10px;border-radius:99px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.chip.waiting{background:var(--warn-soft);color:var(--warn-ink)}
+.chip.done{background:var(--ok-soft);color:var(--ok-ink)}
+.row{display:flex;align-items:center;gap:8px}
+.ltr{direction:ltr;unicode-bidi:isolate}
+.stage{position:relative;background:var(--sunk);border-radius:14px;height:min(62vh,420px);overflow:hidden;touch-action:none}
+.stage img{width:100%;height:100%;object-fit:contain;display:block}
+.stage canvas{width:100%!important;height:100%!important;display:block}
+.stage.picking{outline:3px solid var(--accent);outline-offset:-3px;cursor:crosshair}
+.pin{position:absolute;width:28px;height:28px;margin:-14px 0 0 -14px;border-radius:50%;background:var(--accent);color:var(--on-accent);
+font-size:13px;font-weight:700;display:flex;align-items:center;justify-content:center;border:2px solid #FFFFFF;pointer-events:none;left:0;top:0}
+.pin.new{background:var(--ok);color:var(--on-ok)}
+.overlay{position:absolute;inset:0;pointer-events:none}
+.hint{position:absolute;bottom:10px;inset-inline-start:10px;font-size:12px;background:var(--surface);color:var(--muted);border-radius:99px;padding:4px 10px}
+.loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--muted)}
+.vers{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.vers button{border:1px solid var(--line);background:transparent;border-radius:8px;min-height:36px;padding:0 12px;font-size:13px}
+.vers button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-soft);font-weight:500}
+.pick{border:1px solid var(--accent);background:transparent;border-radius:10px;min-height:44px;padding:0 14px;font-weight:500;display:flex;gap:6px;align-items:center}
+.pick[aria-pressed=true]{background:var(--accent);color:var(--on-accent)}
+section.card{padding:16px;display:flex;flex-direction:column;gap:8px}
+h2{margin:0 0 4px;font-size:16px}
+.line{display:flex;justify-content:space-between;gap:8px}
+.total{border-top:1px solid var(--line);padding-top:8px;font-weight:700;font-size:17px}
+.msg{display:flex;gap:10px;align-items:flex-start}
+.msg .num{flex:none;width:26px;height:26px;border-radius:50%;background:var(--sunk);color:var(--muted);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.msg .num.p{background:var(--accent);color:var(--on-accent)}
+.bubble{flex:1;border-radius:12px;padding:8px 12px;background:var(--sunk);display:flex;flex-direction:column;gap:2px;white-space:pre-wrap;word-break:break-word}
+.msg.me .bubble{background:var(--accent-soft)}
+.composer{display:flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:0 6px 0 12px;min-height:48px}
+.composer input{flex:1;min-width:0;border:0;background:transparent;outline:none;font-size:15px}
+.send{border:0;background:var(--accent-soft);border-radius:9px;min-height:36px;padding:0 14px;font-weight:500}
+.bar{position:sticky;bottom:0;background:var(--surface);border-top:1px solid var(--line);z-index:4}
+.bar .wrap{display:flex;align-items:center;gap:14px;padding:12px 16px calc(12px + env(safe-area-inset-bottom))}
+.approve{flex:1;border:0;border-radius:12px;min-height:52px;background:var(--ok);color:var(--on-ok);font-size:16px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px}
+.approve:disabled{opacity:.6;cursor:default}
+.banner{border-radius:12px;padding:12px 14px;background:var(--ok-soft);color:var(--ok-ink);font-weight:500}
+[dir=ltr] .chev,[dir=ltr] #back svg{transform:scaleX(-1)}
+.empty{text-align:center;color:var(--muted);padding:48px 16px}
+.error{color:var(--danger)}
+dialog{border:0;border-radius:16px;background:var(--surface);color:var(--ink);padding:20px;max-width:360px;width:calc(100% - 32px)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .row{justify-content:flex-end;margin-top:16px}
+.ghost{border:1px solid var(--line);background:transparent;border-radius:10px;min-height:44px;padding:0 16px}
+.sk{background:var(--sunk);border-radius:14px;height:96px;animation:pulse 1.2s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.55}}
+@media (prefers-reduced-motion:reduce){.sk{animation:none}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+  <button class="icon-btn" id="back" hidden><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+  <svg id="logo" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.8" aria-hidden="true"><path d="M12 2 3 7v10l9 5 9-5V7z"/><path d="M3 7l9 5 9-5M12 12v10"/></svg>
+  <div class="brand"><b id="title"></b><span id="subtitle"></span></div>
+  <button class="lang" id="lang" type="button"></button>
+</div></header>
+<main><div class="wrap" id="main"><div class="sk"></div><div class="sk"></div></div></main>
+<div class="bar" id="bar" hidden><div class="wrap">
+  <div class="brand"><span id="barLabel"></span><b class="ltr" id="barTotal" style="font-size:19px"></b></div>
+  <button class="approve" id="approve" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span></span></button>
+</div></div>
+<dialog id="confirm"><h2 id="confirmTitle"></h2><p id="confirmText" class="muted"></p>
+  <div class="row"><button class="ghost" id="confirmNo" type="button"></button><button class="approve" id="confirmYes" type="button" style="flex:none;padding:0 18px"></button></div></dialog>
+
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"}}</script>
+<script type="module">
+const T = {
+  he: {studio:'סטודיו הדפסה', ordersOf:n=>`ההזמנות של ${n}`, waiting:'ממתין לאישור', approvedTab:'אושר', back:'חזרה לרשימה',
+    version:'גרסה', units:'יח׳', updated:'עודכן', now:'עכשיו', versions:'גרסאות:', view2d:'2D', view3d:'3D', asm:'על המיקרופון',
+    drag:'גררו לסיבוב · צביטה לזום', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
+    pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', unitsX:(q,u)=>`${q} יחידות × ${u}`, vat:p=>`מע״מ ${p}%`, total:'סה״כ לתשלום',
+    noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a} לפני מע״מ)`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
+    approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t)=>`גרסה ${v} במחיר ${t} כולל מע״מ. אחרי האישור אי אפשר לשנות.`,
+    yes:'כן, מאשר/ת', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
+    you:'את/ה', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
+    footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
+    failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
+    st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם'}},
+  en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
+    version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
+    drag:'Drag to rotate · pinch to zoom', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
+    pinSet:'The comment will be pinned there', quote:'Quote', unitsX:(q,u)=>`${q} pcs × ${u}`, vat:p=>`VAT ${p}%`, total:'Total',
+    noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a} before VAT)`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
+    approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t)=>`Version ${v} for ${t} incl. VAT. This can't be changed afterwards.`,
+    yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send',
+    you:'You', studioName:'Print Studio', none:'Nothing is waiting for your approval.', noneApproved:'Nothing approved yet.',
+    footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
+    failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
+    st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid'}},
+};
+const base = location.pathname.replace(/\/$/, '');
+const preview = new URLSearchParams(location.search).get('preview') || '';
+const $ = id => document.getElementById(id);
+let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null;
+const t = () => T[lang];
+
+function h(tag, attrs = {}, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (v == null || v === false) continue;
+    if (k.startsWith('on')) e.addEventListener(k.slice(2), v); else if (k === 'class') e.className = v; else e.setAttribute(k, v === true ? '' : v);
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) e.append(k instanceof Node ? k : String(k));
+  return e;
+}
+const shekel = a => '₪' + (a / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const ltr = s => h('span', {class: 'ltr'}, s);
+const day = iso => iso ? new Date(iso).toLocaleDateString('he-IL', {day: '2-digit', month: '2-digit'}) : '';
+const file = (v, name) => `${base}/f/${v.id}/${name}`;
+const has = (v, name) => v.files.includes(name);
+// Static markup only, never data: data always goes through h() and textContent.
+const icon = markup => { const tpl = document.createElement('template'); tpl.innerHTML = markup; return tpl.content.firstChild; };
+const PIN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>';
+const CHEVRON = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;color:var(--muted)"><path d="m15 18-6-6 6-6"/></svg>';
+const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' ? 'chip' : 'chip done');
+
+async function load() {
+  const r = await fetch(`${base}/data${preview ? '?preview=' + encodeURIComponent(preview) : ''}`, {cache: 'no-store'});
+  if (r.status === 404) throw 'gone';
+  if (!r.ok) throw 'failed';
+  data = await r.json();
+  if (!lang) { try { lang = localStorage.getItem('lang'); } catch {} lang = T[lang] ? lang : (data.customer.lang === 'en' ? 'en' : 'he'); }
+}
+
+function route() {
+  const rid = new URLSearchParams(location.hash.slice(1)).get('r');
+  const req = data && data.requests.find(r => r.id === rid);
+  document.documentElement.lang = lang; document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  document.title = t().studio; $('lang').textContent = lang === 'he' ? 'EN' : 'עב';
+  $('lang').setAttribute('aria-label', lang === 'he' ? 'Switch to English' : 'לעבור לעברית');
+  if (viewer) { viewer.dispose(); viewer = null; }
+  picking = false; draftPin = null;
+  req ? detail(req) : list();
+  window.scrollTo(0, 0);
+}
+
+function list() {
+  $('back').hidden = true; $('logo').style.display = ''; $('bar').hidden = true;
+  $('title').textContent = t().studio; $('subtitle').textContent = t().ordersOf(data.customer.name);
+  const waiting = data.requests.filter(r => r.status === 'waiting'), done = data.requests.filter(r => r.status !== 'waiting');
+  if (!waiting.length && done.length && tab === 'waiting' && !sel.tabChosen) tab = 'done';
+  const shown = tab === 'waiting' ? waiting : done;
+  const seg = h('div', {class: 'seg', role: 'tablist'},
+    h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === 'waiting'), onclick: () => { tab = 'waiting'; sel.tabChosen = true; route(); }}, `${t().waiting} · ${waiting.length}`),
+    h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === 'done'), onclick: () => { tab = 'done'; sel.tabChosen = true; route(); }}, `${t().approvedTab} · ${done.length}`));
+  const cards = shown.map(r => {
+    const v = r.versions.find(x => x.id === r.currentVersionId) || r.versions[r.versions.length - 1];
+    return h('a', {href: `#r=${r.id}`, class: 'card order', style: 'color:inherit;text-decoration:none'},
+      h('div', {class: 'thumb'}, has(v, 'preview.png') ? h('img', {src: file(v, 'preview.png'), alt: '', loading: 'lazy'}) : null),
+      h('div', {class: 'grow'},
+        h('b', {}, r.title),
+        h('span', {class: 'muted'}, `${t().version} ${v.n} · ${r.qty} ${t().units} · ${t().updated} `, ltr(day(r.updated))),
+        h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status),
+          r.quote ? h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(r.quote.total)) : null)),
+      icon(CHEVRON));
+  });
+  $('main').replaceChildren(seg, ...(cards.length ? cards : [h('p', {class: 'empty'}, tab === 'waiting' ? t().none : t().noneApproved)]),
+    h('p', {class: 'muted', style: 'text-align:center'}, t().footer));
+}
+
+function detail(r) {
+  const versionId = sel[r.id] || r.currentVersionId || r.versions[r.versions.length - 1].id;
+  const v = r.versions.find(x => x.id === versionId) || r.versions[r.versions.length - 1];
+  const views = [['2d', 'preview.png', t().view2d], ['3d', 'plate.glb', t().view3d], ['asm', 'assembled.glb', t().asm]].filter(([, f]) => has(v, f));
+  let view = sel['view' + r.id];
+  if (!views.some(([k]) => k === view)) view = views[0] ? views[0][0] : null;
+  $('back').hidden = false; $('logo').style.display = 'none';
+  $('back').setAttribute('aria-label', t().back);
+  $('title').textContent = r.title; $('subtitle').textContent = `${t().version} ${v.n} · ${r.qty} ${t().units}`;
+
+  const pinned = r.comments.filter(c => c.versionId === v.id && c.pin && c.pin.view === view);
+  const numbers = new Map(r.comments.filter(c => c.pin).map((c, i) => [c.id, i + 1]));
+  const stage = h('div', {class: 'stage' + (picking ? ' picking' : '')});
+  const overlay = h('div', {class: 'overlay'});
+  const markers = pinned.map(c => ({p: c.pin, el: h('span', {class: 'pin'}, numbers.get(c.id))}));
+  if (draftPin && draftPin.view === view) markers.push({p: draftPin, el: h('span', {class: 'pin new'}, '+')});
+  overlay.append(...markers.map(m => m.el));
+
+  if (view === '2d') {
+    const img = h('img', {src: file(v, 'preview.png'), alt: `${r.title} · ${t().version} ${v.n}`});
+    stage.append(img, overlay);
+    const place = () => { // the image is letterboxed: pins sit on the picture, not the box
+      const W = stage.clientWidth, H = stage.clientHeight, s = Math.min(W / (img.naturalWidth || 1), H / (img.naturalHeight || 1));
+      const w = img.naturalWidth * s, hh = img.naturalHeight * s, ox = (W - w) / 2, oy = (H - hh) / 2;
+      for (const m of markers) m.el.style.transform = `translate(${ox + m.p.x * w}px,${oy + m.p.y * hh}px)`;
+      return {ox, oy, w, hh};
+    };
+    img.addEventListener('load', place); addEventListener('resize', place);
+    stage.addEventListener('click', e => {
+      if (!picking) return;
+      const b = stage.getBoundingClientRect(), {ox, oy, w, hh} = place();
+      const x = (e.clientX - b.left - ox) / w, y = (e.clientY - b.top - oy) / hh;
+      if (x < 0 || x > 1 || y < 0 || y > 1) return;
+      setPin(r, {view, x, y, z: 0});
+    });
+  } else if (view) {
+    stage.append(h('div', {class: 'loading'}, t().loading3d), overlay, h('span', {class: 'hint'}, t().drag));
+    show3d(stage, file(v, view === '3d' ? 'plate.glb' : 'assembled.glb'), markers, p => setPin(r, {view, ...p}));
+  }
+
+  const kids = [stage];
+  if (views.length > 1) kids.unshift(h('div', {class: 'seg', role: 'tablist'}, views.map(([k, , label]) =>
+    h('button', {type: 'button', role: 'tab', 'aria-selected': String(k === view), onclick: () => { sel['view' + r.id] = k; draftPin = null; rerender(r); }}, label))));
+  const open = r.status === 'waiting';
+  if (open && view) kids.push(h('div', {class: 'row'},
+    h('button', {type: 'button', class: 'pick', 'aria-pressed': String(picking), onclick: () => { picking = !picking; rerender(r); }},
+      icon(PIN), t().pin),
+    h('span', {class: 'muted'}, draftPin ? t().pinSet : (picking ? t().pinTap : t().pinHint))));
+  if (r.versions.length > 1) kids.push(h('div', {class: 'vers'}, h('span', {class: 'muted'}, t().versions), r.versions.map(x =>
+    h('button', {type: 'button', 'aria-pressed': String(x.id === v.id), onclick: () => { sel[r.id] = x.id; draftPin = null; picking = false; rerender(r); }},
+      `v${x.n}` + (x.id === r.currentVersionId && r.versions.length > 1 ? ` · ${t().now}` : '')))));
+  if (r.approved) kids.push(h('div', {class: 'banner'}, t().approvedAt(r.versions.find(x => x.id === r.approved.versionId)?.n ?? '', day(r.approved.at))));
+  else kids.push(h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status)));
+
+  const q = r.quote;
+  kids.push(h('section', {class: 'card'}, h('h2', {}, t().quote), q ? [
+    h('div', {class: 'line'}, h('span', {class: 'muted'}, t().unitsX(q.qty, ''), ltr(shekel(q.unit))), ltr(shekel(q.net))),
+    h('div', {class: 'line'}, h('span', {class: 'muted'}, t().vat(q.vatPercent)), ltr(shekel(q.vat))),
+    h('div', {class: 'line total'}, h('span', {}, t().total), ltr(shekel(q.total))),
+    q.note ? h('span', {class: 'muted', style: 'white-space:pre-wrap'}, q.note) : null,
+    r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].net), day(q.at))) : null,
+    open ? h('span', {class: 'muted'}, t().approveNote) : null,
+  ] : h('span', {class: 'muted'}, t().noQuote)));
+
+  const input = h('input', {type: 'text', placeholder: t().write, 'aria-label': t().write, maxlength: 2000});
+  const send = async () => {
+    const text = input.value.trim(); if (!text) return;
+    input.disabled = true;
+    const ok = await post(`requests/${r.id}/comments`, {versionId: v.id, text, pin: draftPin});
+    input.disabled = false;
+    if (ok) { input.value = ''; draftPin = null; picking = false; await refresh(); }
+  };
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+  kids.push(h('section', {class: 'card'}, h('h2', {}, t().comments),
+    r.comments.map(c => h('div', {class: 'msg' + (c.from === 'client' ? ' me' : '')},
+      h('span', {class: 'num' + (c.pin ? ' p' : '')}, c.pin ? numbers.get(c.id) : (c.from === 'client' ? '' : t().studioName[0])),
+      h('div', {class: 'bubble'}, h('span', {class: 'muted'}, `${c.from === 'client' ? t().you : t().studioName} · v${c.versionN ?? ''} · `, ltr(day(c.at))), c.text))),
+    r.status !== 'paid' && !preview ? h('label', {class: 'composer'}, input, h('button', {type: 'button', class: 'send', onclick: send}, t().send)) : null));
+  $('main').replaceChildren(...kids);
+
+  const canApprove = open && q && v.id === r.currentVersionId && !preview;
+  $('bar').hidden = !canApprove;
+  if (canApprove) {
+    $('barLabel').textContent = t().totalVat; $('barTotal').textContent = shekel(q.total);
+    $('approve').querySelector('span').textContent = t().approve;
+    $('approve').onclick = () => confirmApprove(r, v, q);
+  }
+  if (picking) setTimeout(() => stage.scrollIntoView({block: 'nearest', behavior: 'smooth'}), 0);
+}
+
+function setPin(r, p) { draftPin = p; picking = false; rerender(r); }
+function rerender(r) { if (viewer) { viewer.dispose(); viewer = null; } detail(data.requests.find(x => x.id === r.id)); }
+
+function confirmApprove(r, v, q) {
+  const d = $('confirm');
+  $('confirmTitle').textContent = t().confirmTitle; $('confirmText').textContent = t().confirmText(v.n, shekel(q.total));
+  $('confirmNo').textContent = t().no; $('confirmYes').textContent = t().yes;
+  $('confirmNo').onclick = () => d.close();
+  $('confirmYes').onclick = async () => {
+    $('confirmYes').disabled = true;
+    const ok = await post(`requests/${r.id}/approve`, {versionId: v.id, quoteId: q.id});
+    $('confirmYes').disabled = false; d.close();
+    if (ok) await refresh();
+  };
+  d.showModal();
+}
+
+async function post(path, body) {
+  try {
+    const res = await fetch(`${base}/${path}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    if (res.status === 409) { alertBox(t().changed); await refresh(); return false; }
+    if (!res.ok) throw new Error(res.status);
+    return true;
+  } catch { alertBox(t().failed); return false; }
+}
+function alertBox(text) { const p = h('p', {class: 'error', role: 'alert'}, text); $('main').prepend(p); setTimeout(() => p.remove(), 6000); }
+async function refresh() { try { await load(); } catch (e) { return fail(e); } route(); }
+function fail(e) {
+  $('bar').hidden = true;
+  $('main').replaceChildren(h('p', {class: 'empty'}, e === 'gone' ? T[lang || 'he'].gone : T[lang || 'he'].failed));
+}
+
+const cache = new Map();
+async function show3d(stage, url, markers, onPick) {
+  let THREE, GLTFLoader, OrbitControls;
+  try {
+    THREE = await import('three');
+    ({GLTFLoader} = await import('three/addons/loaders/GLTFLoader.js'));
+    ({OrbitControls} = await import('three/addons/controls/OrbitControls.js'));
+  } catch { stage.querySelector('.loading').textContent = t().failed; return; }
+  if (!stage.isConnected) return;
+  const renderer = new THREE.WebGLRenderer({antialias: true, alpha: true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  const scene = new THREE.Scene(), camera = new THREE.PerspectiveCamera(35, 1, 0.1, 10000);
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x8890a0, 2.2));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.6); sun.position.set(0.6, 1, 1.2); camera.add(sun); scene.add(camera);
+  const controls = new OrbitControls(camera, renderer.domElement); controls.enableDamping = true;
+  stage.prepend(renderer.domElement);
+  let alive = true, model = null;
+  const size = () => { const w = stage.clientWidth, hh = stage.clientHeight; renderer.setSize(w, hh, false); camera.aspect = w / hh; camera.updateProjectionMatrix(); };
+  const ro = new ResizeObserver(size); ro.observe(stage); size();
+  viewer = {dispose() { alive = false; ro.disconnect(); controls.dispose(); renderer.dispose(); }};
+  try {
+    if (!cache.has(url)) cache.set(url, new GLTFLoader().loadAsync(url));
+    model = (await cache.get(url)).scene.clone();
+  } catch { if (alive) stage.querySelector('.loading').textContent = t().failed; return; }
+  if (!alive) return;
+  stage.querySelector('.loading')?.remove();
+  scene.add(model);
+  const box = new THREE.Box3().setFromObject(model), c = box.getCenter(new THREE.Vector3()), r = box.getSize(new THREE.Vector3()).length() || 1;
+  controls.target.copy(c); camera.position.set(c.x, c.y + r * 0.15, c.z + r * 1.25); camera.near = r / 100; camera.far = r * 20; camera.updateProjectionMatrix();
+  const ray = new THREE.Raycaster(), v = new THREE.Vector3();
+  let down = null;
+  renderer.domElement.addEventListener('pointerdown', e => { down = [e.clientX, e.clientY]; });
+  renderer.domElement.addEventListener('pointerup', e => {
+    if (!picking || !down || Math.hypot(e.clientX - down[0], e.clientY - down[1]) > 6) return; // a drag rotates, only a tap pins
+    const b = renderer.domElement.getBoundingClientRect();
+    ray.setFromCamera({x: (e.clientX - b.left) / b.width * 2 - 1, y: -(e.clientY - b.top) / b.height * 2 + 1}, camera);
+    const hit = ray.intersectObject(model, true)[0];
+    if (hit) onPick({x: hit.point.x, y: hit.point.y, z: hit.point.z});
+  });
+  (function frame() {
+    if (!alive) return;
+    controls.update(); renderer.render(scene, camera);
+    for (const m of markers) {
+      v.set(m.p.x, m.p.y, m.p.z).project(camera);
+      m.el.style.transform = `translate(${(v.x + 1) / 2 * stage.clientWidth}px,${(1 - v.y) / 2 * stage.clientHeight}px)`;
+      m.el.style.opacity = v.z < 1 ? '1' : '0';
+    }
+    requestAnimationFrame(frame);
+  })();
+}
+
+$('back').onclick = () => { location.hash = ''; };
+$('lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; try { localStorage.setItem('lang', lang); } catch {} route(); };
+addEventListener('hashchange', route);
+load().then(route, fail);
+</script>
+</body>
+</html>

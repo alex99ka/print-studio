@@ -35,20 +35,79 @@ service cloud.firestore {
              'previousPlatform', 'lastPlatform', 'fcmTokens', 'notify']);
     }
 
-    // The starter's example list; a new app replaces it with its own.
-    match /items/{id} {
+    // --- Print Studio ---------------------------------------------------------
+    // The customer never reaches Firestore: the portal goes through the Pi
+    // (server/app/studio.py, Admin SDK), which also writes versions, the
+    // customer's comments and the approval. So the app may not.
+
+    function shortText(v, max) {
+      return v is string && v.size() <= max;
+    }
+
+    match /customers/{id} {
       allow read, delete: if allowed();
-      // Create also serves undo, which restores another member's item, so
-      // `by` is not bound to the caller (accepted: a household app).
+      allow create, update: if allowed()
+        && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'portalToken', 'notes', 'createdAt'])
+        && shortText(request.resource.data.name, 200) && request.resource.data.name.size() > 0
+        && request.resource.data.lang in ['he', 'en']
+        // The portal link's secret: long enough not to be guessed.
+        && request.resource.data.portalToken is string
+        && request.resource.data.portalToken.size() >= 22;
+    }
+
+    match /requests/{id} {
+      allow read: if allowed();
       allow create: if allowed()
-        && request.resource.data.keys().hasOnly(['title', 'done', 'by', 'byName', 'createdAt'])
-        && request.resource.data.title is string
-        && request.resource.data.title.size() > 0
-        && request.resource.data.title.size() <= 500;
+        && request.resource.data.keys().hasOnly(['customerId', 'customerName', 'title', 'qty', 'notes', 'status',
+             'latestVersion', 'createdAt', 'updatedAt'])
+        && shortText(request.resource.data.title, 200) && request.resource.data.title.size() > 0
+        && request.resource.data.qty is int && request.resource.data.qty >= 1
+        && request.resource.data.status == 'draft'
+        && request.resource.data.latestVersion == 0;
+      // Approval fields are the server's. An approved request keeps the
+      // version, the price and the quantity the customer approved.
       allow update: if allowed()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'done'])
-        && request.resource.data.title is string
-        && request.resource.data.title.size() <= 500;
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'qty', 'notes', 'status',
+             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt'])
+        && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid']
+        && shortText(request.resource.data.title, 200)
+        && request.resource.data.qty is int && request.resource.data.qty >= 1
+        && (resource.data.status in ['draft', 'waiting']
+            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publishedVersionId', 'quoteId', 'qty']));
+      allow delete: if allowed() && resource.data.status == 'draft';
+    }
+
+    match /versions/{id} {
+      allow read: if allowed();
+      // Publishing (and its note); approved versions are frozen.
+      allow update: if allowed()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['state', 'publishedAt', 'note'])
+        && request.resource.data.state in ['draft', 'published']
+        && resource.data.state != 'approved'
+        && shortText(request.resource.data.note, 500);
+      allow delete: if allowed() && resource.data.state == 'draft';
+    }
+
+    // A price is never edited: a new quote replaces it, so the customer sees
+    // the history and approves exactly the one they were shown.
+    match /quotes/{id} {
+      allow read: if allowed();
+      allow create: if allowed()
+        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'unit', 'qty', 'vatPercent', 'note', 'createdAt', 'by'])
+        && request.resource.data.unit is int && request.resource.data.unit >= 0
+        && request.resource.data.qty is int && request.resource.data.qty >= 1
+        && request.resource.data.vatPercent is int
+        && request.resource.data.vatPercent >= 0 && request.resource.data.vatPercent <= 100
+        && shortText(request.resource.data.note, 1000);
+    }
+
+    match /comments/{id} {
+      allow read: if allowed();
+      allow create: if allowed()
+        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'versionId', 'versionN', 'from', 'text', 'pin', 'createdAt'])
+        && request.resource.data.from == 'studio'
+        && shortText(request.resource.data.text, 2000) && request.resource.data.text.size() > 0;
+      allow delete: if allowed() && resource.data.from == 'studio';
     }
 
     // Problem reports when there is no home server: write-only; the notifier

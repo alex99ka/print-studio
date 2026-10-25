@@ -3,8 +3,10 @@
 `drive.file` scope (tools/drive_token.py): it can touch only the files this
 backup created, nothing else in the Drive."""
 
+import io
 import json
 import os
+import zipfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -18,7 +20,7 @@ UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 KEEP = 30
 
 # A new app lists its own collections (users holds push tokens: left out).
-COLLECTIONS = ["items", "config"]
+COLLECTIONS = ["customers", "requests", "versions", "quotes", "comments", "config"]
 
 
 def configured() -> bool:
@@ -50,16 +52,55 @@ def snapshot() -> bytes:
     return json.dumps(data, ensure_ascii=False, indent=1, default=_plain).encode()
 
 
-def _folder(s: AuthorizedSession) -> str:
-    name = f"{os.environ.get('APP_NAME') or 'app'} גיבוי"
+def _folder(s: AuthorizedSession, name: str | None = None, parent: str | None = None) -> str:
+    name = name or f"{os.environ.get('APP_NAME') or 'app'} גיבוי"
     q = f"name = '{name}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false"
+    if parent:
+        q += f" and '{parent}' in parents"
     r = s.get(DRIVE, params={"q": q, "fields": "files(id)"}, timeout=30)
     r.raise_for_status()
     if found := r.json()["files"]:
         return found[0]["id"]
-    r = s.post(DRIVE, json={"name": name, "mimeType": "application/vnd.google-apps.folder"}, timeout=30)
+    meta = {"name": name, "mimeType": "application/vnd.google-apps.folder"} | ({"parents": [parent]} if parent else {})
+    r = s.post(DRIVE, json=meta, timeout=30)
     r.raise_for_status()
     return r.json()["id"]
+
+
+def _upload(s: AuthorizedSession, folder: str, name: str, data: bytes, mime: str) -> None:
+    r = s.post(
+        UPLOAD,
+        params={"uploadType": "multipart", "fields": "id"},
+        files={
+            "metadata": (None, json.dumps({"name": name, "parents": [folder]}), "application/json; charset=UTF-8"),
+            "file": (name, data, mime),
+        },
+        timeout=300,
+    )
+    r.raise_for_status()
+
+
+def files(s: AuthorizedSession, parent: str) -> int:
+    """The design files live only on the Pi (an SD card): each version's
+    folder goes to Drive once, zipped, into "<backup folder>/files", never
+    pruned. Returns how many went up."""
+    data = Path(os.environ.get("DATA_DIR", "."))
+    done_file = data / "files_backed_up.json"
+    done = set(json.loads(done_file.read_text())) if done_file.exists() else set()
+    root = data / "files"
+    todo = [d for d in sorted(root.iterdir()) if d.is_dir() and d.name not in done] if root.exists() else []
+    if not todo:
+        return 0
+    folder = _folder(s, "files", parent)
+    for d in todo:
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for f in sorted(d.iterdir()):
+                z.write(f, f.name)
+        _upload(s, folder, f"{d.name}.zip", buf.getvalue(), "application/zip")
+        done.add(d.name)
+        done_file.write_text(json.dumps(sorted(done)))  # after each, so a failure resumes
+    return len(todo)
 
 
 def run() -> str:
@@ -68,26 +109,17 @@ def run() -> str:
     s = _session()
     folder = _folder(s)
     name = f"backup-{datetime.now(timezone.utc):%Y-%m-%d}.json"
-    meta = {"name": name, "parents": [folder]}
-    r = s.post(
-        UPLOAD,
-        params={"uploadType": "multipart", "fields": "id"},
-        files={
-            "metadata": (None, json.dumps(meta), "application/json; charset=UTF-8"),
-            "file": (name, snapshot(), "application/json"),
-        },
-        timeout=120,
-    )
-    r.raise_for_status()
+    _upload(s, folder, name, snapshot(), "application/json")
     # Keep the newest KEEP.
     r = s.get(
         DRIVE,
-        params={"q": f"'{folder}' in parents and trashed = false", "orderBy": "name desc", "fields": "files(id,name)", "pageSize": 200},
+        params={"q": f"'{folder}' in parents and trashed = false and mimeType != 'application/vnd.google-apps.folder'", "orderBy": "name desc", "fields": "files(id,name)", "pageSize": 200},
         timeout=30,
     )
     r.raise_for_status()
     for old in r.json()["files"][KEEP:]:
         s.delete(f"{DRIVE}/{old['id']}", timeout=30)
+    files(s, folder)
     mark(name)
     return name
 
