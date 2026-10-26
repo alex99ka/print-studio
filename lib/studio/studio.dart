@@ -157,6 +157,15 @@ Future<void> addQuote(Doc request,
   return b.commit();
 }
 
+/// The client's 3D views: [spinFrames] turns, 10 degrees apart, on a
+/// [spinGrid] x [spinGrid] sheet (the Flag Maker's crm_link.spin). A 3D pin
+/// is {x, y} on the picture and z = the turn.
+const spinGrid = 6, spinFrames = 36;
+
+/// A client comment marked handled, or open again.
+Future<void> setHandled(DocumentReference<Map<String, dynamic>> comment, bool done) =>
+    comment.update({'done': done, 'doneAt': done ? FieldValue.serverTimestamp() : null});
+
 Future<void> reply(Doc request, Doc version, String text) {
   final b = _db.batch()
     ..set(commentsRef.doc(), {

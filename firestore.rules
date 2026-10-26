@@ -107,6 +107,10 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'versionId', 'versionN', 'from', 'text', 'pin', 'createdAt'])
         && request.resource.data.from == 'studio'
         && shortText(request.resource.data.text, 2000) && request.resource.data.text.size() > 0;
+      // Marking a client comment handled (or open again): only those two fields.
+      allow update: if allowed()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneAt'])
+        && request.resource.data.done is bool;
       allow delete: if allowed() && resource.data.from == 'studio';
     }
 

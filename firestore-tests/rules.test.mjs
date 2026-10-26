@@ -140,6 +140,11 @@ test('comments: the app writes only as the studio, and deletes only its own', as
   await assertFails(updateDoc(doc(db(ALEX), 'comments/mine'), { text: 'edited' }));
   await assertFails(deleteDoc(doc(db(ALEX), 'comments/client')));
   await assertSucceeds(deleteDoc(doc(db(ALEX), 'comments/mine')));
+  // Handled: only the mark changes, never the client's words.
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'comments/client'), { done: true, doneAt: new Date() }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'comments/client'), { done: false, doneAt: null }));
+  await assertFails(updateDoc(doc(db(ALEX), 'comments/client'), { done: true, text: 'rewritten' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'comments/client'), { done: 'yes' }));
 });
 
 test('reports: create-only, own uid', async () => {

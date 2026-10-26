@@ -58,8 +58,10 @@ without these the app connects to nothing.
 7. ✅ 26.10 security: the client's link serves only watermarked pictures;
    3D is 36 picture turns (Flag Maker `crm_link.spin`), never a mesh; 3MF via
    the signed-in route. Released 0.1.1 (lock + icon) and 0.1.2 (spin view).
-8. Icon from Alex's printer picture: waiting for the file (pasted images
-   don't reach Claude as files). Save it as `assets/icon/source.png`.
+8. ✅ 0.1.3: Alex's printer icon (cut out, `tool/make_icon.py`); the Pi's
+   release check is conditional (ETag), so it no longer eats the home
+   connection's 60 GitHub calls/hour (that caused the phone's update error).
+   Same fix in app-shell `server/app/jobs.py` (uncommitted there).
 9. Flag Maker 5.6.0: the CRM code is only in `3d/app` (uncommitted);
    `app/tests/check_crm_link.py` passes. Needs Alex's word to commit and
    run the full acceptance + packaging.

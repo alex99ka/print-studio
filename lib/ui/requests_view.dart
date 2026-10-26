@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -308,6 +309,8 @@ class _RequestDetailState extends State<RequestDetail> {
   late final _comments = commentsRef.where('requestId', isEqualTo: widget.requestId).snapshots();
   Stream<Doc>? _customer;
   String? _versionId;
+  String _view = '2d';
+  int _frame = 0, _focus = 0; // _focus: bumped to re-open the preview on a comment's pin
   bool _seen = false;
   final _reply = TextEditingController();
 
@@ -377,6 +380,23 @@ class _RequestDetailState extends State<RequestDetail> {
     final token = '${customer?.data()?['portalToken'] ?? ''}';
     final open = r['status'] == 'draft' || r['status'] == 'waiting';
     final quote = quotes.where((q) => q.id == r['quoteId']).firstOrNull;
+    final views = [
+      for (final (k, f, label) in const [('2d', 'preview.png', '2D'), ('3d', 'spin.jpg', 'תלת-ממד'), ('asm', 'spin_asm.jpg', 'על המיקרופון')])
+        if (version != null && filesOf(version).contains(f)) (k, f, label),
+    ];
+    final view = views.where((v) => v.$1 == _view).firstOrNull ?? views.firstOrNull;
+    final openComments = comments.where((c) => c['from'] == 'client' && c.data()['done'] != true).length;
+    // A pinned comment opens its version, view and turn in the preview.
+    void show(QueryDocumentSnapshot<Map<String, dynamic>> c) {
+      final pin = c['pin'] as Map?;
+      if (pin == null) return;
+      setState(() {
+        _versionId = '${c['versionId']}';
+        _view = '${pin['view']}';
+        _frame = ((pin['z'] as num?) ?? 0).round();
+        _focus++;
+      });
+    }
 
     final header = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
@@ -421,19 +441,41 @@ class _RequestDetailState extends State<RequestDetail> {
                 ),
             ]),
             const SizedBox(height: 12),
-            if (version != null && filesOf(version).contains('preview.png') && token.isNotEmpty && hasServer)
+            if (view != null && token.isNotEmpty && hasServer) ...[
+              if (views.length > 1)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: SegmentedButton<String>(
+                    showSelectedIcon: false,
+                    segments: [for (final (k, _, label) in views) ButtonSegment(value: k, label: Text(label))],
+                    selected: {view.$1},
+                    onSelectionChanged: (k) => setState(() {
+                      _view = k.first;
+                      _frame = 0;
+                    }),
+                  ),
+                ),
               SizedBox(
                 height: 320,
                 child: PinnedPreview(
-                  url: fileUrl(token, version.id, 'preview.png'),
+                  key: ValueKey('${version!.id}/${view.$1}/$_focus'),
+                  url: fileUrl(token, version.id, view.$2),
+                  grid: view.$1 == '2d' ? 1 : spinGrid,
+                  frame: _frame,
                   pins: [
                     for (final c in comments)
-                      if (c['versionId'] == version.id && (c['pin'] as Map?)?['view'] == '2d')
+                      if (c['versionId'] == version.id && (c['pin'] as Map?)?['view'] == view.$1)
                         (Offset(((c['pin'] as Map)['x'] as num).toDouble(), ((c['pin'] as Map)['y'] as num).toDouble()),
-                            '${pinned[c.id]}'),
+                            '${pinned[c.id]}', (((c['pin'] as Map)['z'] as num?) ?? 0).round()),
                   ],
                 ),
               ),
+              if (view.$1 != '2d')
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text('גוררים ימינה ושמאלה לסיבוב', style: TextStyle(fontSize: 12, color: s.muted)),
+                ),
+            ],
             if (version != null && '${version['note'] ?? ''}'.isNotEmpty)
               Padding(padding: const EdgeInsets.only(top: 8), child: Text('${version['note']}', style: TextStyle(color: s.muted))),
             const SizedBox(height: 12),
@@ -509,10 +551,10 @@ class _RequestDetailState extends State<RequestDetail> {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Text('הערות', style: Theme.of(context).textTheme.titleMedium),
+          Text(openComments == 0 ? 'הערות' : 'הערות · $openComments פתוחות', style: Theme.of(context).textTheme.titleMedium),
           const SizedBox(height: 8),
           if (comments.isEmpty) Text('עוד אין הערות.', style: TextStyle(color: s.muted)),
-          for (final c in comments) _Comment(c, pin: pinned[c.id]),
+          for (final c in comments) _Comment(c, pin: pinned[c.id], onShow: () => show(c)),
           if (version != null) ...[
             const SizedBox(height: 8),
             TextField(
@@ -554,9 +596,10 @@ class _RequestDetailState extends State<RequestDetail> {
 }
 
 class _Comment extends StatelessWidget {
-  const _Comment(this.c, {this.pin});
+  const _Comment(this.c, {this.pin, required this.onShow});
   final QueryDocumentSnapshot<Map<String, dynamic>> c;
   final int? pin;
+  final VoidCallback onShow;
 
   @override
   Widget build(BuildContext context) {
@@ -564,6 +607,20 @@ class _Comment extends StatelessWidget {
     final scheme = Theme.of(context).colorScheme;
     final mine = c['from'] == 'studio';
     final view = (c['pin'] as Map?)?['view'];
+    final done = c.data()['done'] == true;
+    final bubble = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: mine ? s.accentSoft : s.sunk, borderRadius: BorderRadius.circular(10)),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(
+          '${mine ? 'את/ה' : 'הלקוח'} · v${c['versionN'] ?? ''} · ${day(c['createdAt'])}'
+          '${view == '2d' ? ' · נעוץ בתמונה' : view == '3d' ? ' · נעוץ בתלת-ממד' : view == 'asm' ? ' · נעוץ על המיקרופון' : ''}'
+          '${done ? ' · ✓ טופל' : ''}',
+          style: TextStyle(fontSize: 12, color: done ? s.okInk : s.muted),
+        ),
+        SelectableText('${c['text']}', onTap: pin != null ? onShow : null),
+      ]),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -575,108 +632,140 @@ class _Comment extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         Expanded(
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: mine ? s.accentSoft : s.sunk, borderRadius: BorderRadius.circular(10)),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(
-                '${mine ? 'את/ה' : 'הלקוח'} · v${c['versionN'] ?? ''} · ${day(c['createdAt'])}'
-                '${view == '3d' ? ' · נעוץ בתלת-ממד' : view == 'asm' ? ' · נעוץ על המיקרופון' : ''}',
-                style: TextStyle(fontSize: 12, color: s.muted),
-              ),
-              SelectableText('${c['text']}'),
-            ]),
+          child: Opacity(
+            opacity: done ? .6 : 1,
+            child: pin == null ? bubble : InkWell(onTap: onShow, borderRadius: BorderRadius.circular(10), child: bubble),
           ),
         ),
+        if (!mine)
+          IconButton(
+            tooltip: done ? 'פתיחה מחדש' : 'סימון כטופל',
+            icon: Icon(done ? Icons.check_circle : Icons.radio_button_unchecked, color: done ? s.okInk : s.muted),
+            onPressed: () => setHandled(c.reference, !done).catchError((Object e) {
+              if (context.mounted) showError(ScaffoldMessenger.of(context), e, 'הסימון נכשל');
+            }),
+          ),
       ]),
     );
   }
 }
 
-/// The 2D preview with numbered pins at fractions of the picture (not of the
-/// box: the picture is letterboxed), exactly where the customer tapped.
+/// A picture with numbered pins at fractions of it (not of the box: the
+/// picture is letterboxed), exactly where the customer tapped. With [grid] > 1
+/// the picture is a sheet of [spinFrames] turns: dragging sideways turns it,
+/// and a pin shows only on the turn it was placed on.
 class PinnedPreview extends StatefulWidget {
-  const PinnedPreview({super.key, required this.url, required this.pins});
+  const PinnedPreview({super.key, required this.url, required this.pins, this.grid = 1, this.frame = 0});
   final String url;
-  final List<(Offset, String)> pins;
+  final int grid;
+  final int frame;
+  final List<(Offset, String, int)> pins;
 
   @override
   State<PinnedPreview> createState() => _PinnedPreviewState();
 }
 
 class _PinnedPreviewState extends State<PinnedPreview> {
-  Size? _size;
+  ImageInfo? _info;
+  bool _failed = false;
   ImageStream? _stream;
+  late int _frame = widget.grid > 1 ? widget.frame % spinFrames : 0;
+  double _drag = 0;
   late final _listener = ImageStreamListener(
     (info, _) {
-      if (mounted) setState(() => _size = Size(info.image.width.toDouble(), info.image.height.toDouble()));
+      if (!mounted) return info.dispose();
+      setState(() {
+        _info?.dispose();
+        _info = info;
+      });
     },
     onError: (_, _) {
-      if (mounted) setState(() => _size = Size.zero);
+      if (mounted) setState(() => _failed = true);
     },
   );
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _resolve();
-  }
-
-  @override
-  void didUpdateWidget(PinnedPreview old) {
-    super.didUpdateWidget(old);
-    if (old.url != widget.url) _resolve();
-  }
-
-  void _resolve() {
-    _stream?.removeListener(_listener);
-    _stream = NetworkImage(widget.url).resolve(createLocalImageConfiguration(context))..addListener(_listener);
+    _stream ??= NetworkImage(widget.url).resolve(createLocalImageConfiguration(context))..addListener(_listener);
   }
 
   @override
   void dispose() {
     _stream?.removeListener(_listener);
+    _info?.dispose();
     super.dispose();
+  }
+
+  void _turn(DragUpdateDetails d) {
+    _drag += d.delta.dx;
+    final step = (_drag / 10).truncate(); // 10 px a turn, like the client's page
+    if (step == 0) return;
+    _drag -= step * 10;
+    setState(() => _frame = (_frame - step) % spinFrames);
   }
 
   @override
   Widget build(BuildContext context) {
     final s = context.studio;
     final scheme = Theme.of(context).colorScheme;
-    final size = _size;
-    return Container(
-      decoration: BoxDecoration(color: s.sunk, borderRadius: BorderRadius.circular(10)),
-      padding: const EdgeInsets.all(8),
-      child: switch (size) {
-        null => const Center(child: CircularProgressIndicator()),
-        Size(isEmpty: true) => Center(child: Icon(Icons.broken_image_outlined, color: s.muted)),
-        _ => FittedBox(
-            child: SizedBox(
-              width: size.width,
-              height: size.height,
-              child: Stack(clipBehavior: Clip.none, children: [
-                Positioned.fill(child: Image.network(widget.url, fit: BoxFit.fill)),
-                for (final (at, label) in widget.pins)
+    final image = _info?.image;
+    final Widget child;
+    if (_failed) {
+      child = Center(child: Icon(Icons.broken_image_outlined, color: s.muted));
+    } else if (image == null) {
+      child = const Center(child: CircularProgressIndicator());
+    } else {
+      final g = widget.grid;
+      final tile = Size(image.width / g, image.height / g);
+      final src = Offset((_frame % g) * tile.width, (_frame ~/ g) * tile.height) & tile;
+      child = GestureDetector(
+        onHorizontalDragUpdate: g > 1 ? _turn : null,
+        child: FittedBox(
+          child: SizedBox.fromSize(
+            size: tile,
+            child: Stack(clipBehavior: Clip.none, children: [
+              Positioned.fill(child: CustomPaint(painter: _Tile(image, src))),
+              for (final (at, label, turn) in widget.pins)
+                if (g == 1 || turn % spinFrames == _frame)
                   Positioned(
-                    left: at.dx * size.width - size.shortestSide * .04,
-                    top: at.dy * size.height - size.shortestSide * .04,
+                    left: at.dx * tile.width - tile.shortestSide * .04,
+                    top: at.dy * tile.height - tile.shortestSide * .04,
                     child: Container(
-                      width: size.shortestSide * .08,
-                      height: size.shortestSide * .08,
+                      width: tile.shortestSide * .08,
+                      height: tile.shortestSide * .08,
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                           color: scheme.primary,
                           shape: BoxShape.circle,
-                          border: Border.all(color: AppTokens.white, width: size.shortestSide * .006)),
+                          border: Border.all(color: AppTokens.white, width: tile.shortestSide * .006)),
                       child: Text(label,
                           style: TextStyle(
-                              color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: size.shortestSide * .04)),
+                              color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: tile.shortestSide * .04)),
                     ),
                   ),
-              ]),
-            ),
+            ]),
           ),
-      },
+        ),
+      );
+    }
+    return Container(
+      decoration: BoxDecoration(color: s.sunk, borderRadius: BorderRadius.circular(10)),
+      padding: const EdgeInsets.all(8),
+      child: child,
     );
   }
+}
+
+class _Tile extends CustomPainter {
+  _Tile(this.image, this.src);
+  final ui.Image image;
+  final Rect src;
+
+  @override
+  void paint(Canvas canvas, Size size) =>
+      canvas.drawImageRect(image, src, Offset.zero & size, Paint()..filterQuality = FilterQuality.medium);
+
+  @override
+  bool shouldRepaint(_Tile old) => old.image != image || old.src != src;
 }
