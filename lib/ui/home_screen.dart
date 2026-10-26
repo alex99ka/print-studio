@@ -124,7 +124,7 @@ class _HomeScreenState extends State<HomeScreen> {
             height: 48,
             child: Row(children: [
               const SizedBox(width: 16),
-              Icon(Icons.view_in_ar_outlined, color: s.barInk, size: 22),
+              Image.asset('assets/icon/logo.png', width: 26, height: 26, semanticLabel: 'לוגו'),
               const SizedBox(width: 10),
               Text(AppConfig.name, style: TextStyle(color: s.barInk, fontWeight: FontWeight.w700, fontSize: 16)),
               const Spacer(),

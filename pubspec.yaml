@@ -38,9 +38,29 @@ dev_dependencies:
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/icon/logo.png
   fonts:
     # Hebrew sans, bundled (works offline, no runtime font fetch). OFL:
     # assets/fonts/Heebo-OFL.txt. The same Heebo as the Flag Maker and the portal.
     - family: Heebo
       fonts:
         - asset: assets/fonts/Heebo.ttf
+
+# The printer icon (tool/make_icon.py draws the PNGs). Regenerate with:
+# python tool/make_icon.py && dart run flutter_launcher_icons
+flutter_launcher_icons:
+  android: true
+  ios: false
+  image_path: assets/icon/icon.png
+  adaptive_icon_background: "#15171C"
+  adaptive_icon_foreground: assets/icon/foreground.png
+  web:
+    generate: true
+    image_path: assets/icon/icon.png
+    background_color: "#15171C"
+    theme_color: "#15171C"
+  windows:
+    generate: true
+    image_path: assets/icon/icon.png
+    icon_size: 256
