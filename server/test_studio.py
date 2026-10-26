@@ -15,6 +15,8 @@ os.environ["RUN_JOBS"] = "0"
 import pytest
 import requests
 from fastapi.testclient import TestClient
+from google.auth.credentials import AnonymousCredentials
+from google.cloud import firestore as gfirestore
 
 from app import firebase, jobs, main, studio
 
@@ -46,7 +48,9 @@ def db(tmp_path, monkeypatch):
     monkeypatch.setenv("DATA_DIR", str(tmp_path))
     host = os.environ["FIRESTORE_EMULATOR_HOST"]
     requests.delete(f"http://{host}/emulator/v1/projects/demo-print-studio/databases/(default)/documents", timeout=10)
-    d = firebase.db()
+    # The emulator needs no credentials; CI has none, so don't let Admin look for them.
+    d = gfirestore.Client(project="demo-print-studio", credentials=AnonymousCredentials())
+    monkeypatch.setattr(firebase, "db", lambda: d)
     d.document("customers/c1").set({"name": "INTERVIEW", "lang": "he", "portalToken": TOKEN_A})
     d.document("customers/c2").set({"name": "Other", "lang": "en", "portalToken": TOKEN_B})
     d.document("requests/r1").set({"customerId": "c1", "customerName": "INTERVIEW", "title": "אלכס ❤ אביטל",
