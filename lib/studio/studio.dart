@@ -184,7 +184,6 @@ String? uploadField(String fileName) {
   if (n.endsWith('.png')) return 'preview';
   if (n.endsWith('.3mf')) return 'model';
   if (n.endsWith('.json')) return 'recipe';
-  if (n.endsWith('.glb')) return n.contains('assembled') ? 'assembled' : 'plate';
   return null;
 }
 

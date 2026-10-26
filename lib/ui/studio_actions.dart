@@ -49,10 +49,10 @@ Future<void> _guard(BuildContext context, String failed, Future<void> Function()
   }
 }
 
-/// Files picked by hand: the Flag Maker export (PNG, 3MF, recipe, GLBs).
+/// Files picked by hand: the Flag Maker export (PNG, 3MF, recipe).
 Future<void> importVersion(BuildContext context, Selection s) => _guard(context, 'ההעלאה נכשלה', () async {
       final files = await openFiles(acceptedTypeGroups: const [
-        XTypeGroup(label: 'ייצוא Flag Maker', extensions: ['png', '3mf', 'json', 'glb']),
+        XTypeGroup(label: 'ייצוא Flag Maker', extensions: ['png', '3mf', 'json']),
       ]);
       if (files.isEmpty) return;
       if (!files.any((f) => uploadField(f.name) == 'preview')) throw Errors.noPreview;

@@ -17,11 +17,18 @@ import requests
 from fastapi.testclient import TestClient
 from google.auth.credentials import AnonymousCredentials
 from google.cloud import firestore as gfirestore
+from PIL import Image
 
 from app import firebase, jobs, main, studio
 
-PNG = b"\x89PNG\r\n\x1a\n" + b"0" * 32
-GLB = b"glTF" + b"\x02\x00\x00\x00" + b"0" * 32
+def picture(fmt: str, size: tuple[int, int]) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGB", size, (240, 240, 240)).save(out, fmt)
+    return out.getvalue()
+
+
+PNG = picture("PNG", (200, 120))
+SPIN = picture("JPEG", (600, 600))  # 6 x 6 tiles of 100 px
 TOKEN_A = "a" * 22
 TOKEN_B = "b" * 22
 
@@ -77,7 +84,7 @@ def client(db):
 def files(**extra):
     out = {"preview": ("p.png", PNG, "image/png"), "model": ("m.3mf", three_mf(), "application/octet-stream"),
            "recipe": ("r.json", json.dumps({"first": "אלכס"}).encode(), "application/json"),
-           "plate": ("p.glb", GLB, "model/gltf-binary")}
+           "spin": ("s.jpg", SPIN, "image/jpeg")}
     out.update(extra)
     return out
 
@@ -136,7 +143,11 @@ def test_portal_shows_only_published(client, db):
     r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
     assert r["currentVersionId"] == vid and r["quote"]["total"] == 42480 and r["status"] == "waiting"
     assert client.get(f"/p/{TOKEN_B}/data").json()["requests"] == []
-    assert client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content == PNG
+    # The client gets the pictures, watermarked (same size, different pixels).
+    shown = client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content
+    assert shown != PNG and Image.open(io.BytesIO(shown)).size == (200, 120)
+    spin = client.get(f"/p/{TOKEN_A}/f/{vid}/spin.jpg")
+    assert spin.status_code == 200 and Image.open(io.BytesIO(spin.content)).size == (600, 600)
     assert client.get(f"/p/{TOKEN_B}/f/{vid}/preview.png").status_code == 404  # another customer's file
     assert client.get(f"/p/{TOKEN_A}/f/{vid}/..%2Fflagmaker_key.json").status_code == 404
     # The client never gets the print file or the recipe; the signed-in studio does.

@@ -27,6 +27,7 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
+from PIL import Image, ImageDraw, ImageFont
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel, Field
@@ -41,12 +42,14 @@ FILES = {
     "preview": ("preview.png", "image/png"),
     "model": ("model.3mf", "application/vnd.ms-package.3dmanufacturing-3dmodel+xml"),
     "recipe": ("recipe.json", "application/json"),
-    "plate": ("plate.glb", "model/gltf-binary"),
-    "assembled": ("assembled.glb", "model/gltf-binary"),
+    # The 3D views are pictures, never meshes: 36 turns of 10 degrees on one sheet.
+    "spin": ("spin.jpg", "image/jpeg"),
+    "spin_asm": ("spin_asm.jpg", "image/jpeg"),
 }
+SPIN_GRID = 6  # 6 x 6 tiles, frame i at row i // 6, column i % 6 (the Flag Maker's crm_link.spin)
 TYPES = dict(FILES.values())
-# What the client's link serves: pictures and 3D views, never the print file or the recipe.
-CLIENT_FILES = {"preview.png", "plate.glb", "assembled.glb"}
+# What the client's link serves: watermarked pictures only, never the print file, the recipe or a mesh.
+CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg"}
 MAX_FILE = 60 * 1024 * 1024
 OPEN = ("draft", "waiting")  # a request takes new versions only before approval
 STATIC = Path(__file__).parent / "static"
@@ -79,30 +82,59 @@ class Upload:
         preview: Annotated[UploadFile, File()],
         model: Annotated[UploadFile | None, File()] = None,
         recipe: Annotated[UploadFile | None, File()] = None,
-        plate: Annotated[UploadFile | None, File()] = None,
-        assembled: Annotated[UploadFile | None, File()] = None,
+        spin: Annotated[UploadFile | None, File()] = None,
+        spin_asm: Annotated[UploadFile | None, File()] = None,
         note: Annotated[str, Form(max_length=500)] = "",
     ):
-        self.files = {"preview": preview, "model": model, "recipe": recipe, "plate": plate, "assembled": assembled}
+        self.files = {"preview": preview, "model": model, "recipe": recipe, "spin": spin, "spin_asm": spin_asm}
         self.note = note.strip()
+
+
+def _picture(path: Path, kind: str) -> bool:
+    with Image.open(path) as im:
+        im.verify()
+        return im.format == kind
 
 
 def _check(path: Path) -> None:
     """The content is what its name says: nothing else is ever served."""
-    with open(path, "rb") as f:
-        head = f.read(8)
     ok = {
-        ".png": lambda: head.startswith(b"\x89PNG"),
-        ".glb": lambda: head.startswith(b"glTF"),
+        ".png": lambda: _picture(path, "PNG"),
+        ".jpg": lambda: _picture(path, "JPEG"),
         ".3mf": lambda: zipfile.is_zipfile(path),
         ".json": lambda: isinstance(json.loads(path.read_text(encoding="utf-8")), dict),
     }[path.suffix]
     try:
         good = ok()
-    except ValueError:
+    except (ValueError, OSError, SyntaxError):  # Pillow's errors for a broken picture
         good = False
     if not good:
         raise HTTPException(422, f"{path.name} is not a valid {path.suffix[1:]} file")
+
+
+def _watermark(path: Path, grid: int = 1) -> None:
+    """Stamps every picture the client sees, each tile of a spin sheet on its own,
+    so a screenshot or a saved copy still says it is a preview."""
+    with Image.open(path) as im:
+        img = im.convert("RGB")
+    tw, th = img.width // grid, img.height // grid
+    side = 2 * max(tw, th)
+    layer = Image.new("RGBA", (side, side), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(layer)
+    font = ImageFont.truetype(str(STATIC / "Heebo.ttf"), max(12, tw // 14))
+    step = max(24, th // 4)
+    for i, y in enumerate(range(0, side, step)):
+        draw.text((-(i % 2) * tw // 3, y), "PRINT STUDIO · PREVIEW ONLY     " * 4, font=font, fill=(90, 96, 110, 64))
+    layer = layer.rotate(28, resample=Image.BICUBIC)
+    left, top = (side - tw) // 2, (side - th) // 2
+    tile = layer.crop((left, top, left + tw, top + th))
+    for r in range(grid):
+        for c in range(grid):
+            img.paste(tile, (c * tw, r * th), tile)
+    if path.suffix == ".png":
+        img.save(path, "PNG", optimize=True)
+    else:
+        img.save(path, "JPEG", quality=85)
 
 
 def _save(vid: str, up: Upload) -> list[str]:
@@ -121,6 +153,8 @@ def _save(vid: str, up: Upload) -> list[str]:
                         raise HTTPException(413, f"{name} is over 60 MB")
                     out.write(chunk)
             _check(tmp / name)
+            if name in CLIENT_FILES:
+                _watermark(tmp / name, SPIN_GRID if name.endswith(".jpg") else 1)
             names.append(name)
         dest = _data() / "files" / vid
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -278,7 +312,7 @@ def portal_page(token: str) -> HTMLResponse:
         headers={
             "Cache-Control": "no-store",
             "X-Frame-Options": "DENY",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
             "img-src 'self' blob: data:; connect-src 'self' blob: data:",
         },

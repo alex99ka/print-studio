@@ -45,8 +45,7 @@ void main() {
     expect(uploadField('flag_v557.PNG'), 'preview');
     expect(uploadField('flag.3mf'), 'model');
     expect(uploadField('flag.json'), 'recipe');
-    expect(uploadField('flag_plate.glb'), 'plate');
-    expect(uploadField('flag_assembled.glb'), 'assembled');
+    expect(uploadField('flag_plate.glb'), null); // meshes never reach the client
     expect(uploadField('notes.txt'), isNull);
   });
 

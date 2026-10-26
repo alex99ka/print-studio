@@ -10,7 +10,8 @@ Improvements to `lib/core/` go back into the starter.
   `requests_view`, `customers_view`, `ribbon`, `studio_actions`, `studio_dialogs`.
 - Server: `server/app/studio.py` (versions, Flag Maker key, portal) and
   `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\app\crm_link.py`
-  (follow that repo's AGENTS.md: its releases need its acceptance suite).
+  (follow that repo's AGENTS.md: its releases need its acceptance suite, including
+  `app/tests/check_crm_link.py`, the contract with `studio.py`).
 - Money is integer **agorot**; VAT 18% rounded half up, computed identically in
   `lib/studio/studio.dart` and `studio.py` (both have the same test cases).
 - Keep green: `flutter analyze`, `flutter test`, `firestore-tests`, server
@@ -30,3 +31,7 @@ blue, green only for the client's approve button), Heebo, Word-style top tabs
 + ribbon. Design: https://claude.ai/artifact/XGArLBxz3caJm9xYcBRFaf
 
 Firebase packages stay on core 4 / auth 6 (the starter's pin).
+
+Clients never get a printable file (26.10): the portal serves only watermarked
+pictures (preview.png, spin.jpg, spin_asm.jpg = 36 turns on a 6x6 sheet); the
+3MF/recipe go through the signed-in `/studio/versions/...` route. No meshes in the browser.
