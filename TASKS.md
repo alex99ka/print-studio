@@ -55,7 +55,15 @@ without these the app connects to nothing.
    the GitHub repo exists). Android next, when Alex is home (steps 5–6).
 6. ✅ Release 0.1.0 (26.10): APK, Windows installer, web, all green in CI.
    Next: Alex installs the APK; then a 0.1.1 to verify the in-app update.
-7. After Firebase: icon, first release (tag) on the phone, a second release to
+7. ✅ 26.10 security: the client's link serves only watermarked pictures;
+   3D is 36 picture turns (Flag Maker `crm_link.spin`), never a mesh; 3MF via
+   the signed-in route. Released 0.1.1 (lock + icon) and 0.1.2 (spin view).
+8. Icon from Alex's printer picture: waiting for the file (pasted images
+   don't reach Claude as files). Save it as `assets/icon/source.png`.
+9. Flag Maker 5.6.0: the CRM code is only in `3d/app` (uncommitted);
+   `app/tests/check_crm_link.py` passes. Needs Alex's word to commit and
+   run the full acceptance + packaging.
+10. After Firebase: icon, first release (tag) on the phone, a second release to
    check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
 ## After the MVP (not built, to decide)

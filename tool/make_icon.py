@@ -1,63 +1,50 @@
-"""Draws the app icon: an enclosed dual-nozzle printer (like Alex's X2D), palette A.
+"""The app icon from Alex's printer picture (assets/icon/source.png, white background).
 
-Writes assets/icon/icon.png (full square, for Windows/web/legacy Android),
-assets/icon/foreground.png (transparent, inside the adaptive icon's 66% safe
-circle) and assets/icon/logo.png (no background, for the app bar and portal).
+Cuts the white background out (only white connected to the edges, so the light
+parts inside the printer stay), turning the anti-aliased edge and the floor
+shadow into soft transparency. Writes:
+  icon.png        transparent square: Windows, web, legacy Android
+  foreground.png  smaller, inside the Android adaptive icon's 66% safe circle
+  logo.png        the app bar and the client's page
 Then: dart run flutter_launcher_icons
 """
 from pathlib import Path
 
+import numpy as np
 from PIL import Image, ImageDraw
 
-GRAPHITE = (21, 23, 28)
-BODY = (236, 238, 242)
-BODY_EDGE = (160, 167, 179)
-GLASS = (31, 35, 42)
-BLUE = (47, 91, 234)
-BLUE_LIGHT = (124, 155, 255)
-GREEN = (4, 120, 87)
-SPOOLS = [(47, 91, 234), (236, 238, 242), (4, 120, 87), (230, 160, 40)]
-
-S = 4096  # drawn large, scaled down for smooth edges
-OUT = Path(__file__).resolve().parent.parent / "assets" / "icon"
+ICON = Path(__file__).resolve().parent.parent / "assets" / "icon"
+LIGHT = 150  # brighter than this (every channel) can be background; the dark outline stops the fill
 
 
-def printer(d: ImageDraw.ImageDraw, x0: float, y0: float, w: float) -> None:
-    """The printer in a w-wide box at (x0, y0); it is about 1.05 w tall."""
-    u = w / 100
-    def r(a, b, c, e, **k):
-        d.rounded_rectangle((x0 + a * u, y0 + b * u, x0 + c * u, y0 + e * u), **k)
-    # filament box on top, four spools
-    r(14, 0, 86, 16, radius=3 * u, fill=BODY, outline=BODY_EDGE, width=int(1.2 * u))
-    for i, c in enumerate(SPOOLS):
-        cx = 26 + i * 16
-        d.ellipse((x0 + (cx - 5) * u, y0 + 3 * u, x0 + (cx + 5) * u, y0 + 13 * u), fill=c, outline=BODY_EDGE, width=int(0.8 * u))
-    # body and the glass front
-    r(0, 19, 100, 105, radius=7 * u, fill=BODY, outline=BODY_EDGE, width=int(1.2 * u))
-    r(8, 27, 92, 90, radius=4 * u, fill=GLASS)
-    # gantry and the dual-nozzle toolhead
-    r(12, 36, 88, 40, radius=1.5 * u, fill=BODY_EDGE)
-    r(36, 33, 64, 51, radius=3 * u, fill=BLUE)
-    for nx in (43, 57):
-        d.polygon([(x0 + (nx - 3.5) * u, y0 + 51 * u), (x0 + (nx + 3.5) * u, y0 + 51 * u), (x0 + nx * u, y0 + 57 * u)], fill=BLUE_LIGHT)
-    # build plate with a print on it
-    r(16, 80, 84, 84, radius=1.5 * u, fill=BODY_EDGE)
-    r(42, 66, 58, 80, radius=2 * u, fill=GREEN)
-    # foot strip under the door
-    r(8, 94, 92, 99, radius=2 * u, fill=BODY_EDGE)
+def cut_out(src: Image.Image) -> Image.Image:
+    rgb = np.asarray(src.convert("RGB")).astype(float)
+    # .copy(): an image made straight from an array is read-only and floodfill would silently do nothing.
+    light = Image.fromarray(((rgb.min(2) > LIGHT) * 255).astype(np.uint8)).copy()
+    for seed in ((0, 0), (light.width - 1, 0), (0, light.height - 1), (light.width - 1, light.height - 1)):
+        ImageDraw.floodfill(light, seed, 128)
+    bg = np.asarray(light) == 128
+    # Colour to alpha against white: a pixel w% white becomes (1 - w) opaque, with its colour un-mixed.
+    alpha = np.where(bg, (255 - rgb.min(2)) / 255, 1.0)
+    keep = alpha > 0.02
+    colour = np.where(keep[..., None], (rgb - 255 * (1 - alpha[..., None])) / np.maximum(alpha, 0.02)[..., None], 0)
+    out = np.dstack([np.clip(colour, 0, 255), np.where(keep, alpha * 255, 0)]).astype(np.uint8)
+    img = Image.fromarray(out, "RGBA")
+    return img.crop(img.getchannel("A").point(lambda a: 255 if a > 40 else 0).getbbox())
 
 
-def render(bg: bool, scale: float) -> Image.Image:
-    img = Image.new("RGBA", (S, S), GRAPHITE + (255,) if bg else (0, 0, 0, 0))
-    d = ImageDraw.Draw(img)
-    w = S * scale
-    printer(d, (S - w) / 2, (S - w * 1.05) / 2, w)
-    return img.resize((1024, 1024), Image.LANCZOS)
+def square(img: Image.Image, size: int, fill: float) -> Image.Image:
+    """img centred on a transparent size x size square, its longer side = fill x size."""
+    s = fill * size / max(img.size)
+    art = img.resize((round(img.width * s), round(img.height * s)), Image.LANCZOS)
+    out = Image.new("RGBA", (size, size), (0, 0, 0, 0))
+    out.paste(art, ((size - art.width) // 2, (size - art.height) // 2), art)
+    return out
 
 
 if __name__ == "__main__":
-    OUT.mkdir(parents=True, exist_ok=True)
-    render(True, 0.70).convert("RGB").save(OUT / "icon.png")
-    render(False, 0.50).save(OUT / "foreground.png")  # about 0.5 x 0.53: inside the 66% circle
-    render(False, 0.92).save(OUT / "logo.png")
-    print("wrote", sorted(p.name for p in OUT.iterdir()))
+    art = cut_out(Image.open(ICON / "source.png"))
+    square(art, 1024, 0.96).save(ICON / "icon.png")
+    square(art, 1024, 0.62).save(ICON / "foreground.png")  # a 0.62 box fits inside the 66% circle
+    square(art, 512, 1.0).save(ICON / "logo.png")
+    print("wrote", sorted(p.name for p in ICON.iterdir()))

@@ -1,7 +1,7 @@
 name: print_studio
 description: "The make-an-app starter: sign-in, updates, walkthrough, errors, release."
 publish_to: 'none'
-version: 0.1.2+3
+version: 0.1.3+4
 
 environment:
   sdk: ^3.13.3
@@ -47,18 +47,19 @@ flutter:
       fonts:
         - asset: assets/fonts/Heebo.ttf
 
-# The printer icon (tool/make_icon.py draws the PNGs). Regenerate with:
+# The icon: Alex's printer picture (assets/icon/source.png), cut out by
+# tool/make_icon.py. Android needs a background layer: light blue-grey, not white. Regenerate with:
 # python tool/make_icon.py && dart run flutter_launcher_icons
 flutter_launcher_icons:
   android: true
   ios: false
   image_path: assets/icon/icon.png
-  adaptive_icon_background: "#15171C"
+  adaptive_icon_background: "#E3E8F2"
   adaptive_icon_foreground: assets/icon/foreground.png
   web:
     generate: true
     image_path: assets/icon/icon.png
-    background_color: "#15171C"
+    background_color: "#E3E8F2"
     theme_color: "#15171C"
   windows:
     generate: true

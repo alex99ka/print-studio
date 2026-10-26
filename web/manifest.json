@@ -3,7 +3,7 @@
     "short_name": "סטודיו הדפסה",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#15171C",
+    "background_color": "#E3E8F2",
     "theme_color": "#15171C",
     "description": "סטודיו הדפסה",
     "orientation": "portrait-primary",

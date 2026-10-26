@@ -91,13 +91,17 @@ def test_release_announced_once_prereleases_to_early_users_only(monkeypatch):
     ]
 
     class Res:
+        status_code = 200
+        headers = {"ETag": '"v1"'}
+
         def raise_for_status(self):
             pass
 
         def json(self):
             return releases
 
-    monkeypatch.setattr(jobs.requests, "get", lambda *a, **k: Res())
+    asked = []
+    monkeypatch.setattr(jobs.requests, "get", lambda *a, **k: asked.append(k["headers"].get("If-None-Match")) or Res())
     monkeypatch.setattr(firebase, "access", lambda: ({"alex@x", "avital@x"}, {"alex@x"}))
     monkeypatch.setattr(jobs, "users", lambda: [("a", {"email": "alex@x"}), ("v", {"email": "avital@x"})])
     sends = []
@@ -113,3 +117,8 @@ def test_release_announced_once_prereleases_to_early_users_only(monkeypatch):
     releases[0]["prerelease"] = False  # promoted: everyone hears about it
     jobs.new_release(state)
     assert sends[-1] == ("גרסה 1.4.0 של האפליקציה", ["a", "v"])
+    # After the first answer every check is conditional: a 304 is free and changes nothing.
+    assert asked[0] is None and set(asked[1:]) == {'"v1"'}
+    Res.status_code = 304
+    jobs.new_release(state)
+    assert sends[-1] == ("גרסה 1.4.0 של האפליקציה", ["a", "v"]) and len(sends) == 2

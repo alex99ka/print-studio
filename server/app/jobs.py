@@ -75,12 +75,21 @@ def send_to(people: list[tuple[str, dict]], kind: str, title: str, body: str, da
 
 
 def new_release(state: dict) -> None:
+    # GitHub allows a home connection 60 unsigned calls an hour, shared with the
+    # phones' own update checks. Asking "changed since this ETag?" costs nothing
+    # when the answer is 304, so polling every minute no longer uses them up.
+    headers = {"Accept": "application/vnd.github+json"}
+    if state.get("releases_etag"):
+        headers["If-None-Match"] = state["releases_etag"]
     r = requests.get(
         f"https://api.github.com/repos/{os.environ['GITHUB_REPO']}/releases?per_page=5",
-        headers={"Accept": "application/vnd.github+json"},
+        headers=headers,
         timeout=20,
     )
+    if r.status_code == 304:
+        return
     r.raise_for_status()
+    state["releases_etag"] = r.headers.get("ETag", "")
     releases = [x for x in r.json() if not x.get("draft")]
     if not releases:
         return
