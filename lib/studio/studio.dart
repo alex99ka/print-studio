@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:file_selector/file_selector.dart';
@@ -71,6 +72,17 @@ String newPortalToken() {
 String portalUrl(String token, {String? preview}) =>
     '${AppConfig.serverUrl}/p/$token${preview == null ? '' : '?preview=$preview'}';
 
+/// A version's file through the signed-in route: the 3MF and the recipe never
+/// go through the client's link.
+Future<Uint8List> studioFile(String versionId, String name) async {
+  final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+  final res = await http.get(Uri.parse('${AppConfig.serverUrl}/studio/versions/$versionId/$name'),
+      headers: {if (token != null) 'Authorization': 'Bearer $token'}).timeout(const Duration(minutes: 2));
+  if (res.statusCode != 200) throw ServerException(res.statusCode, res.body);
+  return res.bodyBytes;
+}
+
+/// Pictures and 3D views only (the client's link serves nothing else).
 String fileUrl(String token, String versionId, String name) =>
     '${AppConfig.serverUrl}/p/$token/f/$versionId/$name';
 

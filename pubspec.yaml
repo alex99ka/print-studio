@@ -1,7 +1,7 @@
 name: print_studio
 description: "The make-an-app starter: sign-in, updates, walkthrough, errors, release."
 publish_to: 'none'
-version: 0.1.0+1
+version: 0.1.1+2
 
 environment:
   sdk: ^3.13.3

@@ -8,6 +8,11 @@ the "what's new" text inside the app, so write it for them, in Hebrew.
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-26
+
+### Security
+- הקישור של הלקוח מראה רק תמונה ותלת-ממד; קובץ ה-3MF והמתכון יורדים רק באפליקציה, עם כניסה.
+
 ## [0.1.0] - 2026-10-26
 
 ### Added

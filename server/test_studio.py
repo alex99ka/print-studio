@@ -139,6 +139,11 @@ def test_portal_shows_only_published(client, db):
     assert client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content == PNG
     assert client.get(f"/p/{TOKEN_B}/f/{vid}/preview.png").status_code == 404  # another customer's file
     assert client.get(f"/p/{TOKEN_A}/f/{vid}/..%2Fflagmaker_key.json").status_code == 404
+    # The client never gets the print file or the recipe; the signed-in studio does.
+    assert client.get(f"/p/{TOKEN_A}/f/{vid}/model.3mf").status_code == 404
+    assert client.get(f"/p/{TOKEN_A}/f/{vid}/recipe.json").status_code == 404
+    assert "model.3mf" not in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]["files"]
+    assert client.get(f"/studio/versions/{vid}/model.3mf").content.startswith(b"PK")
     page = client.get(f"/p/{TOKEN_A}")
     assert page.status_code == 200 and "Content-Security-Policy" in page.headers
 

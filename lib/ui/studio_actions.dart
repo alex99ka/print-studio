@@ -1,6 +1,7 @@
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/errors.dart';
@@ -117,10 +118,14 @@ Doc? printable(Selection s) {
 Future<void> openSlicer(BuildContext context, Selection s) => _guard(context, 'פתיחת הקובץ נכשלה', () async {
       final v = printable(s);
       if (v == null) return;
-      final url = fileUrl(s.token, v.id, 'model.3mf');
-      if (!isWindows) return _open(Uri.parse(url));
-      if (context.mounted) say(context, 'מוריד ופותח ב-Bambu Studio…');
-      await openInSlicer(url, '${s.title} v${v.data()?['n']}.3mf');
+      final name = '${s.title} v${v.data()?['n']}.3mf';
+      if (isWindows && context.mounted) say(context, 'מוריד ופותח ב-Bambu Studio…');
+      final bytes = await studioFile(v.id, 'model.3mf');
+      if (!isWindows) {
+        await SharePlus.instance.share(ShareParams(files: [XFile.fromData(bytes, name: name, mimeType: 'model/3mf')]));
+        return;
+      }
+      await openInSlicer(bytes, name);
     });
 
 Doc? withRecipe(Selection s) => filesOf(s.version).contains('recipe.json') ? s.version : null;

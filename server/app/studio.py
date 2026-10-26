@@ -45,6 +45,8 @@ FILES = {
     "assembled": ("assembled.glb", "model/gltf-binary"),
 }
 TYPES = dict(FILES.values())
+# What the client's link serves: pictures and 3D views, never the print file or the recipe.
+CLIENT_FILES = {"preview.png", "plate.glb", "assembled.glb"}
 MAX_FILE = 60 * 1024 * 1024
 OPEN = ("draft", "waiting")  # a request takes new versions only before approval
 STATIC = Path(__file__).parent / "static"
@@ -172,6 +174,15 @@ def _key_file() -> Path:
     return _data() / "flagmaker_key.json"
 
 
+@router.get("/studio/versions/{vid}/{name}")
+def studio_file(vid: str, name: str, _: User) -> FileResponse:
+    """Any file of a version, for the signed-in studio (the 3MF for the slicer)."""
+    path = _file(vid, name)
+    if not path:
+        raise HTTPException(404, "No such file")
+    return FileResponse(path, media_type=TYPES[name])
+
+
 @router.post("/studio/flagmaker-key")
 def pair_flagmaker(_: User) -> dict:
     """A new key replaces the old one, so pairing again also revokes it. Only
@@ -283,7 +294,8 @@ def portal_data(token: str, preview: str = "") -> dict:
     for vid, v in _mine(cid, "versions"):
         if v.get("state") in ("published", "approved") or vid == preview:
             versions[v.get("requestId")].append({
-                "id": vid, "n": v.get("n"), "state": v.get("state"), "files": v.get("files", []),
+                "id": vid, "n": v.get("n"), "state": v.get("state"),
+                "files": [f for f in v.get("files", []) if f in CLIENT_FILES],
                 "note": v.get("note", ""), "at": _iso(v.get("publishedAt") or v.get("createdAt")),
             })
     for qid, q in _mine(cid, "quotes"):
@@ -319,7 +331,7 @@ def portal_data(token: str, preview: str = "") -> dict:
 @router.get("/p/{token}/f/{vid}/{name}")
 def portal_file(token: str, vid: str, name: str) -> FileResponse:
     cid, _ = _customer(token)
-    path = _file(vid, name)
+    path = _file(vid, name) if name in CLIENT_FILES else None
     v = firebase.db().document(f"versions/{vid}").get() if path else None
     if not v or not v.exists or (v.to_dict() or {}).get("customerId") != cid:
         raise HTTPException(404, "No such file")

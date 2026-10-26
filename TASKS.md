@@ -53,7 +53,9 @@ without these the app connects to nothing.
 5. ✅ Web live 26.10 at https://print-studio-1786a.web.app (manual
    `flutter build web` + `firebase deploy --only hosting`; CI takes over once
    the GitHub repo exists). Android next, when Alex is home (steps 5–6).
-6. After Firebase: icon, first release (tag) on the phone, a second release to
+6. ✅ Release 0.1.0 (26.10): APK, Windows installer, web, all green in CI.
+   Next: Alex installs the APK; then a 0.1.1 to verify the in-app update.
+7. After Firebase: icon, first release (tag) on the phone, a second release to
    check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
 ## After the MVP (not built, to decide)
