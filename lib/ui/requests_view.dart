@@ -727,11 +727,12 @@ class _PinnedPreviewState extends State<PinnedPreview> {
             child: Stack(clipBehavior: Clip.none, children: [
               Positioned.fill(child: CustomPaint(painter: _Tile(image, src))),
               for (final (at, label, turn) in widget.pins)
-                if (g == 1 || turn % spinFrames == _frame)
+                if (g == 1 || turnsAway(turn, _frame) <= 3)
                   Positioned(
                     left: at.dx * tile.width - tile.shortestSide * .04,
                     top: at.dy * tile.height - tile.shortestSide * .04,
-                    child: Container(
+                    // Pins placed up to 3 turns away show faded, so every pin is findable while turning.
+                    child: Opacity(opacity: g == 1 || turnsAway(turn, _frame) == 0 ? 1 : .4, child: Container(
                       width: tile.shortestSide * .08,
                       height: tile.shortestSide * .08,
                       alignment: Alignment.center,
@@ -742,7 +743,7 @@ class _PinnedPreviewState extends State<PinnedPreview> {
                       child: Text(label,
                           style: TextStyle(
                               color: scheme.onPrimary, fontWeight: FontWeight.w700, fontSize: tile.shortestSide * .04)),
-                    ),
+                    )),
                   ),
             ]),
           ),
@@ -755,6 +756,12 @@ class _PinnedPreviewState extends State<PinnedPreview> {
       child: child,
     );
   }
+}
+
+/// How many turns apart two frames of the spin are, the short way round.
+int turnsAway(int a, int b) {
+  final d = (a - b) % spinFrames;
+  return d > spinFrames ~/ 2 ? spinFrames - d : d;
 }
 
 class _Tile extends CustomPainter {

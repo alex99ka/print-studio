@@ -129,7 +129,7 @@ const T = {
 const base = location.pathname.replace(/\/$/, '');
 const preview = new URLSearchParams(location.search).get('preview') || '';
 const $ = id => document.getElementById(id);
-let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null;
+let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null, focus = null;
 const t = () => T[lang];
 
 function h(tag, attrs = {}, ...kids) {
@@ -210,7 +210,7 @@ function detail(r) {
   const numbers = new Map(r.comments.filter(c => c.pin).map((c, i) => [c.id, i + 1]));
   const stage = h('div', {class: 'stage' + (picking ? ' picking' : '')});
   const overlay = h('div', {class: 'overlay'});
-  const markers = pinned.map(c => ({p: c.pin, el: h('span', {class: 'pin'}, numbers.get(c.id))}));
+  const markers = pinned.map(c => ({p: c.pin, id: c.id, el: h('span', {class: 'pin'}, numbers.get(c.id))}));
   if (draftPin && draftPin.view === view) markers.push({p: draftPin, el: h('span', {class: 'pin new'}, '+')});
   overlay.append(...markers.map(m => m.el));
 
@@ -255,7 +255,7 @@ function detail(r) {
   };
   input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().comments),
-    r.comments.map(c => h('div', {class: 'msg' + (c.from === 'client' ? ' me' : '')},
+    r.comments.map(c => h('div', {class: 'msg' + (c.from === 'client' ? ' me' : ''), ...(c.pin ? {role: 'button', tabindex: '0', style: 'cursor:pointer', onclick: () => showPin(r, c), onkeydown: e => { if (e.key === 'Enter') showPin(r, c); }} : {})},
       h('span', {class: 'num' + (c.pin ? ' p' : '')}, c.pin ? numbers.get(c.id) : (c.from === 'client' ? '' : t().studioName[0])),
       h('div', {class: 'bubble'}, h('span', {class: 'muted'}, `${c.from === 'client' ? t().you : t().studioName} · v${c.versionN ?? ''} · `, ltr(day(c.at))), c.text))),
     r.status !== 'paid' && !preview ? h('label', {class: 'composer'}, input, h('button', {type: 'button', class: 'send', onclick: send}, t().send)) : null));
@@ -271,6 +271,11 @@ function detail(r) {
   if (picking) setTimeout(() => stage.scrollIntoView({block: 'nearest', behavior: 'smooth'}), 0);
 }
 
+// A pinned comment turns the view to its version, view and turn.
+function showPin(r, c) {
+  sel[r.id] = c.versionId; sel['view' + r.id] = c.pin.view; focus = c.id; draftPin = null; picking = false; rerender(r);
+  document.querySelector('.stage')?.scrollIntoView({block: 'nearest', behavior: 'smooth'});
+}
 function setPin(r, p) { draftPin = p; picking = false; rerender(r); }
 function rerender(r) { if (viewer) { viewer.dispose(); viewer = null; } detail(data.requests.find(x => x.id === r.id)); }
 
@@ -322,7 +327,9 @@ function showPictures(stage, url, count, markers, onPick) {
     ctx.drawImage(img, (frame % grid) * tw, Math.floor(frame / grid) * th, tw, th, ox, oy, w, hh);
     for (const m of markers) {
       m.el.style.transform = `translate(${ox + m.p.x * w}px,${oy + m.p.y * hh}px)`;
-      m.el.style.opacity = count === 1 || Math.round(m.p.z) === frame ? '1' : '0';
+      // Pins up to 3 turns away show faded, so every pin is findable while turning.
+      const away = Math.abs(((Math.round(m.p.z) - frame) % count + count + count / 2) % count - count / 2);
+      m.el.style.opacity = count === 1 || away === 0 ? '1' : away <= 3 ? '.4' : '0';
     }
   };
   const ro = new ResizeObserver(draw); ro.observe(stage);
@@ -333,7 +340,7 @@ function showPictures(stage, url, count, markers, onPick) {
   frames.get(url).then(i => { if (!alive) return; img = i; stage.querySelector('.loading')?.remove(); draw(); },
     () => { if (alive) stage.querySelector('.loading').textContent = t().failed; });
   // Jump to the turn of a pin that is being placed or shown, so it is visible.
-  const first = markers.find(m => m.el.classList.contains('new')) || markers[0];
+  const first = markers.find(m => m.el.classList.contains('new')) || markers.find(m => m.id === focus) || markers[0];
   if (count > 1 && first) frame = Math.round(first.p.z) % count;
   stage.addEventListener('pointerdown', e => { down = {x: e.clientX, y: e.clientY, frame, moved: false}; stage.setPointerCapture(e.pointerId); });
   stage.addEventListener('pointermove', e => {
