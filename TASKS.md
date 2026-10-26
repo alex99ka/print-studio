@@ -1,45 +1,63 @@
-# מה נשאר
+# What's left
 
-## עליך
+## עליך (Alex)
 
-לפי הסדר (README › Start a new app, שלבים 1–5). הקוד מוכן ונבדק; בלי אלה
-האפליקציה לא מתחברת לשום דבר.
+In order (README › Start a new app, steps 1–5). The code is ready and tested;
+without these the app connects to nothing.
 
-1. **פרויקט Firebase** (Spark, חינם): `firebase.cmd projects:create print-studio-<משהו>`.
-   בקונסול: Authentication › Google; Firestore (me-west1). רושמים אפליקציית Web
-   ו-Android ושולחים לי את ה-config (ציבורי, לא סוד) — אני ממלא את
-   `lib/firebase_options.dart` ו-`web/firebase-messaging-sw.js`.
-2. ב-Firestore יוצרים ידנית: `config/access` = `{emails: ["alex99ka@gmail.com", "alex98ka@gmail.com"], earlyUsers: ["alex99ka@gmail.com"]}`
-   ו-`config/app` = `{minVersion: "0.0.0"}`. אחר כך: `firebase.cmd deploy --only firestore:rules --project <id>`.
-3. **לקוחות OAuth** (Google Cloud › Credentials): מזהה ה-Web client, ולקוח
-   חדש מסוג Desktop app ל-Windows.
-4. **מפתח חתימה** (`keytool` ב-README שלב 4) ב-`~/.keystores/print-studio.p12`,
-   **וגיבוי שלו ל-Drive מיד**.
-5. **ריפו ב-GitHub** `alex99ka/print-studio` (ציבורי) + הסודות והמשתנים מ-README שלב 5.
-6. **Pi**: `mkdir -p ~/docker/print-studio/data`, `.env` (GOOGLE_CLOUD_PROJECT,
-   GITHUB_REPO, APP_NAME=סטודיו הדפסה, PORT=8010, טלגרם מה-.env של אפליקציה
-   אחרת), מפתח שירות (Datastore User + FCM Admin) ב-`data/service-account.json`.
-   החלטה: איך לפרסם ב-Funnel — 8443 תפוס ע״י וירמשולקה. אפשרות: נתיב
-   (`--set-path /print-studio`) על אותו פורט.
-7. אחרי שהשרת עולה: בהגדרות ה-CRM › "חיבור ה-Flag Maker", ומדביקים כתובת
-   ומפתח ב-Flag Maker › Send to CRM.
+1. ✅ Firebase project `print-studio-1786a`, Google sign-in on. (Claude
+   registered the Web and Android apps and filled the configs.)
+2. ✅ Firestore `(default)` in `me-west1`.
+3. ✅ (Claude created them 26.10.2026.) In Firestore:
+   - `config/access` = `{emails: ["alex99ka@gmail.com", "alex98ka@gmail.com"], earlyUsers: ["alex99ka@gmail.com"]}`
+   - `config/app` = `{minVersion: "0.0.0"}`
+
+   Then (or tell Claude to): `firebase.cmd deploy --only firestore:rules`
+4. **OAuth clients** (Google Cloud › APIs & Services › Credentials, project
+   print-studio-1786a):
+   - ✅ Web client ID: `256993487907-nfkq6n19l6e2brnqav8vtm8uc2c88s2v.apps.googleusercontent.com`
+     (public; GitHub variable `GOOGLE_WEB_CLIENT_ID`). Rules deployed 26.10.2026.
+   - Create a new client of type **Desktop app** for Windows. Its ID is public;
+     its secret goes only into GitHub secrets (step 6), not to Claude.
+5. **Signing key** (`keytool`, README step 4) in `~/.keystores/print-studio.p12`,
+   **and back it up to Drive right away**.
+6. **GitHub repo** `alex99ka/print-studio` (public) + the secrets and
+   variables from README step 5.
+7. ✅ **Pi**, live 26.10 (key + Funnel done by Alex; app runs with
+   `--dart-define=SERVER_URL=https://pi5-home-server-ts.tail4f470e.ts.net:8443/print-studio`).
+   Setup notes (Claude did: `~/docker/print-studio` with code, `.env` without
+   secrets, image built; service account `print-studio-server` with Datastore
+   User + FCM Admin). Address decided 26.10:
+   `https://pi5-home-server-ts.tail4f470e.ts.net:8443/print-studio` (a path on
+   virmeshulka's port; the Pi is moving to another server soon). Left for you,
+   from Git Bash on the PC:
+   - key straight onto the Pi: `gcloud iam service-accounts keys create - --iam-account=print-studio-server@print-studio-1786a.iam.gserviceaccount.com | ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "umask 077; cat > ~/docker/print-studio/data/service-account.json"`
+   - publish: `ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "docker exec tailscale tailscale funnel --bg --https=8443 --set-path /print-studio http://127.0.0.1:8010"`
+   - optional: Telegram lines (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) in its `.env`.
+8. Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
+   address and key in Flag Maker › Send to CRM.
 
 ## אצל Claude
 
-1. ✅ שרת, פורטל, כללים, גיבוי קבצים, בדיקות (שרת 15, כללים 12).
-2. ✅ אפליקציה: פלטה A, לשוניות + רצועה, בקשות, לקוחות, מחירים, הערות, PC
-   (Bambu, Flag Maker). בדיקות 20. **לא נבדק עדיין על מסך** — צריך Firebase
-   (שלב 1 אצלך). אז: הרצה ב-Windows ובטלפון, צילומי מסך, תיקונים.
-3. ✅ קוד ב-Flag Maker (`3d/app/crm_link.py`, כפתור Send to CRM,
-   `--crm-version`). נבדק מקצה לקצה מול שרת מקומי: ייצוא אמיתי של Bambu,
-   GLB לוח + מורכב, העלאה v1/v2, מתכון חוזר, ובדפדפן: 2D/3D/על המיקרופון,
-   נעיצה בתלת-ממד, אישור, אנגלית. **לא נעשה commit בריפו של 3d ולא נבנתה
-   גרסה 5.6.0** — אחרי שהשרת חי: בדיקות הקבלה של ה-Flag Maker ואריזה.
-4. אחרי Firebase: אייקון, גרסה ראשונה (tag) על הטלפון, עדכון שני לבדיקת
-   עדכון מתוך האפליקציה, ניטור Uptime Kuma ל-`/health`, דף פרטיות.
+1. ✅ Server, portal, rules, file backup, tests (server 15, rules 12).
+2. ✅ App: palette A, tabs + ribbon, requests, customers, quotes, comments, PC
+   (Bambu, Flag Maker). 20 tests. **Not yet seen on a screen**: needs
+   Firestore + the web client ID (steps 2–4). Then: run on Windows and the
+   phone, screenshots, fixes.
+3. ✅ Firebase configs filled (`lib/firebase_options.dart`,
+   `web/firebase-messaging-sw.js`, `.firebaserc`).
+4. ✅ Flag Maker code (`3d/app/crm_link.py`, Send to CRM button,
+   `--crm-version`). Tested end to end against a local server. **Not committed
+   in the 3d repo and no 5.6.0 build**: after the server is live, run the Flag
+   Maker acceptance suite and package.
+5. ✅ Web live 26.10 at https://print-studio-1786a.web.app (manual
+   `flutter build web` + `firebase deploy --only hosting`; CI takes over once
+   the GitHub repo exists). Android next, when Alex is home (steps 5–6).
+6. After Firebase: icon, first release (tag) on the phone, a second release to
+   check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
-## אחרי ה-MVP (לא נבנה, להחליט)
+## After the MVP (not built, to decide)
 
-- צירוף תמונה להערה מהפורטל (בעיצוב היה כפתור; לא נבנה).
-- כניסת לקוח עם Google (במקום קישור בלבד).
-- חיפוש ברשימת הבקשות; פתיחה מחדש של בקשה מאושרת.
+- Image attachment on a portal comment (the design had a button; not built).
+- Client sign-in with Google (instead of link only).
+- Search in the request list; reopening an approved request.

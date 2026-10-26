@@ -35,6 +35,7 @@ def test_money_rounds_vat_half_up():
     assert studio.money(18000, 2, 18) == {"unit": 18000, "qty": 2, "vatPercent": 18, "net": 36000, "vat": 6480, "total": 42480}
     assert studio.money(1, 1, 18)["vat"] == 0  # 0.18 agora
     assert studio.money(3, 1, 18)["vat"] == 1  # 0.54 agora
+    assert studio.money(18000, 2, 0)["total"] == 36000  # VAT off
     assert studio.money(0, 5, 18)["total"] == 0
 
 

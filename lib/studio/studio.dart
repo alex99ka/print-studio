@@ -44,6 +44,9 @@ const defaultVatPercent = 18;
 }
 
 /// 42480 → "₪424.80", 123456789 → "₪1,234,567.89".
+/// Keeps an amount or number left to right inside Hebrew text (an LTR isolate).
+String ltr(String s) => '\u2066$s\u2069';
+
 String shekel(int agorot) {
   final sign = agorot < 0 ? '-' : '';
   final a = agorot.abs();
@@ -124,7 +127,8 @@ Future<void> publish(Doc request, Doc version) {
 }
 
 /// A new quote replaces the current one; quotes are never edited.
-Future<void> addQuote(Doc request, {required int unit, required int qty, required String note}) {
+Future<void> addQuote(Doc request,
+    {required int unit, required int qty, required int vatPercent, required String note}) {
   final q = quotesRef.doc();
   final b = _db.batch()
     ..set(q, {
@@ -132,7 +136,7 @@ Future<void> addQuote(Doc request, {required int unit, required int qty, require
       'customerId': request.data()?['customerId'],
       'unit': unit,
       'qty': qty,
-      'vatPercent': defaultVatPercent,
+      'vatPercent': vatPercent,
       'note': note.trim(),
       'createdAt': FieldValue.serverTimestamp(),
       'by': FirebaseAuth.instance.currentUser?.uid ?? '',

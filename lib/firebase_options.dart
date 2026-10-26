@@ -1,4 +1,4 @@
-// Placeholder until the app has its Firebase project. Fill it from
+// Project print-studio-1786a. Refresh from
 // `firebase.cmd apps:sdkconfig <WEB|ANDROID> <appId> --project <id>` (the web
 // config serves Windows too). These values are public by design: they name
 // the project, the security rules protect it.
@@ -16,19 +16,19 @@ class DefaultFirebaseOptions {
   }
 
   static const web = FirebaseOptions(
-    apiKey: 'REPLACE',
-    appId: 'REPLACE',
-    messagingSenderId: 'REPLACE',
-    projectId: 'REPLACE',
-    authDomain: 'REPLACE.firebaseapp.com',
-    storageBucket: 'REPLACE.firebasestorage.app',
+    apiKey: 'AIzaSyDLYcFtRQ7-leIsE0_jYnkdkPpDaEIS8fQ',
+    appId: '1:256993487907:web:fd6bed594f6ebfe9e89596',
+    messagingSenderId: '256993487907',
+    projectId: 'print-studio-1786a',
+    authDomain: 'print-studio-1786a.firebaseapp.com',
+    storageBucket: 'print-studio-1786a.firebasestorage.app',
   );
 
   static const android = FirebaseOptions(
-    apiKey: 'REPLACE',
-    appId: 'REPLACE',
-    messagingSenderId: 'REPLACE',
-    projectId: 'REPLACE',
-    storageBucket: 'REPLACE.firebasestorage.app',
+    apiKey: 'AIzaSyD75WT3e0vTC3bj7bt7O2wD1DdKY-qF9_k',
+    appId: '1:256993487907:android:c02cbc154b403ae8e89596',
+    messagingSenderId: '256993487907',
+    projectId: 'print-studio-1786a',
+    storageBucket: 'print-studio-1786a.firebasestorage.app',
   );
 }

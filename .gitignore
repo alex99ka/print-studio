@@ -63,3 +63,5 @@ server/data/
 server/**/__pycache__/
 firestore-tests/node_modules/
 *-debug.log
+# Firebase Hosting deploy cache
+.firebase/

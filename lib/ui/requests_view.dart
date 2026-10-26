@@ -465,13 +465,13 @@ class _RequestDetailState extends State<RequestDetail> {
           if (quote == null)
             Text('עוד אין מחיר. הלקוח יכול לאשר רק עיצוב עם מחיר.', style: TextStyle(color: s.muted))
           else ...[
-            MoneyLine('${quote['qty']} × ${shekel(quote['unit'] as int)}', money_!.net),
-            MoneyLine('מע״מ ${quote['vatPercent']}%', money_.vat),
+            MoneyLine('${quote['qty']} × ${ltr(shekel(quote['unit'] as int))}', money_!.net),
+            if ((quote['vatPercent'] as int) > 0) MoneyLine('מע״מ ${quote['vatPercent']}%', money_.vat),
             const Divider(),
             MoneyLine('סה״כ', money_.total, bold: true),
             if ('${quote['note'] ?? ''}'.isNotEmpty) Text('${quote['note']}', style: TextStyle(color: s.muted)),
             for (final q in quotes.where((q) => q.id != quote.id))
-              Text('קודם: ${shekel(q['unit'] as int)} × ${q['qty']} · ${day(q['createdAt'])}',
+              Text('קודם: ${ltr(shekel(q['unit'] as int))} × ${q['qty']} · ${day(q['createdAt'])}',
                   style: TextStyle(color: s.muted, fontSize: 12)),
           ],
           if (r['approvedAt'] != null)
@@ -539,9 +539,9 @@ class _RequestDetailState extends State<RequestDetail> {
         const SizedBox(height: 16),
         if (box.maxWidth >= 700)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Expanded(child: quoteCard),
+            SizedBox(width: 320, child: quoteCard),
             const SizedBox(width: 16),
-            Expanded(flex: 4, child: talk),
+            Expanded(child: talk),
           ])
         else ...[
           quoteCard,

@@ -21,7 +21,7 @@ Improvements to `lib/core/` go back into the starter.
 Multiple customers, one permanent portal link each (token only; client Google
 sign-in later). Request → versions; only Alex creates requests. Versions land
 as drafts; Alex publishes. Comments: thread + pins on 2D/3D/assembled. Quote
-before VAT + VAT + total, re-quote until accepted, one-step approval of design
+(VAT 18% is a switch per quote, off by default, decided 26.10) + total, re-quote until accepted, one-step approval of design
 + price, then locked. Statuses טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן →
 נמסר → שולם. Alerts to Alex: FCM push only; the client is told by a WhatsApp
 link Alex sends. Portal Hebrew + English toggle. Flag Maker ↔ CRM two-way, PC

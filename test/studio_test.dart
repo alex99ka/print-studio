@@ -6,6 +6,7 @@ void main() {
     expect(money(18000, 2, 18), (net: 36000, vat: 6480, total: 42480));
     expect(money(1, 1, 18).vat, 0); // 0.18 agora
     expect(money(3, 1, 18).vat, 1); // 0.54 agora rounds up
+    expect(money(18000, 2, 0), (net: 36000, vat: 0, total: 36000)); // VAT off
     expect(money(0, 5, 18).total, 0);
   });
 

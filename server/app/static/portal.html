@@ -108,8 +108,8 @@ const T = {
     version:'גרסה', units:'יח׳', updated:'עודכן', now:'עכשיו', versions:'גרסאות:', view2d:'2D', view3d:'3D', asm:'על המיקרופון',
     drag:'גררו לסיבוב · צביטה לזום', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
     pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', unitsX:(q,u)=>`${q} יחידות × ${u}`, vat:p=>`מע״מ ${p}%`, total:'סה״כ לתשלום',
-    noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a} לפני מע״מ)`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
-    approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t)=>`גרסה ${v} במחיר ${t} כולל מע״מ. אחרי האישור אי אפשר לשנות.`,
+    noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a})`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
+    approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
     yes:'כן, מאשר/ת', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
     you:'את/ה', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
@@ -119,8 +119,8 @@ const T = {
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
     drag:'Drag to rotate · pinch to zoom', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
     pinSet:'The comment will be pinned there', quote:'Quote', unitsX:(q,u)=>`${q} pcs × ${u}`, vat:p=>`VAT ${p}%`, total:'Total',
-    noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a} before VAT)`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
-    approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t)=>`Version ${v} for ${t} incl. VAT. This can't be changed afterwards.`,
+    noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a})`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
+    approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t,vat)=>`Version ${v} for ${t}${vat ? ' incl. VAT' : ''}. This can't be changed afterwards.`,
     yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send',
     you:'You', studioName:'Print Studio', none:'Nothing is waiting for your approval.', noneApproved:'Nothing approved yet.',
     footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
@@ -254,10 +254,10 @@ function detail(r) {
   const q = r.quote;
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().quote), q ? [
     h('div', {class: 'line'}, h('span', {class: 'muted'}, t().unitsX(q.qty, ''), ltr(shekel(q.unit))), ltr(shekel(q.net))),
-    h('div', {class: 'line'}, h('span', {class: 'muted'}, t().vat(q.vatPercent)), ltr(shekel(q.vat))),
+    q.vatPercent ? h('div', {class: 'line'}, h('span', {class: 'muted'}, t().vat(q.vatPercent)), ltr(shekel(q.vat))) : null,
     h('div', {class: 'line total'}, h('span', {}, t().total), ltr(shekel(q.total))),
     q.note ? h('span', {class: 'muted', style: 'white-space:pre-wrap'}, q.note) : null,
-    r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].net), day(q.at))) : null,
+    r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].total), day(q.at))) : null,
     open ? h('span', {class: 'muted'}, t().approveNote) : null,
   ] : h('span', {class: 'muted'}, t().noQuote)));
 
@@ -280,7 +280,7 @@ function detail(r) {
   const canApprove = open && q && v.id === r.currentVersionId && !preview;
   $('bar').hidden = !canApprove;
   if (canApprove) {
-    $('barLabel').textContent = t().totalVat; $('barTotal').textContent = shekel(q.total);
+    $('barLabel').textContent = q.vatPercent ? t().totalVat : t().total; $('barTotal').textContent = shekel(q.total);
     $('approve').querySelector('span').textContent = t().approve;
     $('approve').onclick = () => confirmApprove(r, v, q);
   }
@@ -292,7 +292,7 @@ function rerender(r) { if (viewer) { viewer.dispose(); viewer = null; } detail(d
 
 function confirmApprove(r, v, q) {
   const d = $('confirm');
-  $('confirmTitle').textContent = t().confirmTitle; $('confirmText').textContent = t().confirmText(v.n, shekel(q.total));
+  $('confirmTitle').textContent = t().confirmTitle; $('confirmText').textContent = t().confirmText(v.n, shekel(q.total), q.vatPercent > 0);
   $('confirmNo').textContent = t().no; $('confirmYes').textContent = t().yes;
   $('confirmNo').onclick = () => d.close();
   $('confirmYes').onclick = async () => {

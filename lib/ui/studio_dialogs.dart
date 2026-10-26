@@ -170,7 +170,7 @@ class _CustomerDialogState extends State<CustomerDialog> {
       );
 }
 
-/// A price before VAT, per unit; the total with VAT shows as you type.
+/// A price per unit, VAT off by default (Alex switches it on per quote); the total shows as you type.
 class QuoteDialog extends StatefulWidget {
   const QuoteDialog({super.key, required this.request, this.current});
   final Doc request;
@@ -185,6 +185,7 @@ class _QuoteDialogState extends State<QuoteDialog> {
       text: widget.current == null ? '' : shekel(widget.current!['unit'] as int).replaceAll(RegExp('[₪,]'), ''));
   late final _qty = TextEditingController(text: '${widget.request.data()?['qty'] ?? 1}');
   late final _note = TextEditingController(text: '${widget.current?['note'] ?? ''}');
+  late bool _vat = ((widget.current?['vatPercent'] as int?) ?? 0) > 0;
 
   @override
   void dispose() {
@@ -199,7 +200,8 @@ class _QuoteDialogState extends State<QuoteDialog> {
     final unit = parseShekel(_unit.text);
     final qty = int.tryParse(_qty.text.trim());
     final ok = unit != null && qty != null && qty >= 1;
-    final m = ok ? money(unit, qty, defaultVatPercent) : null;
+    final vatPercent = _vat ? defaultVatPercent : 0;
+    final m = ok ? money(unit, qty, vatPercent) : null;
     return AlertDialog(
       title: Text(widget.current == null ? 'הצעת מחיר' : 'הצעת מחיר חדשה'),
       content: SizedBox(
@@ -217,7 +219,7 @@ class _QuoteDialogState extends State<QuoteDialog> {
                 autofocus: true,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                    labelText: 'מחיר ליחידה לפני מע״מ (₪)',
+                    labelText: _vat ? 'מחיר ליחידה לפני מע״מ (₪)' : 'מחיר ליחידה (₪)',
                     errorText: _unit.text.isNotEmpty && unit == null ? 'מספר, למשל 180 או 180.50' : null),
                 onChanged: (_) => setState(() {}),
               ),
@@ -234,11 +236,19 @@ class _QuoteDialogState extends State<QuoteDialog> {
             ),
           ]),
           const SizedBox(height: 12),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('להוסיף מע״מ $defaultVatPercent%'),
+            value: _vat,
+            onChanged: (v) => setState(() => _vat = v),
+          ),
           TextField(controller: _note, decoration: const InputDecoration(labelText: 'הערה ללקוח (לא חובה)')),
           if (m != null) ...[
             const SizedBox(height: 16),
-            MoneyLine('לפני מע״מ', m.net),
-            MoneyLine('מע״מ $defaultVatPercent%', m.vat),
+            if (_vat) ...[
+              MoneyLine('לפני מע״מ', m.net),
+              MoneyLine('מע״מ $vatPercent%', m.vat),
+            ],
             MoneyLine('סה״כ', m.total, bold: true),
           ],
         ]),
@@ -252,7 +262,7 @@ class _QuoteDialogState extends State<QuoteDialog> {
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(context);
                   try {
-                    await addQuote(widget.request, unit: unit, qty: qty, note: _note.text);
+                    await addQuote(widget.request, unit: unit, qty: qty, vatPercent: vatPercent, note: _note.text);
                   } catch (e) {
                     showError(messenger, e, 'שמירת המחיר נכשלה');
                   }
