@@ -115,14 +115,12 @@ class _RequestListState extends State<RequestList> {
   String? _filter; // a status, 'reply', or null for all
 
   Future<void> _menu(QueryDocumentSnapshot<Map<String, dynamic>> d) async {
-    final draft = d['status'] == 'draft';
     final choice = await showModalBottomSheet<String>(
       context: context,
       builder: (c) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           ListTile(leading: const Icon(Icons.edit_outlined), title: const Text('שינוי שם'), onTap: () => Navigator.pop(c, 'rename')),
-          if (draft)
-            ListTile(leading: const Icon(Icons.delete_outline), title: const Text('מחיקה'), onTap: () => Navigator.pop(c, 'delete')),
+          ListTile(leading: const Icon(Icons.delete_outline), title: const Text('מחיקה'), onTap: () => Navigator.pop(c, 'delete')),
         ]),
       ),
     );
@@ -145,19 +143,21 @@ class _RequestListState extends State<RequestList> {
         d.reference.update({'title': title.trim()}).catchError((Object e) => showError(messenger, e, 'השמירה נכשלה'));
       }
     } else if (choice == 'delete') {
-      // A draft the customer never saw; still not undoable (its files go too), so ask.
+      // Not undoable: the versions, files, quotes and comments go too, so ask.
       final yes = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: Text('למחוק את "${d['title']}"?'),
-          content: const Text('הבקשה עוד לא פורסמה ללקוח. אי אפשר לבטל.'),
+          content: Text(d['status'] == 'draft'
+              ? 'הבקשה עוד לא פורסמה ללקוח. הגרסאות והקבצים שלה יימחקו. אי אפשר לבטל.'
+              : 'הלקוח כבר ראה אותה. יימחקו גם הגרסאות, הקבצים, הצעות המחיר וההערות, והיא תיעלם מהקישור של הלקוח. אי אפשר לבטל.'),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ביטול')),
             FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('מחיקה')),
           ],
         ),
       );
-      if (yes == true) d.reference.delete().catchError((Object e) => showError(messenger, e, 'המחיקה נכשלה'));
+      if (yes == true) deleteRequest(d.id).catchError((Object e) => showError(messenger, e, 'המחיקה נכשלה'));
     }
   }
 

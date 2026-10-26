@@ -44,6 +44,32 @@ class _CustomersViewState extends State<CustomersView> {
     }
   }
 
+  Future<void> _delete(QueryDocumentSnapshot<Map<String, dynamic>> c, int total) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('למחוק את ${c['name']}?'),
+        content: Text('יימחקו גם $total הבקשות של הלקוח, עם הגרסאות, הקבצים, הצעות המחיר וההערות. '
+            'קישור הפורטל יפסיק לעבוד. אי אפשר לבטל.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ביטול')),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(ctx).colorScheme.error),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('מחיקה'),
+          ),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await deleteCustomer(c.id);
+    } catch (e) {
+      showError(messenger, e, 'המחיקה נכשלה');
+    }
+  }
+
   @override
   Widget build(BuildContext context) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
         stream: _requests,
@@ -73,6 +99,7 @@ class _CustomersViewState extends State<CustomersView> {
                   waiting: requests.where((r) => r['customerId'] == c.id && r['status'] == 'waiting').length,
                   total: requests.where((r) => r['customerId'] == c.id).length,
                   onReplace: () => _replaceLink(c),
+                  onDelete: () => _delete(c, requests.where((r) => r['customerId'] == c.id).length),
                 ),
                 const SizedBox(height: 12),
               ],
@@ -83,10 +110,10 @@ class _CustomersViewState extends State<CustomersView> {
 }
 
 class _CustomerCard extends StatelessWidget {
-  const _CustomerCard(this.c, {required this.waiting, required this.total, required this.onReplace});
+  const _CustomerCard(this.c, {required this.waiting, required this.total, required this.onReplace, required this.onDelete});
   final QueryDocumentSnapshot<Map<String, dynamic>> c;
   final int waiting, total;
-  final VoidCallback onReplace;
+  final VoidCallback onReplace, onDelete;
 
   @override
   Widget build(BuildContext context) {
@@ -103,6 +130,7 @@ class _CustomerCard extends StatelessWidget {
               icon: const Icon(Icons.edit_outlined),
               onPressed: () => showDialog<void>(context: context, builder: (_) => CustomerDialog(customer: c)),
             ),
+            IconButton(tooltip: 'מחיקה', icon: const Icon(Icons.delete_outline), onPressed: onDelete),
           ]),
           Text(
             [

@@ -195,3 +195,24 @@ def test_portal_posts_are_rate_limited(client, db, pushes, monkeypatch):
     for _ in range(60):
         studio._limit(TOKEN_A)
     assert client.post(f"/p/{TOKEN_A}/requests/r1/comments", json={"versionId": vid, "text": "x"}).status_code == 429
+
+
+def test_delete_request_and_customer_take_everything(client, db, tmp_path, pushes):
+    vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    publish(db, vid)
+    client.post(f"/p/{TOKEN_A}/requests/r1/comments", json={"versionId": vid, "text": "שלום"})
+    db.document("requests/r2").set({"customerId": "c2", "title": "other", "qty": 1, "status": "draft", "latestVersion": 0})
+    assert client.delete("/studio/requests/nope").status_code == 404
+    assert client.delete("/studio/requests/r1").json() == {"ok": True}
+    for col in ("versions", "quotes", "comments"):
+        assert not list(db.collection(col).stream()), col
+    assert not db.document("requests/r1").get().exists and not (tmp_path / "files" / vid).exists()
+    assert db.document("requests/r2").get().exists  # another customer's request stays
+    assert client.delete("/studio/customers/c2").json() == {"ok": True}
+    assert not db.document("customers/c2").get().exists and not db.document("requests/r2").get().exists
+    assert db.document("customers/c1").get().exists
+    assert client.get(f"/p/{TOKEN_B}/data").status_code == 404  # the deleted customer's link is dead
+
+
+def test_delete_needs_sign_in(db):
+    assert TestClient(main.app).delete("/studio/customers/c1").status_code == 401

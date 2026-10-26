@@ -201,6 +201,42 @@ def upload_from_app(rid: str, _: User, up: Annotated[Upload, Depends()]) -> dict
     return create_version(rid, up, "app")
 
 
+def _delete_request(db, rid: str) -> None:
+    """A request with everything hanging off it: versions (and their files),
+    quotes and comments. Records first, files last, so a failure halfway never
+    leaves a version whose files are gone."""
+    vids = []
+    for col in ("versions", "quotes", "comments"):
+        for d in db.collection(col).where(filter=FieldFilter("requestId", "==", rid)).stream():
+            if col == "versions":
+                vids.append(d.id)
+            d.reference.delete()
+    db.document(f"requests/{rid}").delete()
+    for vid in vids:
+        shutil.rmtree(_data() / "files" / vid, ignore_errors=True)
+
+
+@router.delete("/studio/requests/{rid}")
+def delete_request(rid: str, _: User) -> dict:
+    db = firebase.db()
+    if not db.document(f"requests/{rid}").get().exists:
+        raise HTTPException(404, "No such request")
+    _delete_request(db, rid)
+    return {"ok": True}
+
+
+@router.delete("/studio/customers/{cid}")
+def delete_customer(cid: str, _: User) -> dict:
+    """The customer, their portal link (the token is on their record) and all their requests."""
+    db = firebase.db()
+    if not db.document(f"customers/{cid}").get().exists:
+        raise HTTPException(404, "No such customer")
+    for d in db.collection("requests").where(filter=FieldFilter("customerId", "==", cid)).stream():
+        _delete_request(db, d.id)
+    db.document(f"customers/{cid}").delete()
+    return {"ok": True}
+
+
 # --- the Flag Maker (a desktop app with a paired key, not a Google account) ---------
 
 

@@ -212,5 +212,11 @@ Future<int> uploadVersion(String requestId, List<XFile> files, {String note = ''
   return (jsonDecode(res.body) as Map<String, dynamic>)['n'] as int;
 }
 
+/// Deleted on the server with its versions, files, quotes and comments. Not undoable.
+Future<void> deleteRequest(String id) => server('DELETE', '/studio/requests/$id');
+
+/// The customer, their portal link and every request of theirs. Not undoable.
+Future<void> deleteCustomer(String id) => server('DELETE', '/studio/customers/$id');
+
 /// A new key for the Flag Maker; the previous one stops working.
 Future<String> pairFlagMaker() async => (await server('POST', '/studio/flagmaker-key'))['key'] as String;
