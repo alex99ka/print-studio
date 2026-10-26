@@ -62,9 +62,8 @@ without these the app connects to nothing.
    release check is conditional (ETag), so it no longer eats the home
    connection's 60 GitHub calls/hour (that caused the phone's update error).
    Same fix in app-shell `server/app/jobs.py` (uncommitted there).
-9. Flag Maker 5.6.0: the CRM code is only in `3d/app` (uncommitted);
-   `app/tests/check_crm_link.py` passes. Needs Alex's word to commit and
-   run the full acceptance + packaging.
+9. ✅ Flag Maker 5.6.0 released 26.10 (Send to CRM, spin views; packaged, committed, pushed).
+   CRM 0.1.4–0.1.6: in-app 3D, handled comments, every pin visible, delete request/customer.
 10. After Firebase: icon, first release (tag) on the phone, a second release to
    check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
