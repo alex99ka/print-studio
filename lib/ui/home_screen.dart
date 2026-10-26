@@ -12,6 +12,7 @@ import '../core/tour.dart';
 import '../core/update.dart';
 import '../core/web_update.dart';
 import 'customers_view.dart';
+import 'money_view.dart';
 import 'requests_view.dart';
 import 'ribbon.dart';
 import 'settings_page.dart';
@@ -19,7 +20,7 @@ import 'studio_actions.dart';
 import 'theme.dart';
 import 'update_banner.dart';
 
-/// Tabs along the top like Word's (בית · לקוחות · הגדרות), the ribbon under
+/// Tabs along the top like Word's (בית · לקוחות · כספים · הגדרות), the ribbon under
 /// them, and the tab's page below.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -28,7 +29,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-const _tabs = ['בית', 'לקוחות', 'הגדרות'];
+const _tabs = ['בית', 'לקוחות', 'כספים', 'הגדרות'];
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
@@ -142,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> {
             alignment: AlignmentDirectional.centerStart,
             child: Row(children: [
               for (final (i, label) in _tabs.indexed)
-                if (i == 2) TourTarget('settings', child: _tabButton(i, label)) else _tabButton(i, label),
+                if (i == 3) TourTarget('settings', child: _tabButton(i, label)) else _tabButton(i, label),
             ]),
           ),
         ),
@@ -152,6 +153,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: IndexedStack(index: _tab, children: const [
             RequestsView(),
             CustomersView(),
+            MoneyView(),
             SettingsPage(embedded: true),
           ]),
         ),

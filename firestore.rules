@@ -101,6 +101,18 @@ service cloud.firestore {
         && shortText(request.resource.data.note, 1000);
     }
 
+    // Money received for a request, in agorot. A mistake is deleted and entered again, never edited.
+    match /payments/{id} {
+      allow read, delete: if allowed();
+      allow create: if allowed()
+        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'amount', 'method', 'note', 'at', 'createdAt'])
+        && request.resource.data.requestId is string && request.resource.data.customerId is string
+        && request.resource.data.amount is int && request.resource.data.amount > 0
+        && request.resource.data.method in ['bit', 'paybox', 'transfer', 'cash', 'check', 'other']
+        && request.resource.data.at is timestamp
+        && shortText(request.resource.data.note, 500);
+    }
+
     match /comments/{id} {
       allow read: if allowed();
       allow create: if allowed()

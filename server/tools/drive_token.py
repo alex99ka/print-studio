@@ -1,6 +1,9 @@
 """Run once on the PC to let the server back up to your Google Drive:
 
-    python server/tools/drive_token.py <client_id> <client_secret>
+    python server/tools/drive_token.py <client_secret_....json>   (the file Google Cloud downloads)
+    python server/tools/drive_token.py <client_id>                (asks for the secret)
+
+It asks for the client secret (typed or pasted, not shown, not kept in the shell history).
 
 It opens Google's consent page in the browser (use a "Desktop app" OAuth
 client of the app's Firebase project), then prints the three lines to put in
@@ -9,11 +12,13 @@ the files it creates itself. Standard library only.
 """
 
 import base64
+import getpass
 import hashlib
 import http.server
 import json
 import secrets
 import sys
+import urllib.error
 import urllib.parse
 import urllib.request
 import webbrowser
@@ -70,7 +75,11 @@ def main(client_id: str, client_secret: str) -> None:
             "code_verifier": verifier,
         }
     ).encode()
-    tokens = json.load(urllib.request.urlopen("https://oauth2.googleapis.com/token", body, timeout=30))
+    try:
+        tokens = json.load(urllib.request.urlopen("https://oauth2.googleapis.com/token", body, timeout=30))
+    except urllib.error.HTTPError as e:
+        # 401 invalid_client = the secret does not belong to this client id.
+        sys.exit(f"Google refused: {e.read().decode(errors='replace')}")
     print("\nAdd to the Pi's .env (nano ~/docker/<app>/.env):\n")
     print(f"DRIVE_CLIENT_ID={client_id}")
     print(f"DRIVE_CLIENT_SECRET={client_secret}")
@@ -78,6 +87,14 @@ def main(client_id: str, client_secret: str) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 3:
+    if len(sys.argv) not in (2, 3):
         sys.exit(__doc__)
-    main(sys.argv[1], sys.argv[2])
+    if sys.argv[1].lower().endswith(".json"):
+        with open(sys.argv[1], encoding="utf-8") as f:
+            c = json.load(f)
+        c = c.get("installed") or c.get("web") or {}
+        if "client_id" not in c:
+            sys.exit("That JSON is not an OAuth client file (Credentials > OAuth client > Download JSON).")
+        main(c["client_id"], c["client_secret"])
+    else:
+        main(sys.argv[1], sys.argv[2] if len(sys.argv) == 3 else getpass.getpass("Client secret: ").strip())

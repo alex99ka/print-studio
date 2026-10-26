@@ -113,6 +113,7 @@ const T = {
     you:'את/ה', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
+    toPay:'נותר לתשלום', toPayAll:'סה״כ נותר',
     st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם'}},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
@@ -124,6 +125,7 @@ const T = {
     you:'You', studioName:'Print Studio', none:'Nothing is waiting for your approval.', noneApproved:'Nothing approved yet.',
     footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
     failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
+    toPay:'Left to pay', toPayAll:'Total left',
     st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid'}},
 };
 const base = location.pathname.replace(/\/$/, '');
@@ -192,7 +194,12 @@ function list() {
           r.quote ? h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(r.quote.total)) : null)),
       icon(CHEVRON));
   });
-  $('main').replaceChildren(seg, ...(cards.length ? cards : [h('p', {class: 'empty'}, tab === 'waiting' ? t().none : t().noneApproved)]),
+  // What is left to pay on approved orders (only the balance: payment records stay with the studio).
+  const owing = data.requests.filter(r => r.due > 0), owed = owing.reduce((a, r) => a + r.due, 0);
+  const due = owing.length ? h('section', {class: 'card'}, h('h2', {}, t().toPay),
+    owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
+    owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null) : null;
+  $('main').replaceChildren(...(due ? [due] : []), seg, ...(cards.length ? cards : [h('p', {class: 'empty'}, tab === 'waiting' ? t().none : t().noneApproved)]),
     h('p', {class: 'muted', style: 'text-align:center'}, t().footer));
 }
 
@@ -240,6 +247,7 @@ function detail(r) {
     h('div', {class: 'line'}, h('span', {class: 'muted'}, t().unitsX(q.qty, ''), ltr(shekel(q.unit))), ltr(shekel(q.net))),
     q.vatPercent ? h('div', {class: 'line'}, h('span', {class: 'muted'}, t().vat(q.vatPercent)), ltr(shekel(q.vat))) : null,
     h('div', {class: 'line total'}, h('span', {}, t().total), ltr(shekel(q.total))),
+    r.due > 0 ? h('div', {class: 'line total'}, h('span', {}, t().toPay), ltr(shekel(r.due))) : null,
     q.note ? h('span', {class: 'muted', style: 'white-space:pre-wrap'}, q.note) : null,
     r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].total), day(q.at))) : null,
     open ? h('span', {class: 'muted'}, t().approveNote) : null,

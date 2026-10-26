@@ -293,3 +293,88 @@ class MoneyLine extends StatelessWidget {
     );
   }
 }
+
+/// Money received for a request: the amount (what is left, to start with), how, and which day.
+class PaymentDialog extends StatefulWidget {
+  const PaymentDialog({super.key, required this.request, required this.left});
+  final Doc request;
+  final int left;
+
+  @override
+  State<PaymentDialog> createState() => _PaymentDialogState();
+}
+
+class _PaymentDialogState extends State<PaymentDialog> {
+  late final _amount =
+      TextEditingController(text: widget.left > 0 ? shekel(widget.left).replaceAll(RegExp('[₪,]'), '') : '');
+  final _note = TextEditingController();
+  String _method = 'bit';
+  DateTime _at = DateTime.now();
+
+  @override
+  void dispose() {
+    _amount.dispose();
+    _note.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final amount = parseShekel(_amount.text);
+    final ok = amount != null && amount > 0;
+    return AlertDialog(
+      title: const Text('רישום תשלום'),
+      content: SizedBox(
+        width: 420,
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          TextField(
+            controller: _amount,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+                labelText: 'סכום (₪)',
+                helperText: widget.left > 0 ? 'נותר לתשלום: ${ltr(shekel(widget.left))}' : null,
+                errorText: _amount.text.isNotEmpty && !ok ? 'מספר, למשל 200 או 212.40' : null),
+            onChanged: (_) => setState(() {}),
+          ),
+          const SizedBox(height: 12),
+          DropdownButtonFormField<String>(
+            initialValue: _method,
+            decoration: const InputDecoration(labelText: 'אמצעי תשלום'),
+            items: [for (final e in paymentMethods.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+            onChanged: (v) => setState(() => _method = v ?? _method),
+          ),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            icon: const Icon(Icons.event_outlined),
+            label: Text('התקבל ב-${_at.day}.${_at.month}.${_at.year}'),
+            onPressed: () async {
+              final d = await showDatePicker(
+                  context: context, initialDate: _at, firstDate: DateTime(2024), lastDate: DateTime.now());
+              if (d != null) setState(() => _at = d);
+            },
+          ),
+          const SizedBox(height: 12),
+          TextField(controller: _note, decoration: const InputDecoration(labelText: 'הערה (לא חובה, רק אצלך)')),
+        ]),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('ביטול')),
+        FilledButton(
+          onPressed: !ok
+              ? null
+              : () async {
+                  final messenger = ScaffoldMessenger.of(context);
+                  Navigator.pop(context);
+                  try {
+                    await addPayment(widget.request, amount: amount, method: _method, at: _at, note: _note.text);
+                  } catch (e) {
+                    showError(messenger, e, 'רישום התשלום נכשל');
+                  }
+                },
+          child: const Text('שמירה'),
+        ),
+      ],
+    );
+  }
+}

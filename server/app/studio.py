@@ -7,7 +7,7 @@ customer and checks that whatever is asked for belongs to them.
 
 Who writes what:
 - the app (checked by firestore.rules): customers, requests, quotes, the
-  studio's comments, publishing a version (request.publishedVersionId);
+  studio's comments, payments received, publishing a version (request.publishedVersionId);
 - here (Admin SDK): versions (uploads from the app or the Flag Maker), the
   customer's comments and the approval.
 """
@@ -206,7 +206,7 @@ def _delete_request(db, rid: str) -> None:
     quotes and comments. Records first, files last, so a failure halfway never
     leaves a version whose files are gone."""
     vids = []
-    for col in ("versions", "quotes", "comments"):
+    for col in ("versions", "quotes", "comments", "payments"):
         for d in db.collection(col).where(filter=FieldFilter("requestId", "==", rid)).stream():
             if col == "versions":
                 vids.append(d.id)
@@ -360,7 +360,7 @@ def portal_data(token: str, preview: str = "") -> dict:
     """Everything the customer sees. [preview] is a draft version id: the app
     opens the portal with it so the studio sees a draft as the customer will."""
     cid, c = _customer(token)
-    versions, quotes, comments = defaultdict(list), defaultdict(list), defaultdict(list)
+    versions, quotes, comments, payments = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
     for vid, v in _mine(cid, "versions"):
         if v.get("state") in ("published", "approved") or vid == preview:
             versions[v.get("requestId")].append({
@@ -378,21 +378,28 @@ def portal_data(token: str, preview: str = "") -> dict:
             "id": mid, "from": m.get("from"), "text": m.get("text", ""), "pin": m.get("pin"),
             "versionId": m.get("versionId"), "versionN": m.get("versionN"), "at": _iso(m.get("createdAt")),
         })
+    for _, p in _mine(cid, "payments"):
+        payments[p.get("requestId")].append(int(p.get("amount", 0)))
     out = []
     for rid, r in _mine(cid, "requests"):
         if not versions[rid]:
             continue  # nothing published yet
         qs = sorted(quotes[rid], key=lambda q: q["at"] or "")
+        quote = next((q for q in qs if q["id"] == r.get("quoteId")), None)
+        paid = sum(payments[rid])
         out.append({
             "id": rid, "title": r.get("title", ""), "qty": r.get("qty", 1), "status": r.get("status", "draft"),
             "updated": _iso(r.get("updatedAt")),
             "currentVersionId": r.get("publishedVersionId"),
             "versions": sorted(versions[rid], key=lambda v: v["n"] or 0),
-            "quote": next((q for q in qs if q["id"] == r.get("quoteId")), None),
+            "quote": quote,
             "previousQuotes": [q for q in qs if q["id"] != r.get("quoteId")],
             "comments": sorted(comments[rid], key=lambda m: m["at"] or ""),
             "approved": {"versionId": r.get("approvedVersionId"), "at": _iso(r.get("approvedAt"))}
             if r.get("approvedVersionId") else None,
+            # Owed once the client approved the price; until then the quote is only an offer.
+            # Only what is left: Alex's payment records (dates, methods, notes) stay in the studio.
+            "due": max(quote["total"] - paid, 0) if quote and r.get("status", "draft") not in OPEN else 0,
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
     return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he")}, "requests": out}

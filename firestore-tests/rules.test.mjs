@@ -159,3 +159,17 @@ test('anything else is denied', async () => {
   await assertFails(setDoc(doc(db(ALEX), 'secrets/x'), { a: 1 }));
   await assertFails(getDoc(doc(db(ALEX), 'secrets/x')));
 });
+
+test('payments: the app records and deletes them, positive whole agorot, never edits', async () => {
+  const pay = { requestId: 'done', customerId: 'c1', amount: 21240, method: 'bit', note: 'מקדמה', at: new Date(), createdAt: new Date() };
+  await assertSucceeds(setDoc(doc(db(ALEX), 'payments/p1'), pay));
+  await assertSucceeds(getDoc(doc(db(ALEX), 'payments/p1')));
+  await assertFails(updateDoc(doc(db(ALEX), 'payments/p1'), { amount: 1 }));
+  await assertFails(setDoc(doc(db(ALEX), 'payments/p2'), { ...pay, amount: 0 }));
+  await assertFails(setDoc(doc(db(ALEX), 'payments/p2'), { ...pay, amount: 1.5 }));
+  await assertFails(setDoc(doc(db(ALEX), 'payments/p2'), { ...pay, method: 'crypto' }));
+  await assertFails(setDoc(doc(db(ALEX), 'payments/p2'), { ...pay, extra: 1 }));
+  await assertFails(setDoc(doc(db(STRANGER), 'payments/p2'), pay));
+  await assertFails(getDoc(doc(db(STRANGER), 'payments/p1')));
+  await assertSucceeds(deleteDoc(doc(db(ALEX), 'payments/p1')));
+});

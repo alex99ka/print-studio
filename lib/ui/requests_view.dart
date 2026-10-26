@@ -113,6 +113,8 @@ class _RequestListState extends State<RequestList> {
   final _requests = requestsRef.orderBy('updatedAt', descending: true).snapshots();
   final _customers = customersRef.snapshots();
   String? _filter; // a status, 'reply', or null for all
+  String _query = '', _sort = 'updated';
+  static const _sorts = {'updated': 'עודכן לאחרונה', 'created': 'נפתח לאחרונה', 'customer': 'לפי לקוח'};
 
   Future<void> _menu(QueryDocumentSnapshot<Map<String, dynamic>> d) async {
     final choice = await showModalBottomSheet<String>(
@@ -179,11 +181,20 @@ class _RequestListState extends State<RequestList> {
             final tokens = {for (final c in cs.data?.docs ?? const <Doc>[]) c.id: '${c.data()?['portalToken'] ?? ''}'};
             final waiting = all.where((d) => d['status'] == 'waiting');
             updateHomeWidgets(open: waiting.length, titles: [for (final d in waiting.take(3)) '${d['title']}']);
-            final shown = all.where((d) => switch (_filter) {
-                  null => true,
-                  'reply' => d.data()['needsReply'] == true,
-                  final f => d['status'] == f,
-                }).toList();
+            final q = _query.trim().toLowerCase();
+            final shown = all
+                .where((d) => switch (_filter) {
+                      null => true,
+                      'reply' => d.data()['needsReply'] == true,
+                      final f => d['status'] == f,
+                    })
+                .where((d) => q.isEmpty || '${d['title']} ${d.data()['customerName'] ?? ''}'.toLowerCase().contains(q))
+                .toList();
+            // The stream comes newest-updated first; the other orders sort here.
+            if (_sort == 'created') shown.sort((a, b) => _at(b.data()['createdAt']).compareTo(_at(a.data()['createdAt'])));
+            if (_sort == 'customer') {
+              shown.sort((a, b) => '${a.data()['customerName'] ?? ''}'.compareTo('${b.data()['customerName'] ?? ''}'));
+            }
             final counts = <String?, int>{
               null: all.length,
               'reply': all.where((d) => d.data()['needsReply'] == true).length,
@@ -213,9 +224,30 @@ class _RequestListState extends State<RequestList> {
               child: ListView(
                 children: [
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+                    padding: const EdgeInsets.fromLTRB(12, 12, 4, 0),
+                    child: Row(children: [
+                      Expanded(
+                        child: TextField(
+                          decoration: const InputDecoration(
+                              prefixIcon: Icon(Icons.search), hintText: 'חיפוש לפי שם בקשה או לקוח', isDense: true),
+                          onChanged: (v) => setState(() => _query = v),
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        tooltip: 'מיון: ${_sorts[_sort]}',
+                        icon: const Icon(Icons.sort),
+                        initialValue: _sort,
+                        onSelected: (v) => setState(() => _sort = v),
+                        itemBuilder: (_) => [for (final e in _sorts.entries) PopupMenuItem(value: e.key, child: Text(e.value))],
+                      ),
+                    ]),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
                     child: Wrap(spacing: 6, runSpacing: 6, children: chips),
                   ),
+                  if (all.isNotEmpty && shown.isEmpty)
+                    const Padding(padding: EdgeInsets.all(32), child: Text('אין בקשות שמתאימות לחיפוש.', textAlign: TextAlign.center)),
                   if (all.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
@@ -307,6 +339,7 @@ class _RequestDetailState extends State<RequestDetail> {
   late final _versions = versionsRef.where('requestId', isEqualTo: widget.requestId).snapshots();
   late final _quotes = quotesRef.where('requestId', isEqualTo: widget.requestId).snapshots();
   late final _comments = commentsRef.where('requestId', isEqualTo: widget.requestId).snapshots();
+  late final _payments = paymentsRef.where('requestId', isEqualTo: widget.requestId).snapshots();
   Stream<Doc>? _customer;
   String? _versionId;
   String _view = '2d';
@@ -344,12 +377,15 @@ class _RequestDetailState extends State<RequestDetail> {
                 stream: _quotes,
                 builder: (context, qs) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
                   stream: _comments,
-                  builder: (context, ms) {
-                    final err = vs.error ?? qs.error ?? ms.error;
-                    if (err != null) return _fail(err);
-                    if (!vs.hasData || !qs.hasData || !ms.hasData) return const SkeletonList();
-                    return _body(request, cs.data, vs.data!.docs, qs.data!.docs, ms.data!.docs);
-                  },
+                  builder: (context, ms) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+                    stream: _payments,
+                    builder: (context, ps) {
+                      final err = vs.error ?? qs.error ?? ms.error ?? ps.error;
+                      if (err != null) return _fail(err);
+                      if (!vs.hasData || !qs.hasData || !ms.hasData || !ps.hasData) return const SkeletonList();
+                      return _body(request, cs.data, vs.data!.docs, qs.data!.docs, ms.data!.docs, ps.data!.docs);
+                    },
+                  ),
                 ),
               ),
             ),
@@ -357,7 +393,7 @@ class _RequestDetailState extends State<RequestDetail> {
         },
       );
 
-  Widget _body(Doc request, Doc? customer, Docs versionDocs, Docs quoteDocs, Docs commentDocs) {
+  Widget _body(Doc request, Doc? customer, Docs versionDocs, Docs quoteDocs, Docs commentDocs, Docs paymentDocs) {
     final r = request.data()!;
     final versions = [...versionDocs]..sort((a, b) => (a['n'] as int).compareTo(b['n'] as int));
     final quotes = [...quoteDocs]..sort((a, b) => _at(a['createdAt']).compareTo(_at(b['createdAt'])));
@@ -536,6 +572,34 @@ class _RequestDetailState extends State<RequestDetail> {
       ),
     );
 
+    final payments = [...paymentDocs]..sort((a, b) => _at(a['at']).compareTo(_at(b['at'])));
+    final paid = payments.fold(0, (a, p) => a + (p['amount'] as int));
+    final owed = money_ != null && owes('${r['status']}');
+    final left = owed ? leftToPay(money_.total, paid) : 0;
+    final payCard = Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          Text('תשלומים', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 4),
+          Text('הלקוח רואה רק כמה נותר לתשלום, לא את הרשימה.', style: TextStyle(color: s.muted, fontSize: 12)),
+          const SizedBox(height: 8),
+          for (final p in payments) _Payment(p),
+          if (payments.isNotEmpty) MoneyLine('שולם', paid),
+          if (owed) ...[
+            const Divider(),
+            MoneyLine(left == 0 ? 'שולם במלואו' : 'נותר לתשלום', left, bold: true),
+          ],
+          const SizedBox(height: 8),
+          OutlinedButton.icon(
+            onPressed: () => showDialog<void>(context: context, builder: (_) => PaymentDialog(request: request, left: left)),
+            icon: const Icon(Icons.payments_outlined),
+            label: const Text('רישום תשלום'),
+          ),
+        ]),
+      ),
+    );
+
     Future<void> send() async {
       final text = _reply.text.trim();
       if (text.isEmpty || version == null) return;
@@ -581,17 +645,55 @@ class _RequestDetailState extends State<RequestDetail> {
         const SizedBox(height: 16),
         if (box.maxWidth >= 700)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(width: 320, child: quoteCard),
+            SizedBox(width: 320, child: Column(children: [quoteCard, const SizedBox(height: 16), payCard])),
             const SizedBox(width: 16),
             Expanded(child: talk),
           ])
         else ...[
           quoteCard,
           const SizedBox(height: 16),
+          payCard,
+          const SizedBox(height: 16),
           talk,
         ],
       ]),
     );
+  }
+}
+
+/// One payment received, with a delete for a mistake (payments are never edited).
+class _Payment extends StatelessWidget {
+  const _Payment(this.p);
+  final QueryDocumentSnapshot<Map<String, dynamic>> p;
+
+  @override
+  Widget build(BuildContext context) {
+    final note = '${p.data()['note'] ?? ''}';
+    return Row(children: [
+      Expanded(
+        child: MoneyLine('${day(p['at'])} · ${paymentMethods[p['method']] ?? p['method']}${note.isEmpty ? '' : ' · $note'}',
+            p['amount'] as int),
+      ),
+      IconButton(
+        tooltip: 'מחיקת התשלום',
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(Icons.close, size: 18),
+        onPressed: () async {
+          final messenger = ScaffoldMessenger.of(context);
+          final yes = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: Text('למחוק תשלום של ${ltr(shekel(p['amount'] as int))}?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ביטול')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('מחיקה')),
+              ],
+            ),
+          );
+          if (yes == true) p.reference.delete().catchError((Object e) => showError(messenger, e, 'המחיקה נכשלה'));
+        },
+      ),
+    ]);
   }
 }
 

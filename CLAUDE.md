@@ -35,3 +35,7 @@ Firebase packages stay on core 4 / auth 6 (the starter's pin).
 Clients never get a printable file (26.10): the portal serves only watermarked
 pictures (preview.png, spin.jpg, spin_asm.jpg = 36 turns on a 6x6 sheet); the
 3MF/recipe go through the signed-in `/studio/versions/...` route. No meshes in the browser.
+
+Payments (26.10): partial payments, `payments` collection (agorot, method, day; deleted, never edited).
+Owed = approved quote total − paid, from status אושר on. The client sees only what is left
+(`due` in portal data); payment records never leave the studio. Money tab sums it all.

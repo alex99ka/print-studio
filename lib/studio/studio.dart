@@ -23,6 +23,7 @@ final requestsRef = _db.collection('requests');
 final versionsRef = _db.collection('versions');
 final quotesRef = _db.collection('quotes');
 final commentsRef = _db.collection('comments');
+final paymentsRef = _db.collection('payments');
 
 const statuses = ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid'];
 const statusLabels = {
@@ -35,6 +36,13 @@ const statusLabels = {
   'paid': 'שולם',
 };
 const defaultVatPercent = 18;
+const paymentMethods = {'bit': 'ביט', 'paybox': 'פייבוקס', 'transfer': 'העברה בנקאית', 'cash': 'מזומן', 'check': 'צ׳ק', 'other': 'אחר'};
+
+/// Approved and later: the client owes the approved quote. Before that a quote is only an offer.
+bool owes(String status) => status != 'draft' && status != 'waiting';
+
+/// What is left of [total] after [paid]; never below zero (an overpayment shows as nothing left).
+int leftToPay(int total, int paid) => total > paid ? total - paid : 0;
 
 /// Agorot in, agorot out; VAT rounded half up to the agora, exactly like
 /// money() in server/app/studio.py (the portal shows the server's numbers).
@@ -181,6 +189,18 @@ Future<void> reply(Doc request, Doc version, String text) {
     ..update(request.reference, {'needsReply': false, 'updatedAt': FieldValue.serverTimestamp()});
   return b.commit();
 }
+
+/// Money received for a request; [at] is the day it came in. Never edited: deleted and entered again.
+Future<void> addPayment(Doc request, {required int amount, required String method, required DateTime at, String note = ''}) =>
+    paymentsRef.add({
+      'requestId': request.id,
+      'customerId': request.data()?['customerId'],
+      'amount': amount,
+      'method': method,
+      'note': note.trim(),
+      'at': Timestamp.fromDate(at),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
 
 Future<void> setStatus(Doc request, String status) =>
     request.reference.update({'status': status, 'updatedAt': FieldValue.serverTimestamp()});

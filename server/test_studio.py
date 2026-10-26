@@ -1,9 +1,10 @@
-"""studio.py against the Firestore emulator (skipped without it). Run from server/:
+﻿"""studio.py against the Firestore emulator (skipped without it). Run from server/:
 npx -y firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio \
     --config ../firebase.json ".venv/Scripts/pytest -q"
 """
 
 import io
+from datetime import datetime, timezone
 import json
 import os
 import zipfile
@@ -216,3 +217,19 @@ def test_delete_request_and_customer_take_everything(client, db, tmp_path, pushe
 
 def test_delete_needs_sign_in(db):
     assert TestClient(main.app).delete("/studio/customers/c1").status_code == 401
+
+
+def test_portal_shows_payments_and_what_is_left(client, db, pushes):
+    vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    publish(db, vid)  # 2 x 180.00 + 18% = 424.80
+    r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert r["due"] == 0  # not approved yet: an offer, nothing owed
+    client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": vid, "quoteId": "q1"})
+    db.document("payments/p1").set({"requestId": "r1", "customerId": "c1", "amount": 10000, "method": "bit", "note": "מקדמה",
+                                     "at": datetime(2026, 10, 20, tzinfo=timezone.utc)})
+    db.document("payments/p2").set({"requestId": "x", "customerId": "c2", "amount": 999, "method": "cash"})  # someone else's
+    r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert r["due"] == 32480
+    assert "payments" not in r and "paid" not in r and "מקדמה" not in json.dumps(r, ensure_ascii=False)  # no history for the client
+    client.delete("/studio/requests/r1")
+    assert not db.document("payments/p1").get().exists

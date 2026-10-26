@@ -54,4 +54,15 @@ void main() {
       expect(statusLabels[s], isNotEmpty);
     }
   });
+
+  test('what is owed: only after approval, never below zero', () {
+    expect(owes('draft'), isFalse);
+    expect(owes('waiting'), isFalse);
+    for (final st in ['approved', 'printing', 'ready', 'delivered', 'paid']) {
+      expect(owes(st), isTrue, reason: st);
+    }
+    expect(leftToPay(42480, 10000), 32480);
+    expect(leftToPay(42480, 42480), 0);
+    expect(leftToPay(42480, 50000), 0); // overpaid
+  });
 }

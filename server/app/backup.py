@@ -20,7 +20,7 @@ UPLOAD = "https://www.googleapis.com/upload/drive/v3/files"
 KEEP = 30
 
 # A new app lists its own collections (users holds push tokens: left out).
-COLLECTIONS = ["customers", "requests", "versions", "quotes", "comments", "config"]
+COLLECTIONS = ["customers", "requests", "versions", "quotes", "comments", "payments", "config"]
 
 
 def configured() -> bool:
