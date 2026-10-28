@@ -23,6 +23,8 @@ class _GatesState extends State<Gates> {
   // Kept, not made per build: a new stream on every rebuild shows the skeleton,
   // rebuilds the access gate, calls /me, notifies, rebuilds… forever.
   final _authChanges = FirebaseAuth.instance.authStateChanges();
+  // Windows: sign back in from the saved Google token before showing the sign-in screen.
+  final _resumed = Auth.resumeDesktop();
 
   @override
   Widget build(BuildContext context) => ListenableBuilder(
@@ -36,7 +38,14 @@ class _GatesState extends State<Gates> {
                 return const Scaffold(body: SkeletonList());
               }
               final user = snap.data;
-              if (user == null) return const SignInScreen();
+              if (user == null) {
+                return FutureBuilder<bool>(
+                  future: _resumed,
+                  builder: (context, r) => r.connectionState == ConnectionState.done && r.data != true
+                      ? const SignInScreen()
+                      : const Scaffold(body: SkeletonList()),
+                );
+              }
               return _AccessGate(key: ValueKey(user.uid), email: user.email);
             },
           );

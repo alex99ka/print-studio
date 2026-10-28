@@ -30,7 +30,7 @@ class Ribbon extends StatelessWidget {
                   s != null && s.open ? () => importVersion(context, s) : null),
               if (isWindows)
                 _Button(Icons.open_in_new, 'פתיחה ב-Flag Maker',
-                    s != null && withRecipe(s) != null ? () => openFlagMaker(context, s) : null),
+                    s != null && (withRecipe(s) != null || s.open) ? () => openFlagMaker(context, s) : null),
             ]),
             TourTarget(
               'home.client',

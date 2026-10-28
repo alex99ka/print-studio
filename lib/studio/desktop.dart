@@ -40,6 +40,16 @@ Future<String?> flagMakerExe({bool choose = false}) async {
   return path;
 }
 
+/// Starts the Flag Maker on a new design for this request, the names already
+/// filled in; "Send to CRM" then has this request chosen.
+Future<bool> newInFlagMaker(String requestId, List<String> names) async {
+  final exe = await flagMakerExe();
+  if (exe == null) return false;
+  await Process.start(exe, ['--crm-request', requestId, '--names', ...names],
+      mode: ProcessStartMode.detached, workingDirectory: File(exe).parent.path);
+  return true;
+}
+
 /// Starts the Flag Maker on this version's recipe; it fetches the recipe from
 /// the Pi with its own paired key.
 Future<bool> openInFlagMaker(String versionId) async {

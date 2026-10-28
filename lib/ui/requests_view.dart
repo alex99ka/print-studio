@@ -276,6 +276,8 @@ class _RequestRow extends StatelessWidget {
     final s = context.studio;
     final r = d.data();
     final shown = r['publishedVersionId'] as String?;
+    final versions = (r['latestVersion'] as num?)?.toInt() ?? 0;
+    final primary = Theme.of(context).colorScheme.primary;
     return Material(
       type: selected ? MaterialType.canvas : MaterialType.transparency,
       color: selected ? s.accentSoft : null,
@@ -287,15 +289,29 @@ class _RequestRow extends StatelessWidget {
           decoration: BoxDecoration(border: Border(bottom: BorderSide(color: s.line))),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(children: [
+            // Three looks: published (its picture), a design uploaded but not yet with the client
+            // (filled blue with the version), and an empty request (outline only).
             Container(
               width: 48,
               height: 48,
-              decoration: BoxDecoration(color: s.sunk, borderRadius: BorderRadius.circular(8)),
+              decoration: BoxDecoration(
+                  color: shown != null ? s.sunk : versions > 0 ? s.accentSoft : null,
+                  border: shown == null && versions == 0 ? Border.all(color: s.line, width: 1.5) : null,
+                  borderRadius: BorderRadius.circular(8)),
               clipBehavior: Clip.antiAlias,
               child: shown != null && token.isNotEmpty && hasServer
                   ? Image.network(fileUrl(token, shown, 'preview.png'),
                       fit: BoxFit.contain, errorBuilder: (_, _, _) => Icon(Icons.image_outlined, color: s.muted))
-                  : Icon(Icons.view_in_ar_outlined, color: s.muted),
+                  : versions > 0
+                      ? Stack(alignment: Alignment.center, children: [
+                          Icon(Icons.view_in_ar, color: primary, semanticLabel: 'יש עיצוב, טרם נשלח ללקוח'),
+                          Positioned(
+                            bottom: 2,
+                            left: 3,
+                            child: Text('v$versions', style: TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: primary)),
+                          ),
+                        ])
+                      : Icon(Icons.add_photo_alternate_outlined, color: s.line, semanticLabel: 'אין עיצוב עדיין'),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -311,7 +327,8 @@ class _RequestRow extends StatelessWidget {
                         semanticLabel: 'הערה חדשה מהלקוח'),
                   ],
                 ]),
-                Text('${r['customerName'] ?? ''} · גרסה ${r['latestVersion'] ?? 0} · ${r['qty'] ?? 1} יח׳ · ${day(r['updatedAt'])}',
+                Text(
+                    '${r['customerName'] ?? ''} · ${versions == 0 ? 'אין עיצוב' : 'גרסה $versions${shown == null ? ' · טרם נשלח ללקוח' : ''}'} · ${r['qty'] ?? 1} יח׳ · ${day(r['updatedAt'])}',
                     style: TextStyle(fontSize: 12, color: s.muted)),
               ]),
             ),

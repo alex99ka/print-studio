@@ -65,4 +65,14 @@ void main() {
     expect(leftToPay(42480, 42480), 0);
     expect(leftToPay(42480, 50000), 0); // overpaid
   });
+
+  test('names from a request title: the Hebrew "and" is not part of a name', () {
+    expect(namesFrom('שרון וגל'), ['שרון', 'גל']);
+    expect(namesFrom('שרון ו גל'), ['שרון', 'גל']);
+    expect(namesFrom('דנה, רון ויעל'), ['דנה', 'רון', 'יעל']);
+    expect(namesFrom('דנה וויקי'), ['דנה', 'ויקי']);
+    expect(namesFrom('אנה מריה וגל'), ['אנה מריה', 'גל']);
+    expect(namesFrom('Dan & Noa'), ['Dan', 'Noa']);
+    expect(namesFrom('ורד'), ['ורד']);
+  });
 }

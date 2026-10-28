@@ -65,6 +65,10 @@ String? digestFromSums(String sums, String asset) {
   return null;
 }
 
+class RateLimited implements Exception {
+  const RateLimited();
+}
+
 abstract interface class UpdateSource {
   Future<Release?> latest(String platform, {required bool early});
 }
@@ -76,6 +80,9 @@ class GitHubUpdateSource implements UpdateSource {
     final res = await http.get(Uri.parse(url), headers: {
       'Accept': 'application/vnd.github+json',
     }).timeout(_limit);
+    // Unsigned calls get 60 an hour per home connection, shared by every app and
+    // device there. Running out is not a fault: try again on the next check.
+    if (res.headers['x-ratelimit-remaining'] == '0') throw const RateLimited();
     if (res.statusCode != 200) throw Errors.updateCheckFailed;
     return res.body;
   }
@@ -282,6 +289,8 @@ class AppUpdater extends ChangeNotifier {
         await _clearFolder();
         await installer.unstage();
       }
+    } on RateLimited {
+      lastResult = 'GitHub עמוס כרגע, אבדוק שוב מאוחר יותר';
     } catch (e) {
       error = e is AppError ? e : Errors.updateCheckFailed;
       lastResult = 'הבדיקה נכשלה (קוד ${error!.code})';

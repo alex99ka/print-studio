@@ -240,3 +240,13 @@ Future<void> deleteCustomer(String id) => server('DELETE', '/studio/customers/$i
 
 /// A new key for the Flag Maker; the previous one stops working.
 Future<String> pairFlagMaker() async => (await server('POST', '/studio/flagmaker-key'))['key'] as String;
+
+/// The names on a flag from a request title: "שרון וגל" → [שרון, גל]. Splits at
+/// commas, &, +, "and", and the Hebrew "ו" stuck to the next name (one ו only, so
+/// "דנה וויקי" keeps ויקי). shortcut: "דנה ויקי" (no connector meant) comes out
+/// דנה, יקי; fixed by hand in the Flag Maker, add a names field if it keeps happening.
+List<String> namesFrom(String title) => title
+    .split(RegExp(r'\s*[,&+]\s*|\s+(?:and|ו)\s+|\s+ו(?=\S)', caseSensitive: false))
+    .map((n) => n.trim())
+    .where((n) => n.isNotEmpty)
+    .toList();

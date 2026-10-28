@@ -68,7 +68,41 @@ abstract final class Auth {
     await signInWithGoogle(chooseAccount: true);
   }
 
+  static const _desktopRefresh = 'google_refresh_token';
+
+  /// Windows: Firebase's desktop SDK does not keep the session across restarts,
+  /// so the Google refresh token saved at sign-in signs back in without a
+  /// screen. False when there is none, Google refused it, or we're offline.
+  static Future<bool> resumeDesktop() async {
+    if (kIsWeb || defaultTargetPlatform != TargetPlatform.windows) return false;
+    if (user != null) return true;
+    final prefs = await SharedPreferences.getInstance();
+    final refresh = prefs.getString(_desktopRefresh);
+    if (refresh == null) return false;
+    try {
+      final res = await http.post(Uri.https('oauth2.googleapis.com', '/token'), body: {
+        'client_id': AppConfig.googleDesktopClientId,
+        'client_secret': AppConfig.googleDesktopSecret,
+        'refresh_token': refresh,
+        'grant_type': 'refresh_token',
+      }).timeout(const Duration(seconds: 30));
+      if (res.statusCode == 400) await prefs.remove(_desktopRefresh); // revoked
+      if (res.statusCode != 200) return false;
+      final tokens = jsonDecode(res.body) as Map<String, dynamic>;
+      await _fb.signInWithCredential(GoogleAuthProvider.credential(
+        idToken: tokens['id_token'] as String?,
+        accessToken: tokens['access_token'] as String?,
+      ));
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   static Future<void> signOut() async {
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
+      await (await SharedPreferences.getInstance()).remove(_desktopRefresh);
+    }
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android && _googleReady) {
       await GoogleSignIn.instance.signOut();
     }
@@ -115,7 +149,9 @@ abstract final class Auth {
       'code_challenge': challenge,
       'code_challenge_method': 'S256',
       'state': state,
-      'prompt': 'select_account',
+      // offline + consent: Google hands out a refresh token, kept for resumeDesktop.
+      'access_type': 'offline',
+      'prompt': 'consent select_account',
     });
     try {
       await launchUrl(url, mode: LaunchMode.externalApplication);
@@ -143,6 +179,10 @@ abstract final class Auth {
       ).timeout(const Duration(seconds: 30));
       if (res.statusCode != 200) throw Errors.googleFailed;
       final tokens = jsonDecode(res.body) as Map<String, dynamic>;
+      if (tokens['refresh_token'] is String) {
+        await (await SharedPreferences.getInstance())
+            .setString(_desktopRefresh, tokens['refresh_token'] as String);
+      }
       return GoogleAuthProvider.credential(
         idToken: tokens['id_token'] as String?,
         accessToken: tokens['access_token'] as String?,

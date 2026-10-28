@@ -130,13 +130,21 @@ Future<void> openSlicer(BuildContext context, Selection s) => _guard(context, '�
 
 Doc? withRecipe(Selection s) => filesOf(s.version).contains('recipe.json') ? s.version : null;
 
+/// The latest version that has a recipe opens as it was; a request without one
+/// opens a new design with the names from its title.
 Future<void> openFlagMaker(BuildContext context, Selection s) async {
   final v = withRecipe(s);
-  if (v == null) return;
   final messenger = ScaffoldMessenger.of(context);
   try {
-    if (await openInFlagMaker(v.id)) {
-      messenger.showSnackBar(SnackBar(content: Text('ה-Flag Maker נפתח על גרסה ${v.data()?['n']}')));
+    if (v != null) {
+      if (await openInFlagMaker(v.id)) {
+        messenger.showSnackBar(SnackBar(content: Text('ה-Flag Maker נפתח על גרסה ${v.data()?['n']}')));
+      }
+    } else {
+      final names = namesFrom(s.title);
+      if (await newInFlagMaker(s.request.id, names)) {
+        messenger.showSnackBar(SnackBar(content: Text('ה-Flag Maker נפתח עם השמות: ${names.join(', ')}')));
+      }
     }
   } catch (e) {
     showError(messenger, e, 'ה-Flag Maker לא נפתח');
