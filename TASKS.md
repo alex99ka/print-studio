@@ -73,9 +73,9 @@ without these the app connects to nothing.
 10. After Firebase: icon, first release (tag) on the phone, a second release to
    check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
-11. ✅ 29.10 Gift Factory link C1–C6 built and tested (CRM 0.2.0, `server/GIFT_FACTORY.md`). **Waiting for
-   Alex's go**, in this order: rules deploy → server to the Pi → tag 0.2.0. Then: pair Gift Factory
-   (הגדרות › חיבור Gift Factory) and run its `tests/check_crm_link.py`.
+11. ✅ 29.10 Gift Factory link C1–C6 built and tested (CRM 0.2.0, `server/GIFT_FACTORY.md`). Deployed 29.10:
+   rules, server on the Pi, 0.2.0 prerelease (APK + Windows). Left: promote 0.2.0 once it's good on the
+   phone; pair Gift Factory (הגדרות › חיבור Gift Factory) and run its `tests/check_crm_link.py`.
 
 ## For Gift Factory (differences from the handoff's Contract v1, all compatible)
 
