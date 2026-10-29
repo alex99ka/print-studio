@@ -129,6 +129,14 @@ final fullTour = <TourStep>[
     target: 'home.client',
   ),
   const TourStep(
+    'Gift Factory',
+    'בקשה של מתנות לאירוע מראה כרטיס "ייצור": ההצעה מ-Gift Factory ("שימוש כהצעת מחיר" '
+        'ממלא את הטופס), ההתקדמות בהדפסה, רשימת האורחים שהלקוח העלה בקישור שלו, ובסוף '
+        'העלות בפועל והרווח (גם בלשונית הכספים). במחשב: "פתח ב-Gift Factory" ברצועה. '
+        'מחברים בהגדרות › חיבור Gift Factory.',
+    since: ['0.2.0'],
+  ),
+  const TourStep(
     'הגדרות',
     'לחצו על "הגדרות".',
     target: 'settings',

@@ -73,6 +73,17 @@ without these the app connects to nothing.
 10. After Firebase: icon, first release (tag) on the phone, a second release to
    check the in-app update, Uptime Kuma monitor for `/health`, privacy page.
 
+11. ✅ 29.10 Gift Factory link C1–C6 built and tested (CRM 0.2.0, `server/GIFT_FACTORY.md`). **Waiting for
+   Alex's go**, in this order: rules deploy → server to the Pi → tag 0.2.0. Then: pair Gift Factory
+   (הגדרות › חיבור Gift Factory) and run its `tests/check_crm_link.py`.
+
+## For Gift Factory (differences from the handoff's Contract v1, all compatible)
+
+See `server/GIFT_FACTORY.md` › As built. In short: PUT bodies are checked strictly (422 off contract;
+`finishDate: null` is fine); `production.updatedAt` is set, not the request's `updatedAt`; timestamps end
+`+00:00`, not `Z`; the portal refuses a guest file with a bad amount (Gift Factory skips that row); a request
+shows on the portal (and takes a guest list) only after a version is published.
+
 ## After the MVP (not built, to decide)
 
 - Image attachment on a portal comment (the design had a button; not built).

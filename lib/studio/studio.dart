@@ -13,7 +13,9 @@ import '../core/server.dart';
 
 /// Print Studio's records. The app writes customers, requests, quotes, its
 /// own comments and publishing (checked by firestore.rules); the Pi writes
-/// versions, the customer's comments and approvals (server/app/studio.py).
+/// versions, the customer's comments and approvals (server/app/studio.py),
+/// and a request's production and guests (server/app/giftfactory.py). The
+/// app's writes to a request are field updates, so they never drop those.
 
 typedef Doc = DocumentSnapshot<Map<String, dynamic>>;
 
@@ -82,9 +84,14 @@ String portalUrl(String token, {String? preview}) =>
 
 /// A version's file through the signed-in route: the 3MF and the recipe never
 /// go through the client's link.
-Future<Uint8List> studioFile(String versionId, String name) async {
+Future<Uint8List> studioFile(String versionId, String name) => _download('/studio/versions/$versionId/$name');
+
+/// The client's guest list as they uploaded it on the portal (.xlsx or .csv).
+Future<Uint8List> guestFile(String requestId) => _download('/studio/requests/$requestId/guests');
+
+Future<Uint8List> _download(String path) async {
   final token = await FirebaseAuth.instance.currentUser?.getIdToken();
-  final res = await http.get(Uri.parse('${AppConfig.serverUrl}/studio/versions/$versionId/$name'),
+  final res = await http.get(Uri.parse('${AppConfig.serverUrl}$path'),
       headers: {if (token != null) 'Authorization': 'Bearer $token'}).timeout(const Duration(minutes: 2));
   if (res.statusCode != 200) throw ServerException(res.statusCode, res.body);
   return res.bodyBytes;
@@ -240,6 +247,29 @@ Future<void> deleteCustomer(String id) => server('DELETE', '/studio/customers/$i
 
 /// A new key for the Flag Maker; the previous one stops working.
 Future<String> pairFlagMaker() async => (await server('POST', '/studio/flagmaker-key'))['key'] as String;
+
+/// A new key for Gift Factory; its previous one stops working, the Flag Maker's stays.
+Future<String> pairGiftFactory() async => (await server('POST', '/studio/giftfactory-key'))['key'] as String;
+
+// --- Gift Factory (server/GIFT_FACTORY.md): only the server writes request.production and .guests ---
+
+/// What Gift Factory reported on a request: quote, progress, actualCost (each may be missing).
+Map<String, dynamic> productionOf(Map<String, dynamic> request) =>
+    (request['production'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+/// The real profit of a run: the approved price before VAT minus what the run
+/// cost (production.actualCost.total). Null until both are known.
+int? profit(Map<String, dynamic> request, Map<String, dynamic>? approvedQuote) {
+  final cost = (productionOf(request)['actualCost'] as Map?)?['total'];
+  if (approvedQuote == null || cost is! int || !owes('${request['status']}')) return null;
+  return money(approvedQuote['unit'] as int, approvedQuote['qty'] as int, 0).net - cost;
+}
+
+/// "2026-11-12" → "12.11".
+String isoDay(Object? day) {
+  final p = '${day ?? ''}'.split('-');
+  return p.length == 3 ? '${p[2]}.${p[1]}' : '';
+}
 
 /// The names on a flag from a request title: "שרון וגל" → [שרון, גל]. Splits at
 /// commas, &, +, "and", and the Hebrew "ו" stuck to the next name (one ו only, so

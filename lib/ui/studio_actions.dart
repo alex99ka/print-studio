@@ -151,6 +151,29 @@ Future<void> openFlagMaker(BuildContext context, Selection s) async {
   }
 }
 
+/// Gift Factory on this request (PC only).
+Future<void> openGiftFactory(BuildContext context, Selection s) async {
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    if (await openInGiftFactory(s.request.id)) {
+      messenger.showSnackBar(SnackBar(content: Text('Gift Factory נפתח על "${s.title}"')));
+    }
+  } catch (e) {
+    showError(messenger, e, 'Gift Factory לא נפתח');
+  }
+}
+
+/// The client's guest list as they uploaded it: opened in Excel on the PC, shared elsewhere.
+Future<void> downloadGuests(BuildContext context, Selection s) => _guard(context, 'ההורדה נכשלה', () async {
+      final name = '${(s.r['guests'] as Map?)?['fileName'] ?? 'guests.xlsx'}';
+      final bytes = await guestFile(s.request.id);
+      if (!isWindows) {
+        await SharePlus.instance.share(ShareParams(files: [XFile.fromData(bytes, name: name)]));
+      } else if (!await openLocal(bytes, name) && context.mounted) {
+        say(context, 'אין במחשב תוכנה שפותחת את $name');
+      }
+    });
+
 Future<void> newRequest(BuildContext context) async {
   final id = await showDialog<String>(context: context, builder: (_) => const NewRequestDialog());
   if (id != null && context.mounted) say(context, 'הבקשה נוצרה. עכשיו מייצאים אליה עיצוב מה-Flag Maker');

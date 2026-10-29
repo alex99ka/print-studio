@@ -66,6 +66,26 @@ void main() {
     expect(leftToPay(42480, 50000), 0); // overpaid
   });
 
+  test('real profit: the approved price before VAT minus Gift Factory\'s actual cost', () {
+    const quote = {'unit': 27100, 'qty': 105, 'vatPercent': 18};
+    Map<String, dynamic> request(String status, Object? cost) => {
+          'status': status,
+          if (cost != null) 'production': {'actualCost': {'total': cost}},
+        };
+    expect(profit(request('delivered', 2272000), quote), 2845500 - 2272000); // VAT is not profit
+    expect(profit(request('paid', 3000000), quote), -154500); // a loss shows as one
+    expect(profit(request('delivered', null), quote), isNull); // no report yet: "—"
+    expect(profit(request('delivered', 1000), null), isNull);
+    expect(profit(request('waiting', 1000), quote), isNull); // an offer, not a sale
+    expect(productionOf({}), isEmpty);
+  });
+
+  test('isoDay shows a contract date the way the app writes days', () {
+    expect(isoDay('2026-11-12'), '12.11');
+    expect(isoDay(null), '');
+    expect(isoDay('soon'), '');
+  });
+
   test('names from a request title: the Hebrew "and" is not part of a name', () {
     expect(namesFrom('שרון וגל'), ['שרון', 'גל']);
     expect(namesFrom('שרון ו גל'), ['שרון', 'גל']);

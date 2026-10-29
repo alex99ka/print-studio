@@ -32,6 +32,10 @@ class Ribbon extends StatelessWidget {
                 _Button(Icons.open_in_new, 'פתיחה ב-Flag Maker',
                     s != null && (withRecipe(s) != null || s.open) ? () => openFlagMaker(context, s) : null),
             ]),
+            if (isWindows)
+              _Group('Gift Factory', [
+                _Button(Icons.redeem_outlined, 'פתח ב-Gift Factory', s != null ? () => openGiftFactory(context, s) : null),
+              ]),
             TourTarget(
               'home.client',
               child: _Group('לקוח', [

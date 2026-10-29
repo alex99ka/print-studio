@@ -8,8 +8,9 @@ customer and checks that whatever is asked for belongs to them.
 Who writes what:
 - the app (checked by firestore.rules): customers, requests, quotes, the
   studio's comments, payments received, publishing a version (request.publishedVersionId);
-- here (Admin SDK): versions (uploads from the app or the Flag Maker), the
-  customer's comments and the approval.
+- here (Admin SDK): versions (uploads from the app, the Flag Maker or Gift
+  Factory), the customer's comments and the approval; giftfactory.py adds a
+  request's production and guests.
 """
 
 import hashlib
@@ -45,11 +46,13 @@ FILES = {
     # The 3D views are pictures, never meshes: 36 turns of 10 degrees on one sheet.
     "spin": ("spin.jpg", "image/jpeg"),
     "spin_asm": ("spin_asm.jpg", "image/jpeg"),
+    # Gift Factory's name check: every guest's name as printed, pages stacked in one tall picture.
+    "names": ("names.jpg", "image/jpeg"),
 }
 SPIN_GRID = 6  # 6 x 6 tiles, frame i at row i // 6, column i % 6 (the Flag Maker's crm_link.spin)
 TYPES = dict(FILES.values())
 # What the client's link serves: watermarked pictures only, never the print file, the recipe or a mesh.
-CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg"}
+CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg", "names.jpg"}
 MAX_FILE = 60 * 1024 * 1024
 OPEN = ("draft", "waiting")  # a request takes new versions only before approval
 STATIC = Path(__file__).parent / "static"
@@ -118,19 +121,21 @@ def _watermark(path: Path, grid: int = 1) -> None:
     with Image.open(path) as im:
         img = im.convert("RGB")
     tw, th = img.width // grid, img.height // grid
-    side = 2 * max(tw, th)
+    bh = min(th, tw)  # a tall picture (the name check) is stamped square by square down its length
+    side = 2 * max(tw, bh)
     layer = Image.new("RGBA", (side, side), (0, 0, 0, 0))
     draw = ImageDraw.Draw(layer)
     font = ImageFont.truetype(str(STATIC / "Heebo.ttf"), max(12, tw // 14))
-    step = max(24, th // 4)
+    step = max(24, bh // 4)
     for i, y in enumerate(range(0, side, step)):
         draw.text((-(i % 2) * tw // 3, y), "PRINT STUDIO · PREVIEW ONLY     " * 4, font=font, fill=(90, 96, 110, 64))
     layer = layer.rotate(28, resample=Image.BICUBIC)
-    left, top = (side - tw) // 2, (side - th) // 2
-    tile = layer.crop((left, top, left + tw, top + th))
+    left, top = (side - tw) // 2, (side - bh) // 2
+    tile = layer.crop((left, top, left + tw, top + bh))
     for r in range(grid):
         for c in range(grid):
-            img.paste(tile, (c * tw, r * th), tile)
+            for y in range(0, th, bh):
+                img.paste(tile, (c * tw, r * th + y), tile)
     if path.suffix == ".png":
         img.save(path, "PNG", optimize=True)
     else:
@@ -154,7 +159,7 @@ def _save(vid: str, up: Upload) -> list[str]:
                     out.write(chunk)
             _check(tmp / name)
             if name in CLIENT_FILES:
-                _watermark(tmp / name, SPIN_GRID if name.endswith(".jpg") else 1)
+                _watermark(tmp / name, SPIN_GRID if name.startswith("spin") else 1)
             names.append(name)
         dest = _data() / "files" / vid
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -214,6 +219,7 @@ def _delete_request(db, rid: str) -> None:
     db.document(f"requests/{rid}").delete()
     for vid in vids:
         shutil.rmtree(_data() / "files" / vid, ignore_errors=True)
+    shutil.rmtree(_data() / "guests" / rid, ignore_errors=True)
 
 
 @router.delete("/studio/requests/{rid}")
@@ -400,6 +406,12 @@ def portal_data(token: str, preview: str = "") -> dict:
             # Owed once the client approved the price; until then the quote is only an offer.
             # Only what is left: Alex's payment records (dates, methods, notes) stay in the studio.
             "due": max(quote["total"] - paid, 0) if quote and r.get("status", "draft") not in OPEN else 0,
+            # The client's own guest list (giftfactory.py); never the file, only how many.
+            "guests": {"names": g.get("names"), "gifts": g.get("gifts"), "at": _iso(g.get("uploadedAt"))}
+            if (g := r.get("guests")) else None,
+            # While printing: units and the day only; costs and plate details stay in the studio.
+            "progress": {k: p.get(k) for k in ("unitsOk", "unitsTarget", "finishDate")}
+            if (p := (r.get("production") or {}).get("progress")) and r.get("status") in ("approved", "printing") else None,
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
     return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he")}, "requests": out}

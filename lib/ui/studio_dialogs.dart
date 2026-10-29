@@ -172,18 +172,21 @@ class _CustomerDialogState extends State<CustomerDialog> {
 
 /// A price per unit, VAT off by default (Alex switches it on per quote); the total shows as you type.
 class QuoteDialog extends StatefulWidget {
-  const QuoteDialog({super.key, required this.request, this.current});
+  const QuoteDialog({super.key, required this.request, this.current, this.unit, this.qty});
   final Doc request;
   final Map<String, dynamic>? current;
+
+  /// Filled in instead: Gift Factory's suggestion ("שימוש כהצעת מחיר"), unit in agorot.
+  final int? unit, qty;
 
   @override
   State<QuoteDialog> createState() => _QuoteDialogState();
 }
 
 class _QuoteDialogState extends State<QuoteDialog> {
-  late final _unit = TextEditingController(
-      text: widget.current == null ? '' : shekel(widget.current!['unit'] as int).replaceAll(RegExp('[₪,]'), ''));
-  late final _qty = TextEditingController(text: '${widget.request.data()?['qty'] ?? 1}');
+  late final _start = widget.unit ?? widget.current?['unit'] as int?;
+  late final _unit = TextEditingController(text: _start == null ? '' : shekel(_start).replaceAll(RegExp('[₪,]'), ''));
+  late final _qty = TextEditingController(text: '${widget.qty ?? widget.request.data()?['qty'] ?? 1}');
   late final _note = TextEditingController(text: '${widget.current?['note'] ?? ''}');
   late bool _vat = ((widget.current?['vatPercent'] as int?) ?? 0) > 0;
 

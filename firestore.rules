@@ -64,6 +64,9 @@ service cloud.firestore {
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.status == 'draft'
         && request.resource.data.latestVersion == 0;
+      // production (Gift Factory's reports) and guests (the client's list) are the server's too
+      // (server/app/giftfactory.py): in neither list, so the app can't write them, nor drop
+      // them with a whole-document set(); every app write is update() or set(..., merge).
       // Approval fields are the server's. An approved request keeps the
       // version, the price and the quantity the customer approved.
       allow update: if allowed()

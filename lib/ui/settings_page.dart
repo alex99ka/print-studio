@@ -103,11 +103,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ];
   }
 
-  Future<void> _pairFlagMaker() async {
+  /// A new key for a PC app (each has its own), shown once with where to paste it.
+  Future<void> _pair(String app, Future<String> Function() pair, String where) async {
     final messenger = ScaffoldMessenger.of(context);
     final String key;
     try {
-      key = await pairFlagMaker();
+      key = await pair();
     } catch (e) {
       showError(messenger, e, 'החיבור נכשל');
       return;
@@ -116,10 +117,9 @@ class _SettingsPageState extends State<SettingsPage> {
     await showDialog<void>(
       context: context,
       builder: (c) => AlertDialog(
-        title: const Text('מפתח ל-Flag Maker'),
+        title: Text('מפתח ל-$app'),
         content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          const Text('ב-Flag Maker: "Send to CRM" › Settings, מדביקים את הכתובת ואת המפתח. '
-              'המפתח מוצג רק עכשיו.'),
+          Text('$where, מדביקים את הכתובת ואת המפתח. המפתח מוצג רק עכשיו.'),
           const SizedBox(height: 12),
           SelectableText(AppConfig.serverUrl, textDirection: TextDirection.ltr),
           const SizedBox(height: 8),
@@ -271,7 +271,7 @@ class _SettingsPageState extends State<SettingsPage> {
           leading: const Icon(Icons.link),
           title: const Text('חיבור ה-Flag Maker'),
           subtitle: const Text('מפתח חדש להדבקה ב-Flag Maker. הקודם מפסיק לעבוד'),
-          onTap: _pairFlagMaker,
+          onTap: () => _pair('Flag Maker', pairFlagMaker, 'ב-Flag Maker: "Send to CRM" › Settings'),
         ),
         if (isWindows)
           ListTile(
@@ -279,6 +279,21 @@ class _SettingsPageState extends State<SettingsPage> {
             title: const Text('איפה ה-Flag Maker במחשב'),
             subtitle: const Text('קובץ ה-EXE, ל"פתיחה ב-Flag Maker"'),
             onTap: () => flagMakerExe(choose: true),
+          ),
+
+        _Section('Gift Factory'),
+        ListTile(
+          leading: const Icon(Icons.link),
+          title: const Text('חיבור Gift Factory'),
+          subtitle: const Text('מפתח חדש להדבקה ב-Gift Factory. הקודם שלו מפסיק לעבוד; של ה-Flag Maker נשאר'),
+          onTap: () => _pair('Gift Factory', pairGiftFactory, 'ב-Gift Factory: "CRM request…" (CRM address, Gift Factory key)'),
+        ),
+        if (isWindows)
+          ListTile(
+            leading: const Icon(Icons.folder_open_outlined),
+            title: const Text('איפה Gift Factory במחשב'),
+            subtitle: const Text(r'pythonw.exe ואז app\main.py, ל"פתח ב-Gift Factory"'),
+            onTap: () => giftFactoryCommand(choose: true),
           ),
 
         _Section('עזרה'),

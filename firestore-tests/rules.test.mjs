@@ -113,6 +113,23 @@ test('requests: an approved one keeps its version, price and quantity; moves alo
   await assertSucceeds(deleteDoc(doc(db(ALEX), 'requests/draft')));
 });
 
+test("requests: production and guests are the server's, and survive the app's writes", async () => {
+  await env.withSecurityRulesDisabled(async (ctx) => {
+    await setDoc(doc(ctx.firestore(), 'requests/gift'),
+      { ...request, production: { quote: { units: 105 } }, guests: { names: 2, gifts: 3 } });
+  });
+  const ref = doc(db(ALEX), 'requests/gift');
+  await assertFails(updateDoc(ref, { production: { quote: { units: 1 } } }));
+  await assertFails(updateDoc(ref, { 'production.progress': { platesDone: 9 } }));
+  await assertFails(updateDoc(ref, { guests: null }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, production: {} }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, guests: {} }));
+  // A whole-document set would drop them: refused. update() and set(..., merge) keep them.
+  await assertFails(setDoc(ref, { ...request, status: 'waiting' }));
+  await assertSucceeds(setDoc(ref, { status: 'waiting' }, { merge: true }));
+  await assertSucceeds(updateDoc(ref, { title: 'אורחים', updatedAt: new Date() }));
+});
+
 test('versions: only the server creates; the app publishes; approved is frozen', async () => {
   await assertFails(setDoc(doc(db(ALEX), 'versions/new'), { requestId: 'draft', n: 2, state: 'draft' }));
   await assertSucceeds(updateDoc(doc(db(ALEX), 'versions/v2'), { state: 'published', publishedAt: new Date() }));

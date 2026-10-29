@@ -434,7 +434,12 @@ class _RequestDetailState extends State<RequestDetail> {
     final open = r['status'] == 'draft' || r['status'] == 'waiting';
     final quote = quotes.where((q) => q.id == r['quoteId']).firstOrNull;
     final views = [
-      for (final (k, f, label) in const [('2d', 'preview.png', '2D'), ('3d', 'spin.jpg', 'תלת-ממד'), ('asm', 'spin_asm.jpg', 'על המיקרופון')])
+      for (final (k, f, label) in const [
+        ('2d', 'preview.png', '2D'),
+        ('3d', 'spin.jpg', 'תלת-ממד'),
+        ('asm', 'spin_asm.jpg', 'על המיקרופון'),
+        ('names', 'names.jpg', 'בדיקת שמות'),
+      ])
         if (version != null && filesOf(version).contains(f)) (k, f, label),
     ];
     final view = views.where((v) => v.$1 == _view).firstOrNull ?? views.firstOrNull;
@@ -508,22 +513,34 @@ class _RequestDetailState extends State<RequestDetail> {
                     }),
                   ),
                 ),
-              SizedBox(
-                height: 320,
-                child: PinnedPreview(
-                  key: ValueKey('${version!.id}/${view.$1}/$_focus'),
-                  url: fileUrl(token, version.id, view.$2),
-                  grid: view.$1 == '2d' ? 1 : spinGrid,
-                  frame: _frame,
-                  pins: [
-                    for (final c in comments)
-                      if (c['versionId'] == version.id && (c['pin'] as Map?)?['view'] == view.$1)
-                        (Offset(((c['pin'] as Map)['x'] as num).toDouble(), ((c['pin'] as Map)['y'] as num).toDouble()),
-                            '${pinned[c.id]}', (((c['pin'] as Map)['z'] as num?) ?? 0).round()),
-                  ],
+              // Gift Factory's name check is one tall picture, read by scrolling: no turning, no pins.
+              if (view.$1 == 'names')
+                SizedBox(
+                  height: 480,
+                  child: SingleChildScrollView(
+                    child: Image.network(fileUrl(token, version!.id, view.$2),
+                        width: double.infinity,
+                        fit: BoxFit.fitWidth,
+                        errorBuilder: (_, _, _) => Icon(Icons.broken_image_outlined, color: s.muted)),
+                  ),
+                )
+              else
+                SizedBox(
+                  height: 320,
+                  child: PinnedPreview(
+                    key: ValueKey('${version!.id}/${view.$1}/$_focus'),
+                    url: fileUrl(token, version.id, view.$2),
+                    grid: view.$2.startsWith('spin') ? spinGrid : 1,
+                    frame: _frame,
+                    pins: [
+                      for (final c in comments)
+                        if (c['versionId'] == version.id && (c['pin'] as Map?)?['view'] == view.$1)
+                          (Offset(((c['pin'] as Map)['x'] as num).toDouble(), ((c['pin'] as Map)['y'] as num).toDouble()),
+                              '${pinned[c.id]}', (((c['pin'] as Map)['z'] as num?) ?? 0).round()),
+                    ],
+                  ),
                 ),
-              ),
-              if (view.$1 != '2d')
+              if (view.$2.startsWith('spin'))
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text('גוררים ימינה ושמאלה לסיבוב', style: TextStyle(fontSize: 12, color: s.muted)),
@@ -617,6 +634,99 @@ class _RequestDetailState extends State<RequestDetail> {
       ),
     );
 
+    // What Gift Factory reported, and the client's guest list (both written by the server).
+    final production = productionOf(r);
+    final gfQuote = production['quote'] as Map?;
+    final progress = production['progress'] as Map?;
+    final actual = production['actualCost'] as Map?;
+    final guests = r['guests'] as Map?;
+    final approvedQuote = quotes.where((q) => q.id == (r['approvedQuoteId'] ?? r['quoteId'])).firstOrNull;
+    final earned = profit(r, approvedQuote?.data());
+    final small = TextStyle(color: s.muted, fontSize: 12);
+    final productionCard = gfQuote == null && progress == null && actual == null && guests == null
+        ? null
+        : Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('ייצור · Gift Factory', style: Theme.of(context).textTheme.titleMedium),
+                if (guests != null)
+                  Row(children: [
+                    Expanded(
+                      child: Text(
+                          'רשימת אורחים מהלקוח: ${guests['names']} שמות, ${guests['gifts']} מתנות · ${day(guests['uploadedAt'])}'),
+                    ),
+                    TextButton.icon(
+                      onPressed: () => downloadGuests(context, sel),
+                      icon: const Icon(Icons.download_outlined),
+                      label: const Text('הורדה'),
+                    ),
+                  ]),
+                if (gfQuote != null) ...[
+                  const SizedBox(height: 8),
+                  const Text('הצעה מ-Gift Factory', style: TextStyle(fontWeight: FontWeight.w500)),
+                  Text(
+                      '${gfQuote['units']} יח׳ · ${gfQuote['plates']} פלטות · ${gfQuote['printHours']} שעות הדפסה'
+                      '${gfQuote['finishDate'] == null ? '' : ' · מוכן עד ${isoDay(gfQuote['finishDate'])}'}',
+                      style: small),
+                  MoneyLine('עלות ליחידה', gfQuote['unitCost'] as int),
+                  MoneyLine('מחיר מוצע ליחידה', gfQuote['unitPrice'] as int),
+                  MoneyLine('סה״כ לפני מע״מ', gfQuote['total'] as int, bold: true),
+                  ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: Text('פירוט העלות ליחידה', style: small),
+                    children: [
+                      for (final (k, label) in const [
+                        ('filament', 'חומר'),
+                        ('power', 'חשמל'),
+                        ('wear', 'בלאי'),
+                        ('packaging', 'אריזה'),
+                        ('labour', 'עבודה'),
+                      ])
+                        MoneyLine(label, ((gfQuote['breakdown'] as Map?)?[k] as int?) ?? 0),
+                      Align(
+                        alignment: AlignmentDirectional.centerStart,
+                        child: Text('מרווח לכשלים: ${(gfQuote['breakdown'] as Map?)?['failureMarginPct'] ?? 0}%', style: small),
+                      ),
+                    ],
+                  ),
+                  if (open)
+                    FilledButton.tonal(
+                      onPressed: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => QuoteDialog(
+                              request: request,
+                              current: quote?.data(),
+                              unit: gfQuote['unitPrice'] as int,
+                              qty: gfQuote['units'] as int)),
+                      child: const Text('שימוש כהצעת מחיר'),
+                    ),
+                ],
+                if (progress != null) ...[
+                  const SizedBox(height: 12),
+                  LinearProgressIndicator(
+                    value: (progress['platesTotal'] as int) > 0
+                        ? (progress['platesDone'] as int) / (progress['platesTotal'] as int)
+                        : 0,
+                    semanticsLabel: 'התקדמות ההדפסה',
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                      'פלטה ${progress['platesDone']} מתוך ${progress['platesTotal']} · '
+                      '${progress['unitsOk']} מתוך ${progress['unitsTarget']} יחידות תקינות'
+                      '${(progress['failedUnits'] as int) > 0 ? ' · ${progress['failedUnits']} נכשלו' : ''}'
+                      '${progress['finishDate'] == null ? '' : ' · מוכן עד ${isoDay(progress['finishDate'])}'}',
+                      style: small),
+                ],
+                if (actual != null) ...[
+                  const SizedBox(height: 8),
+                  MoneyLine('עלות בפועל', actual['total'] as int),
+                  if (earned != null) MoneyLine('רווח (לפני מע״מ)', earned, bold: true),
+                ],
+              ]),
+            ),
+          );
+
     Future<void> send() async {
       final text = _reply.text.trim();
       if (text.isEmpty || version == null) return;
@@ -660,6 +770,7 @@ class _RequestDetailState extends State<RequestDetail> {
         const SizedBox(height: 16),
         preview,
         const SizedBox(height: 16),
+        if (productionCard != null) ...[productionCard, const SizedBox(height: 16)],
         if (box.maxWidth >= 700)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(width: 320, child: Column(children: [quoteCard, const SizedBox(height: 16), payCard])),

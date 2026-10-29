@@ -60,6 +60,14 @@ class _MoneyViewState extends State<MoneyView> {
         .fold(0, (a, r) => a + (totals[r.data()?['quoteId']] ?? 0));
     final now = DateTime.now();
     final months = [for (var i = 0; i < 6; i++) DateTime(now.year, now.month - i)];
+    // Real profit (Gift Factory's actual cost) on orders approved in the months shown.
+    final quoteData = {for (final q in quotes) q.id: q.data()};
+    final runs = [
+      for (final r in requests)
+        if (r.data()?['approvedAt'] case final Timestamp at when !at.toDate().isBefore(months.last))
+          (r, profit(r.data()!, quoteData[r.data()?['approvedQuoteId'] ?? r.data()?['quoteId']])),
+    ];
+    final earned = runs.fold(0, (a, e) => a + (e.$2 ?? 0));
     int inMonth(DateTime m) => payments.where((p) {
           final at = p['at'] is Timestamp ? (p['at'] as Timestamp).toDate() : now;
           return at.year == m.year && at.month == m.month;
@@ -117,6 +125,34 @@ class _MoneyViewState extends State<MoneyView> {
           ]),
         ),
       ),
+      if (runs.any((e) => e.$2 != null)) ...[
+        const SizedBox(height: 16),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('רווח בפועל', style: Theme.of(context).textTheme.titleMedium),
+              Text('המחיר שאושר לפני מע״מ, פחות העלות שדיווח Gift Factory. הזמנות שאושרו ב-6 החודשים האחרונים.',
+                  style: TextStyle(color: s.muted, fontSize: 12)),
+              const SizedBox(height: 8),
+              for (final (r, p) in runs)
+                InkWell(
+                  onTap: () => Navigator.push(
+                      context, MaterialPageRoute<void>(builder: (_) => RequestPage(requestId: r.id))),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 6),
+                    child: Row(children: [
+                      Expanded(child: Text('${r['customerName'] ?? ''} · ${r['title']}')),
+                      Text(p == null ? '—' : shekel(p), textDirection: TextDirection.ltr),
+                    ]),
+                  ),
+                ),
+              const Divider(),
+              MoneyLine('סה״כ רווח', earned, bold: true),
+            ]),
+          ),
+        ),
+      ],
     ]);
   }
 }

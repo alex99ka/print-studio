@@ -9,9 +9,12 @@ Improvements to `lib/core/` go back into the starter.
   `desktop.dart`, PC only). `lib/ui/` = screens: `home_screen` (tabs + ribbon),
   `requests_view`, `customers_view`, `ribbon`, `studio_actions`, `studio_dialogs`.
 - Server: `server/app/studio.py` (versions, Flag Maker key, portal) and
-  `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\app\crm_link.py`
+  `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\Flag Maker\app\crm_link.py`
   (follow that repo's AGENTS.md: its releases need its acceptance suite, including
   `app/tests/check_crm_link.py`, the contract with `studio.py`).
+- Gift Factory (`C:\claude projects\3d\3d manager`): `server/app/giftfactory.py` (`/gf/` routes, its own key,
+  the portal's guest list). Contract v1 is `server/GIFT_FACTORY.md`; Gift Factory's `tests/check_crm_link.py`
+  holds it, so a change is `contract: 2` beside v1. Only the server writes `requests.production`/`.guests`.
 - Money is integer **agorot**; VAT 18% rounded half up, computed identically in
   `lib/studio/studio.dart` and `studio.py` (both have the same test cases).
 - Keep green: `flutter analyze`, `flutter test`, `firestore-tests`, server

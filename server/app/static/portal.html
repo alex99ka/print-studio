@@ -114,6 +114,15 @@ const T = {
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
     toPay:'נותר לתשלום', toPayAll:'סה״כ נותר',
+    names:'בדיקת שמות', namesNote:'בדקו בבקשה את האיות של כל שם לפני האישור: מה שכתוב כאן הוא מה שיודפס.',
+    printing:(ok,all,d)=>`בהדפסה: ${ok} מתוך ${all}${d ? ` · מוכן עד ${d}` : ''}`,
+    guests:'רשימת אורחים', guestsHow:'מורידים את התבנית, ממלאים שם וכמות לכל אורח (כמות ריקה = עותק אחד, 0 = לא מגיע/ה) ומעלים. אפשר גם קובץ xlsx או csv משלכם.',
+    template:'הורדת תבנית', upload:'העלאת הרשימה', replace:'העלאת רשימה מעודכנת', sending:'שולחים…',
+    guestsNow:(n,g,d)=>`התקבלה ב-${d}: ${n} שמות, ${g} מתנות`, guestsSent:(n,g)=>`הרשימה התקבלה: ${n} שמות, ${g} מתנות.`,
+    skipped:(row,why)=>`שורה ${row} דולגה: ${why}`, why:{'no name':'אין שם', 'amount 0':'כמות 0 (לא מגיע/ה)'},
+    saveAs:'שמרו את הקובץ כ-xlsx או כ-csv ונסו שוב.', badAmount:(row,v)=>`שורה ${row}: הכמות "${v}" אינה מספר שלם.`,
+    noNames:'לא נמצאו שמות בקובץ.', tooBig:'הקובץ גדול מ-2MB.', tooManyRows:'יותר מ-5000 שורות.',
+    badFile:'לא הצלחנו לקרוא את הקובץ. שמרו אותו כ-xlsx או כ-csv ונסו שוב.', guestsLocked:'ההזמנה כבר בהדפסה. לשינוי ברשימה פנו לסטודיו.',
     st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם'}},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
@@ -126,12 +135,21 @@ const T = {
     footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
     failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
     toPay:'Left to pay', toPayAll:'Total left',
+    names:'Name check', namesNote:'Please check the spelling of every name before approving: what you see here is what gets printed.',
+    printing:(ok,all,d)=>`Printing: ${ok} of ${all}${d ? ` · ready by ${d}` : ''}`,
+    guests:'Guest list', guestsHow:'Download the template, fill in a name and an amount for each guest (empty amount = one copy, 0 = not coming) and upload it. Your own .xlsx or .csv works too.',
+    template:'Download template', upload:'Upload the list', replace:'Upload an updated list', sending:'Sending…',
+    guestsNow:(n,g,d)=>`Received on ${d}: ${n} names, ${g} gifts`, guestsSent:(n,g)=>`List received: ${n} names, ${g} gifts.`,
+    skipped:(row,why)=>`Row ${row} skipped: ${why}`, why:{'no name':'no name', 'amount 0':'amount 0 (not coming)'},
+    saveAs:'Save it as .xlsx or .csv and try again.', badAmount:(row,v)=>`Row ${row}: the amount "${v}" is not a whole number.`,
+    noNames:'No names found in the file.', tooBig:'The file is over 2 MB.', tooManyRows:'Over 5000 rows.',
+    badFile:"We couldn't read the file. Save it as .xlsx or .csv and try again.", guestsLocked:'The order is already printing. Ask the studio to change the list.',
     st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid'}},
 };
 const base = location.pathname.replace(/\/$/, '');
 const preview = new URLSearchParams(location.search).get('preview') || '';
 const $ = id => document.getElementById(id);
-let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null, focus = null;
+let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null, focus = null, sent = {};
 const t = () => T[lang];
 
 function h(tag, attrs = {}, ...kids) {
@@ -146,6 +164,9 @@ function h(tag, attrs = {}, ...kids) {
 const shekel = a => '₪' + (a / 100).toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2});
 const ltr = s => h('span', {class: 'ltr'}, s);
 const day = iso => iso ? new Date(iso).toLocaleDateString('he-IL', {day: '2-digit', month: '2-digit'}) : '';
+// A day without a time (YYYY-MM-DD): 12.11, or 12 Nov.
+const date = s => { if (!s) return ''; const [y, m, d] = s.split('-').map(Number);
+  return lang === 'he' ? `${d}.${m}` : new Date(y, m - 1, d).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}); };
 const file = (v, name) => `${base}/f/${v.id}/${name}`;
 const has = (v, name) => v.files.includes(name);
 // Static markup only, never data: data always goes through h() and textContent.
@@ -206,7 +227,8 @@ function list() {
 function detail(r) {
   const versionId = sel[r.id] || r.currentVersionId || r.versions[r.versions.length - 1].id;
   const v = r.versions.find(x => x.id === versionId) || r.versions[r.versions.length - 1];
-  const views = [['2d', 'preview.png', t().view2d], ['3d', 'spin.jpg', t().view3d], ['asm', 'spin_asm.jpg', t().asm]].filter(([, f]) => has(v, f));
+  const views = [['2d', 'preview.png', t().view2d], ['3d', 'spin.jpg', t().view3d], ['asm', 'spin_asm.jpg', t().asm],
+    ['names', 'names.jpg', t().names]].filter(([, f]) => has(v, f));
   let view = sel['view' + r.id];
   if (!views.some(([k]) => k === view)) view = views[0] ? views[0][0] : null;
   $('back').hidden = false; $('logo').style.display = 'none';
@@ -215,13 +237,17 @@ function detail(r) {
 
   const pinned = r.comments.filter(c => c.versionId === v.id && c.pin && c.pin.view === view);
   const numbers = new Map(r.comments.filter(c => c.pin).map((c, i) => [c.id, i + 1]));
-  const stage = h('div', {class: 'stage' + (picking ? ' picking' : '')});
+  // The name check is one tall picture, read by scrolling the page: no turning, no pins.
+  const names = view === 'names';
+  const stage = names ? h('div', {class: 'card', style: 'padding:12px;display:flex;flex-direction:column;gap:8px'},
+    h('b', {}, t().namesNote), h('img', {src: file(v, 'names.jpg'), alt: t().names, style: 'width:100%;display:block;border-radius:8px'}))
+    : h('div', {class: 'stage' + (picking ? ' picking' : '')});
   const overlay = h('div', {class: 'overlay'});
   const markers = pinned.map(c => ({p: c.pin, id: c.id, el: h('span', {class: 'pin'}, numbers.get(c.id))}));
   if (draftPin && draftPin.view === view) markers.push({p: draftPin, el: h('span', {class: 'pin new'}, '+')});
   overlay.append(...markers.map(m => m.el));
 
-  if (view) {
+  if (view && !names) {
     const name = views.find(([k]) => k === view)[1];
     stage.append(h('div', {class: 'loading'}, t().loading3d), overlay);
     if (view !== '2d') stage.append(h('span', {class: 'hint'}, t().drag));
@@ -232,7 +258,7 @@ function detail(r) {
   if (views.length > 1) kids.unshift(h('div', {class: 'seg', role: 'tablist'}, views.map(([k, , label]) =>
     h('button', {type: 'button', role: 'tab', 'aria-selected': String(k === view), onclick: () => { sel['view' + r.id] = k; draftPin = null; rerender(r); }}, label))));
   const open = r.status === 'waiting';
-  if (open && view) kids.push(h('div', {class: 'row'},
+  if (open && view && !names) kids.push(h('div', {class: 'row'},
     h('button', {type: 'button', class: 'pick', 'aria-pressed': String(picking), onclick: () => { picking = !picking; rerender(r); }},
       icon(PIN), t().pin),
     h('span', {class: 'muted'}, draftPin ? t().pinSet : (picking ? t().pinTap : t().pinHint))));
@@ -241,6 +267,7 @@ function detail(r) {
       `v${x.n}` + (x.id === r.currentVersionId && r.versions.length > 1 ? ` · ${t().now}` : '')))));
   if (r.approved) kids.push(h('div', {class: 'banner'}, t().approvedAt(r.versions.find(x => x.id === r.approved.versionId)?.n ?? '', day(r.approved.at))));
   else kids.push(h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status)));
+  if (r.progress) kids.push(h('p', {class: 'muted', style: 'margin:0'}, t().printing(r.progress.unitsOk, r.progress.unitsTarget, date(r.progress.finishDate))));
 
   const q = r.quote;
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().quote), q ? [
@@ -251,7 +278,10 @@ function detail(r) {
     q.note ? h('span', {class: 'muted', style: 'white-space:pre-wrap'}, q.note) : null,
     r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].total), day(q.at))) : null,
     open ? h('span', {class: 'muted'}, t().approveNote) : null,
+    open && has(v, 'names.jpg') ? h('span', {class: 'muted'}, t().namesNote) : null,
   ] : h('span', {class: 'muted'}, t().noQuote)));
+  const guests = guestCard(r);
+  if (guests) kids.push(guests);
 
   const input = h('input', {type: 'text', placeholder: t().write, 'aria-label': t().write, maxlength: 2000});
   const send = async () => {
@@ -277,6 +307,43 @@ function detail(r) {
     $('approve').onclick = () => confirmApprove(r, v, q);
   }
   if (picking) setTimeout(() => stage.scrollIntoView({block: 'nearest', behavior: 'smooth'}), 0);
+}
+
+// The client's guest list: the template, an upload, and what the studio got from it.
+function guestCard(r) {
+  const canSend = ['draft', 'waiting', 'approved'].includes(r.status) && !preview;
+  if (!canSend && !r.guests) return null;
+  const result = h('div', {role: 'status', class: 'muted'});
+  const got = sent[r.id];
+  if (got) result.append(h('div', {}, t().guestsSent(got.names, got.gifts)), ...got.skipped.map(([row, why]) => h('div', {}, t().skipped(row, t().why[why] || why))));
+  const input = h('input', {type: 'file', accept: '.xlsx,.csv', hidden: true});
+  input.addEventListener('change', async () => {
+    const f = input.files[0]; input.value = '';
+    if (!f) return;
+    result.className = 'muted';
+    if (/\.xls$/i.test(f.name)) { result.className = 'error'; result.textContent = t().saveAs; return; }
+    result.textContent = t().sending;
+    const form = new FormData(); form.append('file', f);
+    try {
+      const res = await fetch(`${base}/requests/${r.id}/guests`, {method: 'POST', body: form});
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) { result.className = 'error'; result.textContent = guestError(res.status, body.detail); return; }
+      sent[r.id] = body; await refresh();
+    } catch { result.className = 'error'; result.textContent = t().failed; }
+  });
+  return h('section', {class: 'card'}, h('h2', {}, t().guests),
+    r.guests ? h('span', {}, t().guestsNow(r.guests.names, r.guests.gifts, day(r.guests.at))) : null,
+    canSend ? h('span', {class: 'muted'}, t().guestsHow) : null,
+    canSend ? h('div', {class: 'row', style: 'flex-wrap:wrap'},
+      h('a', {class: 'ghost', href: `${base}/guest-template.xlsx`, download: 'guests.xlsx', style: 'display:inline-flex;align-items:center;text-decoration:none;color:inherit'}, t().template),
+      h('button', {type: 'button', class: 'pick', onclick: () => input.click()}, r.guests ? t().replace : t().upload)) : null,
+    input, result);
+}
+function guestError(status, detail) {
+  const row = /^Row (\d+): the amount "(.*)" is not a whole number$/.exec(detail || '');
+  if (row) return t().badAmount(row[1], row[2]);
+  return {409: t().guestsLocked, 413: t().tooBig, 429: t().failed}[status] || {'Save it as .xlsx or .csv': t().saveAs, 'No names in the file': t().noNames,
+    'The file is empty': t().noNames, 'Over 5000 rows': t().tooManyRows}[detail] || t().badFile;
 }
 
 // A pinned comment turns the view to its version, view and turn.

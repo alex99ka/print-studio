@@ -26,6 +26,32 @@ export, Drive backups, light/dark, RTL.
   version with a paired key (CRM › הגדרות › חיבור ה-Flag Maker); the CRM opens a
   version back in the Flag Maker (`--crm-version`) and the approved 3MF in
   Bambu Studio.
+- **Gift Factory link** (below): event-gift runs report their quote, progress and real cost here; the client
+  sends a guest list through the portal.
+
+## Gift Factory link
+
+[Gift Factory](../3d%20manager) plans and prints runs of 20–500 event gifts (names per guest, plates,
+slicing, cost, failures). It talks to the Pi with its own key (CRM › הגדרות › חיבור Gift Factory; pasted in
+Gift Factory's "CRM request…"), next to the Flag Maker's, on `/gf/...` routes
+(`server/app/giftfactory.py`). The contract, **v1**, is [`server/GIFT_FACTORY.md`](server/GIFT_FACTORY.md):
+change it only as a `contract: 2` beside v1, since Gift Factory's `tests/check_crm_link.py` holds it.
+
+- **C1 quote**: the request's "ייצור" card shows Gift Factory's quote (units, plates, hours, finish day, unit
+  cost, suggested price, breakdown); "שימוש כהצעת מחיר" fills the quote form. Alex still saves and sends it.
+- **C2 name check**: a version from Gift Factory can carry `names.jpg`, shown in the portal as a third
+  picture ("בדיקת שמות"), watermarked, asking the client to check every spelling before approving.
+- **C3 guest list**: the portal offers a template (.xlsx) and takes the client's list back (.xlsx/.csv,
+  checked on the Pi); the app shows the summary and downloads the file; Gift Factory imports it.
+- **C4 progress**: plates, units OK/target, failures and finish day on the request; one push per finished
+  plate or new failures (switch: "production"); the client sees one line (units and day).
+- **C5**: "פתח ב-Gift Factory" on the PC starts `pythonw.exe <Gift Factory>\app\main.py --crm-request <id>`
+  (asked for once; the defaults are the desktop shortcut's target).
+- **C6 real profit**: approved price before VAT − Gift Factory's actual cost, per order and summed in the
+  money tab.
+
+The server alone writes `requests/{id}.production` and `.guests`; the rules refuse them to the app, and every
+app write to a request is a field update, so none drops them.
 
 Records are in Firestore (the rules check every app write). Files live on the
 Pi (`DATA_DIR/files/<version id>/`; Firebase Storage needs Blaze) and are

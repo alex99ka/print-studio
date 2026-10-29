@@ -18,7 +18,8 @@ import 'update.dart';
 ///
 /// The types every app starts with. A new app adds its own.
 const notificationTypes = <String, String>{
-  'client': 'כשלקוח מעיר או מאשר',
+  'client': 'כשלקוח מעיר, מאשר או שולח רשימת אורחים',
+  'production': 'כש-Gift Factory מסיים פלטה או כשיחידות נכשלות',
   'updates': 'כשיש גרסה חדשה',
 };
 
