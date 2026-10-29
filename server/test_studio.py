@@ -143,6 +143,7 @@ def test_portal_shows_only_published(client, db):
     publish(db, vid)
     r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
     assert r["currentVersionId"] == vid and r["quote"]["total"] == 42480 and r["status"] == "waiting"
+    assert r["versions"][0]["spinGrid"] == 6  # the Flag Maker's sheet, as before
     assert client.get(f"/p/{TOKEN_B}/data").json()["requests"] == []
     # The client gets the pictures, watermarked (same size, different pixels).
     shown = client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content

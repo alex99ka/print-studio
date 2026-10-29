@@ -47,6 +47,32 @@ class StatusChip extends StatelessWidget {
   }
 }
 
+/// "12.11 · מחר": red once passed, amber from the Pi's first reminder on (the printing
+/// still ahead + 2 days). Nothing without a deadline
+/// or once delivered.
+class DeadlineChip extends StatelessWidget {
+  const DeadlineChip(this.r, {super.key});
+  final Map<String, dynamic> r;
+
+  @override
+  Widget build(BuildContext context) {
+    final n = daysLeft(r, DateTime.now());
+    if (n == null) return const SizedBox.shrink();
+    final s = context.studio;
+    final scheme = Theme.of(context).colorScheme;
+    final (bg, fg) = n < 0 ? (scheme.errorContainer, scheme.onErrorContainer) : n <= remindDays(r) ? (s.warnSoft, s.warnInk) : (s.sunk, s.muted);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(99)),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(Icons.event_outlined, size: 14, color: fg),
+        const SizedBox(width: 4),
+        Text('${isoDay(r['deadline'])} · ${daysLeftText(n)}', style: TextStyle(color: fg, fontSize: 12)),
+      ]),
+    );
+  }
+}
+
 /// The home tab: the list beside the open request on a wide screen, the list
 /// alone on a phone (a request opens as its own page there).
 class RequestsView extends StatefulWidget {
@@ -333,7 +359,10 @@ class _RequestRow extends StatelessWidget {
               ]),
             ),
             const SizedBox(width: 8),
-            StatusChip('${r['status']}'),
+            Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+              StatusChip('${r['status']}'),
+              if (r['deadline'] != null) ...[const SizedBox(height: 4), DeadlineChip(r)],
+            ]),
           ]),
         ),
       ),
@@ -472,6 +501,24 @@ class _RequestDetailState extends State<RequestDetail> {
         ),
       ]),
       Text('${r['customerName'] ?? ''} · ${r['qty'] ?? 1} יחידות', style: TextStyle(color: s.muted)),
+      Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+        TextButton.icon(
+          onPressed: () => pickDeadline(context, request),
+          icon: const Icon(Icons.event_outlined),
+          label: Text(deadlineOf(r) == null ? 'הוספת תאריך יעד' : 'תאריך יעד: ${isoDay(r['deadline'])}.${deadlineOf(r)!.year}'),
+        ),
+        if (r['deadline'] != null) ...[
+          DeadlineChip(r),
+          IconButton(
+            tooltip: 'הסרת תאריך היעד',
+            icon: const Icon(Icons.close, size: 18),
+            onPressed: () {
+              final messenger = ScaffoldMessenger.of(context);
+              setDeadline(request, null).catchError((Object e) => showError(messenger, e, 'השמירה נכשלה'));
+            },
+          ),
+        ],
+      ]),
       if ('${r['notes'] ?? ''}'.isNotEmpty) Text('הערות: ${r['notes']}', style: TextStyle(color: s.muted)),
     ]);
 
@@ -530,7 +577,7 @@ class _RequestDetailState extends State<RequestDetail> {
                   child: PinnedPreview(
                     key: ValueKey('${version!.id}/${view.$1}/$_focus'),
                     url: fileUrl(token, version.id, view.$2),
-                    grid: view.$2.startsWith('spin') ? spinGrid : 1,
+                    grid: view.$2.startsWith('spin') ? spinGridOf(version.data()) : 1,
                     frame: _frame,
                     pins: [
                       for (final c in comments)
@@ -882,7 +929,7 @@ class _Comment extends StatelessWidget {
 
 /// A picture with numbered pins at fractions of it (not of the box: the
 /// picture is letterboxed), exactly where the customer tapped. With [grid] > 1
-/// the picture is a sheet of [spinFrames] turns: dragging sideways turns it,
+/// the picture is a sheet of grid x grid turns: dragging sideways turns it,
 /// and a pin shows only on the turn it was placed on.
 class PinnedPreview extends StatefulWidget {
   const PinnedPreview({super.key, required this.url, required this.pins, this.grid = 1, this.frame = 0});
@@ -899,7 +946,8 @@ class _PinnedPreviewState extends State<PinnedPreview> {
   ImageInfo? _info;
   bool _failed = false;
   ImageStream? _stream;
-  late int _frame = widget.grid > 1 ? widget.frame % spinFrames : 0;
+  late final int _turns = widget.grid * widget.grid;
+  late int _frame = widget.frame % _turns;
   double _drag = 0;
   late final _listener = ImageStreamListener(
     (info, _) {
@@ -929,10 +977,11 @@ class _PinnedPreviewState extends State<PinnedPreview> {
 
   void _turn(DragUpdateDetails d) {
     _drag += d.delta.dx;
-    final step = (_drag / 10).truncate(); // 10 px a turn, like the client's page
+    final px = 360 / _turns; // a full turn per 360 px, like the client's page
+    final step = (_drag / px).truncate();
     if (step == 0) return;
-    _drag -= step * 10;
-    setState(() => _frame = (_frame - step) % spinFrames);
+    _drag -= step * px;
+    setState(() => _frame = (_frame - step) % _turns);
   }
 
   @override
@@ -957,12 +1006,12 @@ class _PinnedPreviewState extends State<PinnedPreview> {
             child: Stack(clipBehavior: Clip.none, children: [
               Positioned.fill(child: CustomPaint(painter: _Tile(image, src))),
               for (final (at, label, turn) in widget.pins)
-                if (g == 1 || turnsAway(turn, _frame) <= 3)
+                if (g == 1 || turnsAway(turn, _frame, _turns) <= 3)
                   Positioned(
                     left: at.dx * tile.width - tile.shortestSide * .04,
                     top: at.dy * tile.height - tile.shortestSide * .04,
                     // Pins placed up to 3 turns away show faded, so every pin is findable while turning.
-                    child: Opacity(opacity: g == 1 || turnsAway(turn, _frame) == 0 ? 1 : .4, child: Container(
+                    child: Opacity(opacity: g == 1 || turnsAway(turn, _frame, _turns) == 0 ? 1 : .4, child: Container(
                       width: tile.shortestSide * .08,
                       height: tile.shortestSide * .08,
                       alignment: Alignment.center,
@@ -989,9 +1038,9 @@ class _PinnedPreviewState extends State<PinnedPreview> {
 }
 
 /// How many turns apart two frames of the spin are, the short way round.
-int turnsAway(int a, int b) {
-  final d = (a - b) % spinFrames;
-  return d > spinFrames ~/ 2 ? spinFrames - d : d;
+int turnsAway(int a, int b, int turns) {
+  final d = (a - b) % turns;
+  return d > turns ~/ 2 ? turns - d : d;
 }
 
 class _Tile extends CustomPainter {

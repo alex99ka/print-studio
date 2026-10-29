@@ -21,7 +21,12 @@ APP = os.environ.get("APP_NAME") or "האפליקציה"
 async def lifespan(_: FastAPI):
     tasks = []
     if os.environ.get("RUN_JOBS", "1") == "1":
-        tasks = [asyncio.create_task(jobs.every_minute()), asyncio.create_task(jobs.every_day(jobs.daily_backup, 3))]
+        tasks = [
+            asyncio.create_task(jobs.every_minute()),
+            asyncio.create_task(jobs.every_day(jobs.daily_backup, 3)),
+            # shortcut: a Pi restarted after 09:00 skips that morning's reminders; the app's list shows them anyway.
+            asyncio.create_task(jobs.every_day(jobs.deadline_reminders, 9, "תזכורות תאריך יעד")),
+        ]
     yield
     for t in tasks:
         t.cancel()
@@ -76,6 +81,18 @@ def report(r: Report, user: Annotated[dict, Depends(firebase.current_user)]) -> 
         + ("\n\nשגיאות:\n" + "\n".join(r.errors) if r.errors else "")
     )
     return {"ok": True}
+
+
+class Seen(BaseModel):
+    token: str = Field(default="", max_length=4096)  # this device's FCM token, if it has one
+    platform: str = Field(default="", max_length=20)
+
+
+@app.post("/pushes/seen")
+def pushes_seen(user: Annotated[dict, Depends(firebase.current_user)], body: Seen | None = None) -> dict:
+    """The app was opened or used on a device: its pushes leave the user's other devices."""
+    body = body or Seen()
+    return {"cleared": jobs.seen(user["uid"], body.token, body.platform)}
 
 
 @app.post("/backup")

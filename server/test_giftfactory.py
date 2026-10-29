@@ -138,10 +138,12 @@ def test_version_with_the_name_check(client, db):
                                                                      "names": ("n.jpg", names, "image/jpeg")}).json()
     doc = db.document(f"versions/{v['id']}").get().to_dict()
     assert v["n"] == 1 and doc["source"] == "giftfactory" and set(doc["files"]) == {"preview.png", "names.jpg"}
+    assert doc["spinGrid"] == 10  # 100 turns; the Flag Maker's stay 6 x 6
     publish(db, v["id"])
     shown = client.get(f"/p/{TOKEN_A}/f/{v['id']}/names.jpg").content
     assert shown != names and Image.open(io.BytesIO(shown)).size == (300, 900)  # watermarked, whole
-    assert "names.jpg" in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]["files"]
+    shown_v = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]
+    assert "names.jpg" in shown_v["files"] and shown_v["spinGrid"] == 10
     bad = client.post("/gf/requests/r1/versions", headers=key, files={"preview": ("p.png", PNG, "image/png"),
                                                                        "names": ("n.jpg", PNG, "image/jpeg")})
     assert bad.status_code == 422  # a PNG called names.jpg

@@ -50,6 +50,7 @@ FILES = {
     "names": ("names.jpg", "image/jpeg"),
 }
 SPIN_GRID = 6  # 6 x 6 tiles, frame i at row i // 6, column i % 6 (the Flag Maker's crm_link.spin)
+GF_SPIN_GRID = 10  # Gift Factory: 100 turns of 3.6 degrees; stored on each version as spinGrid
 TYPES = dict(FILES.values())
 # What the client's link serves: watermarked pictures only, never the print file, the recipe or a mesh.
 CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg", "names.jpg"}
@@ -142,7 +143,7 @@ def _watermark(path: Path, grid: int = 1) -> None:
         img.save(path, "JPEG", quality=85)
 
 
-def _save(vid: str, up: Upload) -> list[str]:
+def _save(vid: str, up: Upload, grid: int) -> list[str]:
     tmp = Path(tempfile.mkdtemp(dir=_data()))
     try:
         names = []
@@ -159,7 +160,7 @@ def _save(vid: str, up: Upload) -> list[str]:
                     out.write(chunk)
             _check(tmp / name)
             if name in CLIENT_FILES:
-                _watermark(tmp / name, SPIN_GRID if name.startswith("spin") else 1)
+                _watermark(tmp / name, grid if name.startswith("spin") else 1)
             names.append(name)
         dest = _data() / "files" / vid
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -178,7 +179,8 @@ def create_version(rid: str, up: Upload, source: str) -> dict:
     req = db.document(f"requests/{rid}")
     if not req.get().exists:
         raise HTTPException(404, "No such request")
-    names = _save(ref.id, up)
+    grid = GF_SPIN_GRID if source == "giftfactory" else SPIN_GRID
+    names = _save(ref.id, up, grid)
 
     @firestore.transactional
     def number(t) -> int:
@@ -188,7 +190,7 @@ def create_version(rid: str, up: Upload, source: str) -> dict:
         n = int(r.get("latestVersion") or 0) + 1
         t.set(ref, {
             "requestId": rid, "customerId": r.get("customerId"), "n": n, "state": "draft",
-            "files": names, "note": up.note, "source": source, "createdAt": firestore.SERVER_TIMESTAMP,
+            "files": names, "spinGrid": grid, "note": up.note, "source": source, "createdAt": firestore.SERVER_TIMESTAMP,
         })
         t.update(req, {"latestVersion": n, "updatedAt": firestore.SERVER_TIMESTAMP})
         return n
@@ -371,7 +373,7 @@ def portal_data(token: str, preview: str = "") -> dict:
         if v.get("state") in ("published", "approved") or vid == preview:
             versions[v.get("requestId")].append({
                 "id": vid, "n": v.get("n"), "state": v.get("state"),
-                "files": [f for f in v.get("files", []) if f in CLIENT_FILES],
+                "files": [f for f in v.get("files", []) if f in CLIENT_FILES], "spinGrid": v.get("spinGrid", SPIN_GRID),
                 "note": v.get("note", ""), "at": _iso(v.get("publishedAt") or v.get("createdAt")),
             })
     for qid, q in _mine(cid, "quotes"):

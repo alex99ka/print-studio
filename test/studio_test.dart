@@ -80,6 +80,43 @@ void main() {
     expect(productionOf({}), isEmpty);
   });
 
+  test("a customer's balance: approved orders only, a deposit counts as paid, overpaying one order doesn't pay another", () {
+    final b = balance([
+      (status: 'approved', total: 42480, paid: 10000),
+      (status: 'delivered', total: 20000, paid: 25000), // overpaid by 50
+      (status: 'waiting', total: 99900, paid: 5000), // an offer with a deposit
+      (status: 'printing', total: null, paid: 0), // no price yet
+    ]);
+    expect(b, (billed: 62480, paid: 40000, left: 32480));
+    expect(balance(const []), (billed: 0, paid: 0, left: 0));
+  });
+
+  test('deadlines: a day, counted in calendar days, gone once delivered', () {
+    final today = DateTime(2026, 10, 29, 23, 30); // late in the day still counts as the 29th
+    expect(isoDate(DateTime(2026, 3, 5)), '2026-03-05');
+    expect(daysLeft({'deadline': '2026-11-01', 'status': 'printing'}, today), 3);
+    expect(daysLeft({'deadline': '2026-10-29', 'status': 'approved'}, today), 0);
+    expect(daysLeft({'deadline': '2026-10-27', 'status': 'ready'}, today), -2);
+    expect(daysLeft({'deadline': '2026-10-27', 'status': 'delivered'}, today), isNull);
+    expect(daysLeft({'status': 'draft'}, today), isNull);
+    expect(daysLeft({'deadline': null, 'status': 'draft'}, today), isNull);
+    // Across the clocks going back (25.10.2026 in Israel) still whole days.
+    expect(daysLeft({'deadline': '2026-10-26', 'status': 'draft'}, DateTime(2026, 10, 24)), 2);
+    expect([for (final n in [0, 1, 4, -1, -3]) daysLeftText(n)], ['היום', 'מחר', 'בעוד 4 ימים', 'עבר אתמול', 'עבר לפני 3 ימים']);
+  });
+
+  test("print days ahead from Gift Factory's numbers, as the Pi counts them", () {
+    Map<String, dynamic> r(num? hours, {int done = 0, int total = 0}) => {
+          'production': {'quote': {'printHours': hours}, 'progress': {'platesDone': done, 'platesTotal': total}},
+        };
+    expect(printDaysLeft({}), 1); // a microphone flag
+    expect(printDaysLeft(r(7 * 24)), 7);
+    expect(remindDays(r(7 * 24)), 9); // a phone stand: 9 days before
+    expect(printDaysLeft(r(70.5)), 3);
+    expect(printDaysLeft(r(7 * 24, done: 4, total: 7)), 3);
+    expect(printDaysLeft(r(7 * 24, done: 7, total: 7)), 0);
+  });
+
   test('isoDay shows a contract date the way the app writes days', () {
     expect(isoDay('2026-11-12'), '12.11');
     expect(isoDay(null), '');

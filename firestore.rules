@@ -44,6 +44,11 @@ service cloud.firestore {
       return v is string && v.size() <= max;
     }
 
+    // A request's deadline: a day "2026-11-12" or none (the Pi reminds by it, jobs.deadline_reminders).
+    function deadlineOk(d) {
+      return !('deadline' in d) || d.deadline == null || (d.deadline is string && d.deadline.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}'));
+    }
+
     match /customers/{id} {
       allow read, delete: if allowed();
       allow create, update: if allowed()
@@ -59,7 +64,8 @@ service cloud.firestore {
       allow read: if allowed();
       allow create: if allowed()
         && request.resource.data.keys().hasOnly(['customerId', 'customerName', 'title', 'qty', 'notes', 'status',
-             'latestVersion', 'createdAt', 'updatedAt'])
+             'latestVersion', 'createdAt', 'updatedAt', 'deadline'])
+        && deadlineOk(request.resource.data)
         && shortText(request.resource.data.title, 200) && request.resource.data.title.size() > 0
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.status == 'draft'
@@ -71,7 +77,8 @@ service cloud.firestore {
       // version, the price and the quantity the customer approved.
       allow update: if allowed()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'qty', 'notes', 'status',
-             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt'])
+             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline'])
+        && deadlineOk(request.resource.data)
         && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid']
         && shortText(request.resource.data.title, 200)
         && request.resource.data.qty is int && request.resource.data.qty >= 1

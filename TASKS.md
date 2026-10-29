@@ -77,6 +77,10 @@ without these the app connects to nothing.
    rules, server on the Pi, 0.2.0 prerelease (APK + Windows). Left: promote 0.2.0 once it's good on the
    phone; pair Gift Factory (הגדרות › חיבור Gift Factory) and run its `tests/check_crm_link.py`.
 
+12. 29.10 CRM 0.3.0 built and tested: customer page (requests, paid, left), deadlines with print-time-aware
+   reminders, notifications that close (X / swipe) and are seen once, Gift Factory spin 10 × 10. Waiting for
+   Alex's go: rules → server → tag 0.3.0. Then Gift Factory sets `proof.SPIN_GRID = 10`, `SPIN_TILE = 400`.
+
 ## For Gift Factory (differences from the handoff's Contract v1, all compatible)
 
 See `server/GIFT_FACTORY.md` › As built. In short: PUT bodies are checked strictly (422 off contract;

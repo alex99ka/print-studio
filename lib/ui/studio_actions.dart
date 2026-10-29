@@ -33,7 +33,7 @@ final selection = ValueNotifier<Selection?>(null);
 List<String> filesOf(Doc? v) => [...(v?.data()?['files'] as List? ?? const [])].cast<String>();
 
 void say(BuildContext context, String text, {SnackBarAction? action}) =>
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), action: action));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text), action: action, persist: false));
 
 Future<void> _open(Uri uri) async {
   if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) throw Errors.noConnection;
@@ -75,6 +75,9 @@ Future<void> publishVersion(BuildContext context, Selection s) async {
   try {
     await publish(s.request, v);
     messenger.showSnackBar(SnackBar(
+      // A button no longer keeps it on screen (Flutter's default since 3.29): it closes by itself.
+      persist: false,
+      duration: const Duration(seconds: 6),
       content: Text('גרסה ${v.data()?['n']} פורסמה ללקוח'),
       action: s.customer == null
           ? null
@@ -174,9 +177,30 @@ Future<void> downloadGuests(BuildContext context, Selection s) => _guard(context
       }
     });
 
-Future<void> newRequest(BuildContext context) async {
-  final id = await showDialog<String>(context: context, builder: (_) => const NewRequestDialog());
+/// Returns the new request's id; [customer] picks the customer up front.
+Future<String?> newRequest(BuildContext context, {Doc? customer}) async {
+  final id = await showDialog<String>(context: context, builder: (_) => NewRequestDialog(customer: customer));
   if (id != null && context.mounted) say(context, 'הבקשה נוצרה. עכשיו מייצאים אליה עיצוב מה-Flag Maker');
+  return id;
+}
+
+/// The calendar; the Pi reminds 3 days before, the day before, on the day and the day after.
+Future<void> pickDeadline(BuildContext context, Doc request) async {
+  final now = DateTime.now();
+  final d = await showDatePicker(
+    context: context,
+    helpText: 'תאריך יעד',
+    initialDate: deadlineOf(request.data()) ?? now.add(const Duration(days: 7)),
+    firstDate: DateTime(now.year - 1),
+    lastDate: DateTime(now.year + 2),
+  );
+  if (d == null || !context.mounted) return;
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await setDeadline(request, d);
+  } catch (e) {
+    showError(messenger, e, 'השמירה נכשלה');
+  }
 }
 
 Future<void> newCustomer(BuildContext context) =>

@@ -53,18 +53,32 @@ def current_user(creds: Annotated[HTTPAuthorizationCredentials, Depends(HTTPBear
     return user
 
 
-def push(tokens: list[str], title: str, body: str, data: dict | None = None) -> list[str]:
-    """Sends to each token; returns the tokens FCM says are gone, to remove."""
+def push(tokens: list[str], title: str, body: str, data: dict | None = None, tag: str = "") -> list[str]:
+    """Sends to each token; returns the tokens FCM says are gone, to remove.
+    [tag] names the notification on every device, so dismiss() can take it away."""
+    return _send(tokens, messaging.MulticastMessage(
+        tokens=tokens,
+        notification=messaging.Notification(title=title, body=body),
+        data={k: str(v) for k, v in {**(data or {}), "tag": tag}.items()},
+        android=messaging.AndroidConfig(notification=messaging.AndroidNotification(tag=tag or None)),
+        webpush=messaging.WebpushConfig(notification=messaging.WebpushNotification(tag=tag or None)),
+    ))
+
+
+def dismiss(tokens: list[str], tags: list[str]) -> list[str]:
+    """A silent message: the app (or the web's service worker) removes these notifications."""
+    return _send(tokens, messaging.MulticastMessage(
+        tokens=tokens,
+        data={"dismiss": ",".join(tags)},
+        android=messaging.AndroidConfig(priority="high"),
+        webpush=messaging.WebpushConfig(headers={"Urgency": "high"}),
+    ))
+
+
+def _send(tokens: list[str], message: messaging.MulticastMessage) -> list[str]:
     if not tokens:
         return []
-    res = messaging.send_each_for_multicast(
-        messaging.MulticastMessage(
-            tokens=tokens,
-            notification=messaging.Notification(title=title, body=body),
-            data={k: str(v) for k, v in (data or {}).items()},
-        ),
-        app=app(),
-    )
+    res = messaging.send_each_for_multicast(message, app=app())
     return [
         t
         for t, r in zip(tokens, res.responses)

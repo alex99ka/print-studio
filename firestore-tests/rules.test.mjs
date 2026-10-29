@@ -104,6 +104,15 @@ test("requests: created as drafts, approval fields are the server's", async () =
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'lost' }));
 });
 
+test('requests: a deadline is a day or nothing, also after approval', async () => {
+  await assertSucceeds(addDoc(collection(db(ALEX), 'requests'), { ...request, deadline: '2026-11-12' }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, deadline: 'next week' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { deadline: '2026-12-01' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { deadline: null }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { deadline: new Date() }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { deadline: '12.11.2026' }));
+});
+
 test('requests: an approved one keeps its version, price and quantity; moves along the pipeline', async () => {
   await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { status: 'printing' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { quoteId: 'cheaper' }));

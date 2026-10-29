@@ -6,7 +6,8 @@ import '../studio/studio.dart';
 
 /// A new request: who it's for, what (the names on the flag), how many.
 class NewRequestDialog extends StatefulWidget {
-  const NewRequestDialog({super.key});
+  const NewRequestDialog({super.key, this.customer});
+  final Doc? customer;
 
   @override
   State<NewRequestDialog> createState() => _NewRequestDialogState();
@@ -16,7 +17,8 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
   final _title = TextEditingController();
   final _qty = TextEditingController(text: '1');
   final _notes = TextEditingController();
-  Doc? _customer;
+  late Doc? _customer = widget.customer;
+  DateTime? _deadline;
   bool _busy = false;
 
   @override
@@ -33,7 +35,7 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text);
+      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text, deadline: _deadline);
       if (mounted) Navigator.pop(context, id);
     } catch (e) {
       if (mounted) {
@@ -79,6 +81,30 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
                   decoration: const InputDecoration(labelText: 'כמות'),
                   onChanged: (_) => setState(() {}),
                 ),
+                const SizedBox(height: 12),
+                Row(children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.event_outlined),
+                      label: Text(_deadline == null
+                          ? 'תאריך יעד (לא חובה)'
+                          : 'תאריך יעד: ${_deadline!.day}.${_deadline!.month}.${_deadline!.year}'),
+                      onPressed: () async {
+                        final now = DateTime.now();
+                        final d = await showDatePicker(
+                            context: context,
+                            helpText: 'תאריך יעד',
+                            initialDate: _deadline ?? now.add(const Duration(days: 7)),
+                            firstDate: DateTime(now.year, now.month, now.day),
+                            lastDate: DateTime(now.year + 2));
+                        if (d != null) setState(() => _deadline = d);
+                      },
+                    ),
+                  ),
+                  if (_deadline != null)
+                    IconButton(
+                        tooltip: 'בלי תאריך יעד', icon: const Icon(Icons.close), onPressed: () => setState(() => _deadline = null)),
+                ]),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _notes,

@@ -144,7 +144,9 @@ ThemeData appTheme(Brightness brightness) {
       border: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: s.line)),
       enabledBorder: OutlineInputBorder(borderRadius: radius, borderSide: BorderSide(color: s.line)),
     ),
-    snackBarTheme: const SnackBarThemeData(behavior: SnackBarBehavior.floating),
+    // Every message closes by itself, has an X (the PC) and swipes away sideways (the phone).
+    snackBarTheme: const SnackBarThemeData(
+        behavior: SnackBarBehavior.floating, showCloseIcon: true, dismissDirection: DismissDirection.horizontal),
   );
 }
 

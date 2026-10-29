@@ -4,11 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import '../config.dart';
 import 'errors.dart';
+import 'server.dart';
 import 'update.dart';
 
 /// Pushes come from the home server (Spark has no Cloud Functions): it reads
@@ -20,12 +23,48 @@ import 'update.dart';
 const notificationTypes = <String, String>{
   'client': 'כשלקוח מעיר, מאשר או שולח רשימת אורחים',
   'production': 'כש-Gift Factory מסיים פלטה או כשיחידות נכשלות',
+  'deadlines': 'כשתאריך יעד מתקרב (כשצריך להתחיל להדפיס, יום לפני, ביום עצמו)',
   'updates': 'כשיש גרסה חדשה',
 };
 
 final _local = FlutterLocalNotificationsPlugin();
 bool _started = false;
 const _updateId = 9001;
+DateTime _lastTouch = DateTime(2000);
+String? _token;
+
+/// Each push is seen once: when the app is opened or used on any device, the
+/// Pi takes that push off the user's other devices (an Android phone gets a
+/// silent "dismiss" message with the pushes' tags; see server jobs.seen).
+Future<void> markSeen() async {
+  if (!hasServer || FirebaseAuth.instance.currentUser == null) return;
+  try {
+    await server('POST', '/pushes/seen', {
+      'token': _token ?? '',
+      'platform': kIsWeb ? 'web' : defaultTargetPlatform.name,
+    });
+  } catch (_) {
+    // Offline: the next open clears them.
+  }
+}
+
+/// Removes the pushes a "dismiss" message names (FCM shows each as id 0 with its tag).
+Future<void> _dismiss(RemoteMessage m) async {
+  for (final tag in '${m.data['dismiss'] ?? ''}'.split(',').where((t) => t.isNotEmpty)) {
+    await _local.cancel(id: 0, tag: tag);
+  }
+}
+
+/// Android, app in the background or closed: a "dismiss" message from the Pi.
+/// Registered in main() before runApp.
+@pragma('vm:entry-point')
+Future<void> pushInBackground(RemoteMessage m) async {
+  if (m.data['dismiss'] == null) return;
+  // A fresh isolate: the plugin isn't set up here yet.
+  await _local.initialize(
+      settings: const InitializationSettings(android: AndroidInitializationSettings('@mipmap/ic_launcher')));
+  await _dismiss(m);
+}
 
 bool get _hasFcm =>
     kIsWeb || defaultTargetPlatform == TargetPlatform.android;
@@ -59,14 +98,33 @@ Future<void> setUpNotifications(
     );
     AppUpdater.instance?.addListener(_showUpdateProgress);
   }
-  if (!_hasFcm) return;
+  // Opening the app (or coming back to it) on any device, the PC included, is seeing its pushes.
+  AppLifecycleListener(onResume: () => markSeen().ignore());
+  GestureBinding.instance.pointerRouter.addGlobalRoute((_) => _lastTouch = DateTime.now());
+  HardwareKeyboard.instance.addHandler((_) {
+    _lastTouch = DateTime.now();
+    return false;
+  });
+  if (!_hasFcm) {
+    markSeen().ignore();
+    return;
+  }
 
   final fcm = FirebaseMessaging.instance;
-  fcm.onTokenRefresh.listen((t) => _register(t).ignore());
+  fcm.onTokenRefresh.listen((t) {
+    _token = t;
+    _register(t).ignore();
+  });
   // In the app already: the system shows nothing, so the app does.
   FirebaseMessaging.onMessage.listen((m) {
+    if (m.data['dismiss'] != null) {
+      _dismiss(m).ignore();
+      return;
+    }
     final n = m.notification;
     if (n == null) return;
+    // Someone is using the app here right now, so it's seen: off the other devices.
+    if (DateTime.now().difference(_lastTouch) < const Duration(minutes: 1)) markSeen().ignore();
     messenger.showSnackBar(SnackBar(
       persist: false,
       content: Text('${n.title}\n${n.body ?? ''}'),
@@ -80,10 +138,11 @@ Future<void> setUpNotifications(
     try {
       final s = await fcm.getNotificationSettings();
       if (s.authorizationStatus == AuthorizationStatus.authorized) {
-        final t = await fcm.getToken();
-        if (t != null) await _register(t);
+        _token = await fcm.getToken();
+        if (_token != null) await _register(_token!);
       }
     } catch (_) {}
+    markSeen().ignore();
     return;
   }
   if (onOpen != null) {
@@ -93,11 +152,12 @@ Future<void> setUpNotifications(
   }
   try {
     await fcm.requestPermission(); // Android 13+ asks once
-    final t = await fcm.getToken();
-    if (t != null) await _register(t);
+    _token = await fcm.getToken();
+    if (_token != null) await _register(_token!);
   } catch (_) {
     // Offline: registered next launch or on token refresh.
   }
+  markSeen().ignore(); // opened, maybe from a notification: seen
 }
 
 /// Settings › "התראות במכשיר הזה" on the web. Safari asks only straight from

@@ -26,6 +26,12 @@ export, Drive backups, light/dark, RTL.
   version with a paired key (CRM › הגדרות › חיבור ה-Flag Maker); the CRM opens a
   version back in the Flag Maker (`--crm-version`) and the approved 3MF in
   Bambu Studio.
+- **Customer page**: every request of the customer, what they paid and what is left (in total and per
+  order), record a payment, add a request for them. Beside the list on a wide screen.
+- **Deadlines**: a day per request (calendar), shown in the lists (amber from the first reminder, red once
+  passed). The Pi pushes at 09:00 (switch `deadlines`) when printing must start (the printing still ahead by
+  Gift Factory's `printHours` less the plates done, or 1 day without them, plus 2 days), the day before, on
+  the day and the day after if missed (`jobs.deadline_reminders`).
 - **Gift Factory link** (below): event-gift runs report their quote, progress and real cost here; the client
   sends a guest list through the portal.
 
@@ -39,6 +45,8 @@ change it only as a `contract: 2` beside v1, since Gift Factory's `tests/check_c
 
 - **C1 quote**: the request's "ייצור" card shows Gift Factory's quote (units, plates, hours, finish day, unit
   cost, suggested price, breakdown); "שימוש כהצעת מחיר" fills the quote form. Alex still saves and sends it.
+- **C2 spin**: a Gift Factory version's 3D view is 10 × 10 = 100 turns (`spinGrid` stored per version;
+  the Flag Maker's stay 6 × 6).
 - **C2 name check**: a version from Gift Factory can carry `names.jpg`, shown in the portal as a third
   picture ("בדיקת שמות"), watermarked, asking the client to check every spelling before approving.
 - **C3 guest list**: the portal offers a template (.xlsx) and takes the client's list back (.xlsx/.csv,

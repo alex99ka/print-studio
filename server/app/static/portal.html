@@ -251,7 +251,7 @@ function detail(r) {
     const name = views.find(([k]) => k === view)[1];
     stage.append(h('div', {class: 'loading'}, t().loading3d), overlay);
     if (view !== '2d') stage.append(h('span', {class: 'hint'}, t().drag));
-    showPictures(stage, file(v, name), view === '2d' ? 1 : SPIN, markers, p => setPin(r, {view, ...p}));
+    showPictures(stage, file(v, name), view === '2d' ? 1 : v.spinGrid ** 2, markers, p => setPin(r, {view, ...p}));
   }
 
   const kids = [stage];
@@ -383,10 +383,11 @@ function fail(e) {
   $('main').replaceChildren(h('p', {class: 'empty'}, e === 'gone' ? T[lang || 'he'].gone : T[lang || 'he'].failed));
 }
 
-// The views are pictures drawn on a canvas: the 2D image, or a sheet of 36 turns
-// (10 degrees apart, 6 x 6 tiles) for 3D. No mesh ever reaches the browser.
+// The views are pictures drawn on a canvas: the 2D image, or a sheet of turns for 3D
+// (the version's spinGrid squared: 6 x 6 = 36 from the Flag Maker, 10 x 10 = 100 from
+// Gift Factory). No mesh ever reaches the browser.
 // A pin is {x, y} on the picture plus z = the turn it was placed on.
-const SPIN = 36, GRID = 6, frames = new Map();
+const frames = new Map();
 function showPictures(stage, url, count, markers, onPick) {
   const canvas = h('canvas', {'aria-hidden': 'true'}), ctx = canvas.getContext('2d');
   stage.prepend(canvas);
@@ -395,7 +396,7 @@ function showPictures(stage, url, count, markers, onPick) {
     if (!alive || !img) return;
     const W = stage.clientWidth, H = stage.clientHeight, dpr = Math.min(devicePixelRatio, 2);
     canvas.width = W * dpr; canvas.height = H * dpr;
-    const grid = count > 1 ? GRID : 1, tw = img.naturalWidth / grid, th = img.naturalHeight / grid;
+    const grid = Math.round(Math.sqrt(count)), tw = img.naturalWidth / grid, th = img.naturalHeight / grid;
     const s = Math.min(W / tw, H / th), w = tw * s, hh = th * s, ox = (W - w) / 2, oy = (H - hh) / 2;
     box = {ox, oy, w, hh};
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
@@ -422,7 +423,7 @@ function showPictures(stage, url, count, markers, onPick) {
     if (!down || count === 1) return;
     const dx = e.clientX - down.x;
     if (Math.abs(dx) > 6) down.moved = true;
-    const next = ((down.frame - Math.round(dx / 10)) % count + count) % count;
+    const next = ((down.frame - Math.round(dx * count / 360)) % count + count) % count; // a full turn per 360 px
     if (next !== frame) { frame = next; draw(); }
   });
   stage.addEventListener('pointerup', e => {

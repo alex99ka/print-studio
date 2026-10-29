@@ -3,6 +3,7 @@ import 'dart:ui';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -11,6 +12,7 @@ import 'config.dart';
 import 'core/app_info.dart';
 import 'core/errors.dart';
 import 'core/lock.dart';
+import 'core/notifications.dart';
 import 'core/remote_config.dart';
 import 'core/settings_store.dart';
 import 'core/tour.dart';
@@ -63,6 +65,10 @@ Future<void> main() async {
       );
     }
     RemoteConfig.instance.listen();
+    // The Pi's silent "seen on another device" message, while the app is in the background.
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      FirebaseMessaging.onBackgroundMessage(pushInBackground);
+    }
   } catch (e, stack) {
     recordError('X3', e, stack);
     runApp(App(home: _StartupError(e)));

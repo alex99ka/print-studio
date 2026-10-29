@@ -74,6 +74,20 @@ Everything above holds. Where the text left a choice, the server does this:
 - **Guest file download.** `Content-Disposition: attachment; filename="guests.xlsx";
   filename*=UTF-8''<original name, percent-encoded>`.
 
+### Spin grid (CRM 0.3.0)
+
+Every version stores `spinGrid`: **10** when it came through `/gf/` (100 turns, 3.6° apart, a 10 × 10 sheet;
+Gift Factory sends 400 px tiles = 4000 × 4000), **6** otherwise (the Flag Maker, unchanged). The watermark is
+cut by it and `/p/{token}/data` gives each version's `spinGrid` to the portal viewer; versions from before
+0.3.0 have none and read as 6. Gift Factory sets `proof.SPIN_GRID = 10`, `SPIN_TILE = 400` once this is on
+the Pi; a 6 × 6 sheet sent through `/gf/` after that would be cut wrong.
+
+### Deadlines use the quote's `printHours` (CRM 0.3.0)
+
+The Pi's first deadline reminder comes `ceil(printHours × (platesTotal − platesDone) / platesTotal / 24) + 2`
+days before the request's deadline, so `quote.printHours` should be the whole run's printing time and
+`progress.platesDone/platesTotal` current. Nothing new is sent; no contract change.
+
 ### The portal's guest list (C3)
 
 `GET /p/{token}/guest-template.xlsx`: one RTL sheet, header `שם / Name` | `כמות / Amount`, a grey note row

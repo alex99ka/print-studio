@@ -46,6 +46,59 @@ bool owes(String status) => status != 'draft' && status != 'waiting';
 /// What is left of [total] after [paid]; never below zero (an overpayment shows as nothing left).
 int leftToPay(int total, int paid) => total > paid ? total - paid : 0;
 
+/// A customer's money over all their orders: what the approved ones cost, what came in
+/// (deposits on open offers too) and what is left (per order, an overpayment never
+/// lowers another order's debt).
+({int billed, int paid, int left}) balance(Iterable<({String status, int? total, int paid})> orders) {
+  var billed = 0, paid = 0, left = 0;
+  for (final o in orders) {
+    paid += o.paid;
+    if (owes(o.status) && o.total != null) {
+      billed += o.total!;
+      left += leftToPay(o.total!, o.paid);
+    }
+  }
+  return (billed: billed, paid: paid, left: left);
+}
+
+/// A request's deadline is a day, "2026-11-12": no time, no time zone (the Pi reminds by it).
+String isoDate(DateTime d) =>
+    '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+DateTime? deadlineOf(Map<String, dynamic>? r) => DateTime.tryParse('${r?['deadline'] ?? ''}');
+
+/// Days from [today] to the deadline (0 = today, below 0 = passed); null without one
+/// or once the order is out the door.
+int? daysLeft(Map<String, dynamic>? r, DateTime today) {
+  final d = deadlineOf(r);
+  if (d == null || const {'delivered', 'paid'}.contains(r?['status'])) return null;
+  return DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
+}
+
+/// Days of printing still ahead: Gift Factory's printHours less the plates done; one day
+/// without its numbers (a microphone flag). Same as print_days_left in server/app/jobs.py.
+int printDaysLeft(Map<String, dynamic> r) {
+  final p = productionOf(r);
+  final hours = ((p['quote'] as Map?)?['printHours'] as num?)?.toDouble() ?? 0;
+  if (hours <= 0) return 1;
+  final prog = (p['progress'] as Map?) ?? const {};
+  final total = (prog['platesTotal'] as num?) ?? 0, done = (prog['platesDone'] as num?) ?? 0;
+  final ahead = total > 0 ? hours * (total - done).clamp(0, total) / total : hours;
+  return (ahead / 24).ceil();
+}
+
+/// The Pi's first reminder (and the app's amber) comes this many days before the deadline.
+int remindDays(Map<String, dynamic> r) => printDaysLeft(r) + 2;
+
+/// "היום", "מחר", "בעוד 5 ימים", "עבר לפני 2 ימים".
+String daysLeftText(int n) => switch (n) {
+      0 => 'היום',
+      1 => 'מחר',
+      -1 => 'עבר אתמול',
+      < 0 => 'עבר לפני ${-n} ימים',
+      _ => 'בעוד $n ימים',
+    };
+
 /// Agorot in, agorot out; VAT rounded half up to the agora, exactly like
 /// money() in server/app/studio.py (the portal shows the server's numbers).
 ({int net, int vat, int total}) money(int unit, int qty, int vatPercent) {
@@ -126,13 +179,15 @@ Future<void> addCustomer({required String name, required String phone, required 
 Future<void> replacePortalLink(Doc customer) =>
     customer.reference.update({'portalToken': newPortalToken()});
 
-Future<String> addRequest({required Doc customer, required String title, required int qty, String notes = ''}) async {
+Future<String> addRequest(
+    {required Doc customer, required String title, required int qty, String notes = '', DateTime? deadline}) async {
   final ref = await requestsRef.add({
     'customerId': customer.id,
     'customerName': customer.data()?['name'] ?? '',
     'title': title.trim(),
     'qty': qty,
     'notes': notes.trim(),
+    if (deadline != null) 'deadline': isoDate(deadline),
     'status': 'draft',
     'latestVersion': 0,
     'createdAt': FieldValue.serverTimestamp(),
@@ -172,10 +227,11 @@ Future<void> addQuote(Doc request,
   return b.commit();
 }
 
-/// The client's 3D views: [spinFrames] turns, 10 degrees apart, on a
-/// [spinGrid] x [spinGrid] sheet (the Flag Maker's crm_link.spin). A 3D pin
-/// is {x, y} on the picture and z = the turn.
-const spinGrid = 6, spinFrames = 36;
+/// The client's 3D views: grid x grid turns on one sheet. A version stores its
+/// spinGrid (Gift Factory 10 = 100 turns); older ones are the Flag Maker's 6 x 6
+/// (crm_link.spin). A 3D pin is {x, y} on the picture and z = the turn.
+const spinGrid = 6;
+int spinGridOf(Map<String, dynamic>? version) => (version?['spinGrid'] as num?)?.toInt() ?? spinGrid;
 
 /// A client comment marked handled, or open again.
 Future<void> setHandled(DocumentReference<Map<String, dynamic>> comment, bool done) =>
@@ -208,6 +264,10 @@ Future<void> addPayment(Doc request, {required int amount, required String metho
       'at': Timestamp.fromDate(at),
       'createdAt': FieldValue.serverTimestamp(),
     });
+
+/// [day] null clears it.
+Future<void> setDeadline(Doc request, DateTime? day) => request.reference
+    .update({'deadline': day == null ? null : isoDate(day), 'updatedAt': FieldValue.serverTimestamp()});
 
 Future<void> setStatus(Doc request, String status) =>
     request.reference.update({'status': status, 'updatedAt': FieldValue.serverTimestamp()});
