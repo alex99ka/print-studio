@@ -110,8 +110,8 @@ Android / Windows / Web ── Firebase Auth (Google) · Firestore (rules = back
         │  updates                                   ▲
         ▼                                            │ Admin SDK
 GitHub Releases ◄── release.yml (tag)        Pi: server/ (Docker, Tailscale Funnel)
-  prerelease → early users                     /health · /report → Telegram
-  promote.yml → everyone + live web            pushes · daily Drive backup
+  latest release + live web                    /health · /report → Telegram
+                                               pushes · daily Drive backup
 ```
 
 - **Updates.** Android and Windows read GitHub's releases list, pick the newest
@@ -124,9 +124,8 @@ GitHub Releases ◄── release.yml (tag)        Pi: server/ (Docker, Tailscal
 - **Kill switch.** Raise `config/app.minVersion` and every older build shows
   only "צריך לעדכן" and stops writing. Do it whenever a release changes the
   shape of synced data.
-- **Patient zero.** A tag publishes a *prerelease* and deploys the web build to
-  the Hosting channel `next`. When it's good on your phone:
-  `gh workflow run promote.yml -f version=X.Y.Z`.
+- **No prerelease step.** Alex is the only user, so a tag publishes the release
+  as the latest and deploys the web build live (`release.yml`).
 - **Errors** (`lib/core/errors.dart`): what failed, why, what to do, and a
   letter code. **Diagnostics** and **problem report** are in Settings.
 

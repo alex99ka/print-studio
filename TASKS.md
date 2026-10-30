@@ -83,7 +83,7 @@ without these the app connects to nothing.
 
 13. 30.10 C2b built and tested (CRM 0.3.1): `GET /gf/info`, `views` on Gift Factory versions (plate tabs,
    all-round sheet cols × rows), portal tabs and up/down dragging (`server/GIFT_FACTORY.md` › Views). Deployed
-   30.10 (server, 0.3.1 pre-release; rules unchanged). Next: Gift Factory 0.4.2 can send proofs.
+   30.10 (server, 0.3.1 latest; rules unchanged). Next: Gift Factory 0.4.2 can send proofs.
 
 ## For Gift Factory (differences from the handoff's Contract v1, all compatible)
 
