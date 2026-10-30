@@ -102,6 +102,8 @@ test("requests: created as drafts, approval fields are the server's", async () =
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { approvedVersionId: 'v2' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { latestVersion: 9 }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'lost' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'declined' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'waiting' })); // reopened
 });
 
 test('requests: a deadline is a day or nothing, also after approval', async () => {

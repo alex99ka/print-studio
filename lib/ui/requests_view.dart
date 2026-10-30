@@ -36,6 +36,7 @@ class StatusChip extends StatelessWidget {
       'approved' || 'ready' => (s.okSoft, s.okInk),
       'printing' => (s.accentSoft, ink),
       'delivered' => (s.sunk, ink),
+      'declined' => (s.sunk, Theme.of(context).colorScheme.error),
       _ => (s.sunk, s.muted),
     };
     return Container(

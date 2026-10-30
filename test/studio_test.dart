@@ -58,6 +58,7 @@ void main() {
   test('what is owed: only after approval, never below zero', () {
     expect(owes('draft'), isFalse);
     expect(owes('waiting'), isFalse);
+    expect(owes('declined'), isFalse);
     for (final st in ['approved', 'printing', 'ready', 'delivered', 'paid']) {
       expect(owes(st), isTrue, reason: st);
     }

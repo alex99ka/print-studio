@@ -191,6 +191,29 @@ def test_approval_is_one_step_and_checks_what_is_current(client, db, pushes):
     assert client.post("/studio/requests/r1/versions", files=files()).status_code == 409
 
 
+def test_client_declines_only_while_waiting(client, db, pushes):
+    vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/decline", json={}).status_code == 409  # still a draft
+    publish(db, vid)
+    assert client.post(f"/p/{TOKEN_B}/requests/r1/decline", json={}).status_code == 404  # another customer
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/decline", json={"reason": " יקר מדי "}).json() == {"ok": True}
+    r = db.document("requests/r1").get().to_dict()
+    assert r["status"] == "declined" and r["declinedAt"] and r["needsReply"] is True
+    said = [m.to_dict() for m in db.collection("comments").get()]
+    assert [(m["text"], m["from"], m["versionId"], m["versionN"]) for m in said] == [("יקר מדי", "client", vid, 1)]
+    assert pushes[-1][1].startswith("❌") and pushes[-1][2] == "יקר מדי"
+    shown = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert shown["status"] == "declined" and shown["declinedAt"] and shown["due"] == 0
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/decline", json={}).status_code == 409  # once
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": vid, "quoteId": "q1"}).status_code == 409
+    assert client.post("/studio/requests/r1/versions", files=files()).status_code == 409  # locked until Alex reopens it
+    # Alex reopens it (the app sets the status back): it can be approved again, and declinedAt no longer shows.
+    db.document("requests/r1").update({"status": "waiting"})
+    assert client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["declinedAt"] is None
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/decline", json={}).json() == {"ok": True}
+    assert pushes[-1][2] == "בלי סיבה" and len(db.collection("comments").get()) == 1  # no reason, no comment
+
+
 def test_portal_posts_are_rate_limited(client, db, pushes, monkeypatch):
     vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
     publish(db, vid)

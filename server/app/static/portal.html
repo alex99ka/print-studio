@@ -18,9 +18,9 @@
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--ground);color:var(--ink);font:15px/1.5 Heebo,system-ui,sans-serif}
-button,input{font:inherit;color:inherit}
+button,input,textarea{font:inherit;color:inherit}
 button{cursor:pointer}
-button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .wrap{max-width:720px;margin:0 auto}
 header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 header .wrap{display:flex;align-items:center;gap:10px;padding:10px 16px;min-height:60px}
@@ -82,6 +82,10 @@ dialog{border:0;border-radius:16px;background:var(--surface);color:var(--ink);pa
 dialog::backdrop{background:rgba(0,0,0,.45)}
 dialog .row{justify-content:flex-end;margin-top:16px}
 .ghost{border:1px solid var(--line);background:transparent;border-radius:10px;min-height:44px;padding:0 16px}
+.danger{border:0;border-radius:10px;min-height:44px;padding:0 16px;background:var(--danger);color:var(--surface);font-weight:700}
+.quiet{border:0;background:none;padding:0;min-height:44px;align-self:flex-start;color:var(--danger);text-decoration:underline;font-size:14px}
+#decline textarea{width:100%;min-height:72px;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:transparent;resize:vertical}
+#decline .row{flex-wrap:wrap}
 .sk{background:var(--sunk);border-radius:14px;height:96px;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
@@ -99,6 +103,8 @@ dialog .row{justify-content:flex-end;margin-top:16px}
   <div class="brand"><span id="barLabel"></span><b class="ltr" id="barTotal" style="font-size:19px"></b></div>
   <button class="approve" id="approve" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span></span></button>
 </div></div>
+<dialog id="decline"><h2 id="declineTitle"></h2><p id="declineText" class="muted"></p><textarea id="declineWhy" maxlength="2000"></textarea>
+  <div class="row"><button class="ghost" id="declineNo" type="button"></button><button class="danger" id="declineYes" type="button"></button></div></dialog>
 <dialog id="confirm"><h2 id="confirmTitle"></h2><p id="confirmText" class="muted"></p>
   <div class="row"><button class="ghost" id="confirmNo" type="button"></button><button class="approve" id="confirmYes" type="button" style="flex:none;padding:0 18px"></button></div></dialog>
 
@@ -115,6 +121,10 @@ const T = {
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
     toPay:'נותר לתשלום', toPayAll:'סה״כ נותר',
+    declineBtn:'לא מעוניין/ת בהזמנה', declineTitle:'לבטל את ההזמנה?',
+    declineText:'יש הערות או שינויים שתרצו לפני האישור? אין צורך לבטל: כתבו הערה (אפשר גם להצמיד אותה לנקודה בדגם), והסטודיו ישלח גרסה מתוקנת. ביטול מתאים רק אם אתם לא רוצים את ההזמנה בכלל: הסטודיו יפסיק לעבוד עליה.',
+    declineWhy:'למה? (לא חובה)', declineNo:'חזרה, אכתוב הערה', declineYes:'כן, לבטל את ההזמנה',
+    declinedAt:d=>`ביטלת את ההזמנה ב-${d}. שינית את דעתך? כתבו לסטודיו כאן למטה.`,
     names:'בדיקת שמות', namesNote:'בדקו בבקשה את האיות של כל שם לפני האישור: מה שכתוב כאן הוא מה שיודפס.',
     printing:(ok,all,d)=>`בהדפסה: ${ok} מתוך ${all}${d ? ` · מוכן עד ${d}` : ''}`,
     guests:'רשימת אורחים', guestsHow:'מורידים את התבנית, ממלאים שם וכמות לכל אורח (כמות ריקה = עותק אחד, 0 = לא מגיע/ה) ומעלים. אפשר גם קובץ xlsx או csv משלכם.',
@@ -124,7 +134,7 @@ const T = {
     saveAs:'שמרו את הקובץ כ-xlsx או כ-csv ונסו שוב.', badAmount:(row,v)=>`שורה ${row}: הכמות "${v}" אינה מספר שלם.`,
     noNames:'לא נמצאו שמות בקובץ.', tooBig:'הקובץ גדול מ-2MB.', tooManyRows:'יותר מ-5000 שורות.',
     badFile:'לא הצלחנו לקרוא את הקובץ. שמרו אותו כ-xlsx או כ-csv ונסו שוב.', guestsLocked:'ההזמנה כבר בהדפסה. לשינוי ברשימה פנו לסטודיו.',
-    st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם'}},
+    st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם', declined:'בוטל'}},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
     drag:'Drag left and right to turn', dragAll:'Drag sideways to turn, up and down to look from above and below', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
@@ -136,6 +146,10 @@ const T = {
     footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
     failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
     toPay:'Left to pay', toPayAll:'Total left',
+    declineBtn:"I don't want this order", declineTitle:'Cancel the order?',
+    declineText:"Have notes or changes before approving? No need to cancel: write a comment (you can pin it to a spot on the model) and the studio will send an improved version. Cancel only if you don't want the order at all: the studio will stop working on it.",
+    declineWhy:'Why? (optional)', declineNo:"Back, I'll write a comment", declineYes:'Yes, cancel the order',
+    declinedAt:d=>`You cancelled this order on ${d}. Changed your mind? Write to the studio below.`,
     names:'Name check', namesNote:'Please check the spelling of every name before approving: what you see here is what gets printed.',
     printing:(ok,all,d)=>`Printing: ${ok} of ${all}${d ? ` · ready by ${d}` : ''}`,
     guests:'Guest list', guestsHow:'Download the template, fill in a name and an amount for each guest (empty amount = one copy, 0 = not coming) and upload it. Your own .xlsx or .csv works too.',
@@ -145,7 +159,7 @@ const T = {
     saveAs:'Save it as .xlsx or .csv and try again.', badAmount:(row,v)=>`Row ${row}: the amount "${v}" is not a whole number.`,
     noNames:'No names found in the file.', tooBig:'The file is over 2 MB.', tooManyRows:'Over 5000 rows.',
     badFile:"We couldn't read the file. Save it as .xlsx or .csv and try again.", guestsLocked:'The order is already printing. Ask the studio to change the list.',
-    st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid'}},
+    st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid', declined:'Cancelled'}},
 };
 const base = location.pathname.replace(/\/$/, '');
 const preview = new URLSearchParams(location.search).get('preview') || '';
@@ -174,7 +188,7 @@ const has = (v, name) => v.files.includes(name);
 const icon = markup => { const tpl = document.createElement('template'); tpl.innerHTML = markup; return tpl.content.firstChild; };
 const PIN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>';
 const CHEVRON = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;color:var(--muted)"><path d="m15 18-6-6 6-6"/></svg>';
-const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' ? 'chip' : 'chip done');
+const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' || s === 'declined' ? 'chip' : 'chip done');
 
 async function load() {
   const r = await fetch(`${base}/data${preview ? '?preview=' + encodeURIComponent(preview) : ''}`, {cache: 'no-store'});
@@ -273,7 +287,8 @@ function detail(r) {
   if (r.versions.length > 1) kids.push(h('div', {class: 'vers'}, h('span', {class: 'muted'}, t().versions), r.versions.map(x =>
     h('button', {type: 'button', 'aria-pressed': String(x.id === v.id), onclick: () => { sel[r.id] = x.id; draftPin = null; picking = false; rerender(r); }},
       `v${x.n}` + (x.id === r.currentVersionId && r.versions.length > 1 ? ` · ${t().now}` : '')))));
-  if (r.approved) kids.push(h('div', {class: 'banner'}, t().approvedAt(r.versions.find(x => x.id === r.approved.versionId)?.n ?? '', day(r.approved.at))));
+  if (r.declinedAt) kids.push(h('div', {class: 'banner', style: 'background:var(--sunk);color:var(--ink)'}, t().declinedAt(day(r.declinedAt))));
+  else if (r.approved) kids.push(h('div', {class: 'banner'}, t().approvedAt(r.versions.find(x => x.id === r.approved.versionId)?.n ?? '', day(r.approved.at))));
   else kids.push(h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status)));
   if (r.progress) kids.push(h('p', {class: 'muted', style: 'margin:0'}, t().printing(r.progress.unitsOk, r.progress.unitsTarget, date(r.progress.finishDate))));
 
@@ -287,7 +302,8 @@ function detail(r) {
     r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].total), day(q.at))) : null,
     open ? h('span', {class: 'muted'}, t().approveNote) : null,
     open && has(v, 'names.jpg') ? h('span', {class: 'muted'}, t().namesNote) : null,
-  ] : h('span', {class: 'muted'}, t().noQuote)));
+  ] : h('span', {class: 'muted'}, t().noQuote),
+  open && !preview ? h('button', {type: 'button', class: 'quiet', onclick: () => confirmDecline(r)}, t().declineBtn) : null));
   const guests = guestCard(r);
   if (guests) kids.push(guests);
 
@@ -374,6 +390,22 @@ function confirmApprove(r, v, q) {
     if (ok) await refresh();
   };
   d.showModal();
+}
+
+// Cancelling is for not wanting the order at all; the dialog points notes to a comment first.
+function confirmDecline(r) {
+  const d = $('decline'), why = $('declineWhy');
+  $('declineTitle').textContent = t().declineTitle; $('declineText').textContent = t().declineText;
+  why.placeholder = t().declineWhy; why.setAttribute('aria-label', t().declineWhy); why.value = '';
+  $('declineNo').textContent = t().declineNo; $('declineYes').textContent = t().declineYes;
+  $('declineNo').onclick = () => { d.close(); document.querySelector('.composer input')?.focus(); };
+  $('declineYes').onclick = async () => {
+    $('declineYes').disabled = true;
+    const ok = await post(`requests/${r.id}/decline`, {reason: why.value});
+    $('declineYes').disabled = false; d.close();
+    if (ok) await refresh();
+  };
+  d.showModal(); $('declineNo').focus();
 }
 
 async function post(path, body) {

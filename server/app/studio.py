@@ -429,9 +429,10 @@ def portal_data(token: str, preview: str = "") -> dict:
             "comments": sorted(comments[rid], key=lambda m: m["at"] or ""),
             "approved": {"versionId": r.get("approvedVersionId"), "at": _iso(r.get("approvedAt"))}
             if r.get("approvedVersionId") else None,
+            "declinedAt": _iso(r.get("declinedAt")) if r.get("status") == "declined" else None,
             # Owed once the client approved the price; until then the quote is only an offer.
             # Only what is left: Alex's payment records (dates, methods, notes) stay in the studio.
-            "due": max(quote["total"] - paid, 0) if quote and r.get("status", "draft") not in OPEN else 0,
+            "due": max(quote["total"] - paid, 0) if quote and r.get("status", "draft") not in (*OPEN, "declined") else 0,
             # The client's own guest list (giftfactory.py); never the file, only how many.
             "guests": {"names": g.get("names"), "gifts": g.get("gifts"), "at": _iso(g.get("uploadedAt"))}
             if (g := r.get("guests")) else None,
@@ -532,4 +533,41 @@ def portal_approve(token: str, rid: str, body: Approval) -> dict:
     r = approve(db.transaction())
     jobs.send_to(jobs.users(), "client", f"✅ {c.get('name', 'לקוח')} אישר/ה: {r.get('title', '')}",
                  f"₪{r['total'] / 100:,.2f} כולל מע״מ", {"route": "/request", "id": rid})
+    return {"ok": True}
+
+
+class Decline(BaseModel):
+    reason: str = Field(default="", max_length=2000)
+
+
+@router.post("/p/{token}/requests/{rid}/decline")
+def portal_decline(token: str, rid: str, body: Decline) -> dict:
+    """The client doesn't want the order at all (notes go in a comment instead; the
+    portal says so before asking). Only while waiting; Alex can reopen it in the app."""
+    cid, c = _customer(token)
+    _limit(token)
+    db = firebase.db()
+    req = db.document(f"requests/{rid}")
+
+    @firestore.transactional
+    def decline(t) -> dict:
+        r = req.get(transaction=t).to_dict() or {}
+        if r.get("customerId") != cid:
+            raise HTTPException(404, "No such request")
+        if r.get("status") != "waiting":
+            raise HTTPException(409, "Not waiting for approval")
+        t.update(req, {"status": "declined", "declinedAt": firestore.SERVER_TIMESTAMP, "needsReply": True,
+                       "updatedAt": firestore.SERVER_TIMESTAMP})
+        return r
+
+    r = decline(db.transaction())
+    reason = body.reason.strip()
+    if reason:  # in the thread, where Alex reads the client
+        db.collection("comments").add({
+            "requestId": rid, "customerId": cid, "versionId": r.get("publishedVersionId"),
+            "versionN": (db.document(f"versions/{r.get('publishedVersionId')}").get().to_dict() or {}).get("n"),
+            "from": "client", "text": reason, "pin": None, "createdAt": firestore.SERVER_TIMESTAMP,
+        })
+    jobs.send_to(jobs.users(), "client", f"❌ {c.get('name', 'לקוח')} ביטל/ה את ההזמנה: {r.get('title', '')}",
+                 reason[:150] or "בלי סיבה", {"route": "/request", "id": rid})
     return {"ok": True}

@@ -27,7 +27,7 @@ sign-in later). Request → versions; only Alex creates requests. Versions land
 as drafts; Alex publishes. Comments: thread + pins on 2D/3D/assembled. Quote
 (VAT 18% is a switch per quote, off by default, decided 26.10) + total, re-quote until accepted, one-step approval of design
 + price, then locked. Statuses טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן →
-נמסר → שולם. Alerts to Alex: FCM push only; the client is told by a WhatsApp
+נמסר → שולם; while waiting the client may cancel (declined, 30.10: the portal points notes to a comment first). Alerts to Alex: FCM push only; the client is told by a WhatsApp
 link Alex sends. Portal Hebrew + English toggle. Flag Maker ↔ CRM two-way, PC
 only. Allowlist: alex99ka@gmail.com, alex98ka@gmail.com. Palette A (graphite +
 blue, green only for the client's approve button), Heebo, Word-style top tabs

@@ -220,12 +220,12 @@ def print_days_left(r: dict) -> int:
 def deadline_reminders(today: date | None = None) -> int:
     """One push per request whose deadline (a day, "2026-11-12", set in the app) is as far
     as its printing still ahead plus 2 days (a 7-day run: 9 days before), tomorrow, today
-    or was yesterday; none once it is delivered."""
+    or was yesterday; none once it is delivered (or the client declined it)."""
     today = today or datetime.now(ISRAEL).date()
     people, sent = None, 0
     for d in firebase.db().collection("requests").stream():
         r = d.to_dict() or {}
-        if r.get("status") in ("delivered", "paid"):
+        if r.get("status") in ("delivered", "paid", "declined"):
             continue
         try:
             due = date.fromisoformat(r.get("deadline") or "")

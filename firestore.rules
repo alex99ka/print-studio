@@ -79,7 +79,8 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'qty', 'notes', 'status',
              'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline'])
         && deadlineOk(request.resource.data)
-        && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid']
+        // declined is the client's (server); Alex may set it too, and back to reopen.
+        && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid', 'declined']
         && shortText(request.resource.data.title, 200)
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && (resource.data.status in ['draft', 'waiting']

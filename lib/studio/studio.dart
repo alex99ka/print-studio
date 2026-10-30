@@ -27,7 +27,8 @@ final quotesRef = _db.collection('quotes');
 final commentsRef = _db.collection('comments');
 final paymentsRef = _db.collection('payments');
 
-const statuses = ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid'];
+/// declined: the client cancelled it on the portal (server/app/studio.py); setting it back reopens it.
+const statuses = ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid', 'declined'];
 const statusLabels = {
   'draft': 'טיוטה',
   'waiting': 'ממתין לאישור',
@@ -36,12 +37,13 @@ const statusLabels = {
   'ready': 'מוכן',
   'delivered': 'נמסר',
   'paid': 'שולם',
+  'declined': 'הלקוח ביטל',
 };
 const defaultVatPercent = 18;
 const paymentMethods = {'bit': 'ביט', 'paybox': 'פייבוקס', 'transfer': 'העברה בנקאית', 'cash': 'מזומן', 'check': 'צ׳ק', 'other': 'אחר'};
 
 /// Approved and later: the client owes the approved quote. Before that a quote is only an offer.
-bool owes(String status) => status != 'draft' && status != 'waiting';
+bool owes(String status) => !const {'draft', 'waiting', 'declined'}.contains(status);
 
 /// What is left of [total] after [paid]; never below zero (an overpayment shows as nothing left).
 int leftToPay(int total, int paid) => total > paid ? total - paid : 0;
@@ -71,7 +73,7 @@ DateTime? deadlineOf(Map<String, dynamic>? r) => DateTime.tryParse('${r?['deadli
 /// or once the order is out the door.
 int? daysLeft(Map<String, dynamic>? r, DateTime today) {
   final d = deadlineOf(r);
-  if (d == null || const {'delivered', 'paid'}.contains(r?['status'])) return null;
+  if (d == null || const {'delivered', 'paid', 'declined'}.contains(r?['status'])) return null;
   return DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
 }
 
