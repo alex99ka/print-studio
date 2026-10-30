@@ -85,6 +85,9 @@ without these the app connects to nothing.
    all-round sheet cols × rows), portal tabs and up/down dragging (`server/GIFT_FACTORY.md` › Views). Deployed
    30.10 (server, 0.3.1 latest; rules unchanged). Next: Gift Factory 0.4.2 can send proofs.
 
+14. ✅ 30.10 The client can cancel an order while it waits (portal "לא מעוניין/ת בהזמנה"; the dialog sends
+   notes to a comment first), status `declined` "הלקוח ביטל". Deployed 30.10 (rules, server, 0.3.2 latest).
+
 ## For Gift Factory (differences from the handoff's Contract v1, all compatible)
 
 See `server/GIFT_FACTORY.md` › As built. In short: PUT bodies are checked strictly (422 off contract;
