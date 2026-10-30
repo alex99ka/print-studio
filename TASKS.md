@@ -81,6 +81,10 @@ without these the app connects to nothing.
    reminders, notifications that close (X / swipe) and are seen once, Gift Factory spin 10 × 10. Deployed
    29.10 (rules, server, 0.3.0 pre-release). Next: Gift Factory sets `proof.SPIN_GRID = 10`, `SPIN_TILE = 400`.
 
+13. 30.10 C2b built and tested (CRM 0.3.1): `GET /gf/info`, `views` on Gift Factory versions (plate tabs,
+   all-round sheet cols × rows), portal tabs and up/down dragging (`server/GIFT_FACTORY.md` › Views). Next:
+   deploy the server, then Gift Factory 0.4.2 can send proofs.
+
 ## For Gift Factory (differences from the handoff's Contract v1, all compatible)
 
 See `server/GIFT_FACTORY.md` › As built. In short: PUT bodies are checked strictly (422 off contract;

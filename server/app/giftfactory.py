@@ -19,15 +19,15 @@ from typing import Annotated, Literal
 from urllib.parse import quote
 
 import openpyxl
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from openpyxl.styles import Font
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import firebase, jobs
-from .studio import Upload, User, _customer, _data, _iso, _limit, _sha, create_version
+from .studio import TABS, Upload, User, _customer, _data, _iso, _limit, _sha, create_version, tab_field
 
 router = APIRouter()
 LISTED = ("draft", "waiting", "approved", "printing")  # Gift Factory's request list
@@ -64,6 +64,12 @@ def giftfactory(x_studio_key: Annotated[str, Header()] = "") -> None:
 
 
 GiftFactory = Annotated[None, Depends(giftfactory)]
+
+
+@router.get("/gf/info")
+def gf_info(_: GiftFactory) -> dict:
+    """Gift Factory sends a proof with views only once this says views: true."""
+    return {"contract": 1, "views": True}
 
 
 def _ref(rid: str):
@@ -112,14 +118,6 @@ class GiftUpload(Upload):
         self.files["names"] = names
 
 
-@router.post("/gf/requests/{rid}/versions")
-def upload_from_giftfactory(rid: str, _: GiftFactory, up: Annotated[GiftUpload, Depends()]) -> dict:
-    return create_version(rid, up, "giftfactory")
-
-
-# --- C1, C4, C6: what Gift Factory reports ------------------------------------------
-
-
 class Part(BaseModel):
     # Off contract is refused, not guessed at: a change is contract 2 (GIFT_FACTORY.md).
     model_config = ConfigDict(extra="forbid", strict=True)
@@ -127,6 +125,51 @@ class Part(BaseModel):
 
 Count = Annotated[int, Field(ge=0)]
 Day = Annotated[str, Field(pattern=r"^\d{4}-\d{2}-\d{2}$")]
+
+
+class Views(Part):
+    """C2b: cols turns around, a sheet row per pitch (degrees above the gift, row 0 from the top)."""
+
+    cols: int = Field(ge=1)
+    pitches: list[Annotated[float, Field(ge=-90, le=90)]] = Field(min_length=1)
+    start: tuple[Count, Count]  # [row, col] shown first
+    tabs: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(min_length=1, max_length=20)
+
+    @model_validator(mode="after")
+    def fits(self):
+        if self.cols * len(self.pitches) > 400:
+            raise ValueError("over 400 pictures")
+        if self.start[0] >= len(self.pitches) or self.start[1] >= self.cols:
+            raise ValueError("start is outside the sheet")
+        return self
+
+
+async def plate_tabs(request: Request) -> tuple[dict | None, dict]:
+    """views and the files of tabs 2..20 (preview_k, spin_k): one of each per tab, nothing beyond."""
+    form = await request.form()  # already parsed for GiftUpload; Starlette keeps it
+    if "views" not in form:
+        return None, {}  # the Flag Maker's way, as before
+    try:
+        views = Views.model_validate_json(form["views"]).model_dump(mode="json")
+    except (ValidationError, TypeError) as e:
+        raise HTTPException(400, f"views: {e}") from None
+    want = {tab_field(kind, k) for k in range(1, len(views["tabs"]) + 1) for kind in ("preview", "spin")}
+    for field in sorted(want | (set(form) & set(TABS))):
+        got = form.getlist(field)
+        if field not in want or len(got) != 1 or not getattr(got[0], "filename", ""):
+            raise HTTPException(400, f"{len(views['tabs'])} tabs need one preview and one spin each ({field})")
+    return views, {f: form[f] for f in want & set(TABS)}
+
+
+@router.post("/gf/requests/{rid}/versions")
+def upload_from_giftfactory(rid: str, _: GiftFactory, up: Annotated[GiftUpload, Depends()],
+                            tabs: Annotated[tuple, Depends(plate_tabs)]) -> dict:
+    up.views, extra = tabs
+    up.files |= extra
+    return create_version(rid, up, "giftfactory")
+
+
+# --- C1, C4, C6: what Gift Factory reports ------------------------------------------
 
 
 class Breakdown(Part):

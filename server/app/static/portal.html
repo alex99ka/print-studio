@@ -32,6 +32,7 @@ main .wrap{padding:16px;display:flex;flex-direction:column;gap:14px}
 .seg{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:4px;background:var(--sunk);border-radius:12px;padding:4px}
 .seg button{border:0;border-radius:9px;min-height:44px;background:transparent;color:var(--muted);font-size:14px}
 .seg button[aria-selected=true]{background:var(--surface);color:var(--ink);font-weight:700}
+.seg.plates{display:flex;overflow-x:auto}.seg.plates button{flex:none;padding:0 14px;white-space:nowrap}
 .card{background:var(--surface);border:1px solid var(--line);border-radius:14px}
 .order{display:flex;gap:12px;align-items:center;padding:12px;text-align:start;width:100%}
 .thumb{flex:none;width:72px;height:72px;border-radius:10px;background:var(--sunk);display:flex;align-items:center;justify-content:center;overflow:hidden}
@@ -105,7 +106,7 @@ dialog .row{justify-content:flex-end;margin-top:16px}
 const T = {
   he: {studio:'סטודיו הדפסה', ordersOf:n=>`ההזמנות של ${n}`, waiting:'ממתין לאישור', approvedTab:'אושר', back:'חזרה לרשימה',
     version:'גרסה', units:'יח׳', updated:'עודכן', now:'עכשיו', versions:'גרסאות:', view2d:'2D', view3d:'3D', asm:'על המיקרופון',
-    drag:'גררו ימינה ושמאלה לסיבוב', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
+    drag:'גררו ימינה ושמאלה לסיבוב', dragAll:'גררו לצדדים כדי לסובב, למעלה ולמטה כדי לראות מלמעלה ומלמטה', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
     pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', unitsX:(q,u)=>`${q} יחידות × ${u}`, vat:p=>`מע״מ ${p}%`, total:'סה״כ לתשלום',
     noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a})`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
     approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
@@ -126,7 +127,7 @@ const T = {
     st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם'}},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
-    drag:'Drag left and right to turn', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
+    drag:'Drag left and right to turn', dragAll:'Drag sideways to turn, up and down to look from above and below', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
     pinSet:'The comment will be pinned there', quote:'Quote', unitsX:(q,u)=>`${q} pcs × ${u}`, vat:p=>`VAT ${p}%`, total:'Total',
     noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a})`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
     approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t,vat)=>`Version ${v} for ${t}${vat ? ' incl. VAT' : ''}. This can't be changed afterwards.`,
@@ -227,7 +228,9 @@ function list() {
 function detail(r) {
   const versionId = sel[r.id] || r.currentVersionId || r.versions[r.versions.length - 1].id;
   const v = r.versions.find(x => x.id === versionId) || r.versions[r.versions.length - 1];
-  const views = [['2d', 'preview.png', t().view2d], ['3d', 'spin.jpg', t().view3d], ['asm', 'spin_asm.jpg', t().asm],
+  // Gift Factory's views: a tab per plate, each with its own picture and all-round sheet.
+  const vw = v.views, tabI = vw ? Math.min(sel['tab' + r.id] || 0, vw.tabs.length - 1) : 0, plate = vw && vw.tabs[tabI];
+  const views = [['2d', plate ? plate.preview : 'preview.png', t().view2d], ['3d', plate ? plate.spin : 'spin.jpg', t().view3d], ['asm', 'spin_asm.jpg', t().asm],
     ['names', 'names.jpg', t().names]].filter(([, f]) => has(v, f));
   let view = sel['view' + r.id];
   if (!views.some(([k]) => k === view)) view = views[0] ? views[0][0] : null;
@@ -235,7 +238,7 @@ function detail(r) {
   $('back').setAttribute('aria-label', t().back);
   $('title').textContent = r.title; $('subtitle').textContent = `${t().version} ${v.n} · ${r.qty} ${t().units}`;
 
-  const pinned = r.comments.filter(c => c.versionId === v.id && c.pin && c.pin.view === view);
+  const pinned = r.comments.filter(c => c.versionId === v.id && c.pin && c.pin.view === view && (c.pin.tab || 0) === tabI);
   const numbers = new Map(r.comments.filter(c => c.pin).map((c, i) => [c.id, i + 1]));
   // The name check is one tall picture, read by scrolling the page: no turning, no pins.
   const names = view === 'names';
@@ -244,19 +247,24 @@ function detail(r) {
     : h('div', {class: 'stage' + (picking ? ' picking' : '')});
   const overlay = h('div', {class: 'overlay'});
   const markers = pinned.map(c => ({p: c.pin, id: c.id, el: h('span', {class: 'pin'}, numbers.get(c.id))}));
-  if (draftPin && draftPin.view === view) markers.push({p: draftPin, el: h('span', {class: 'pin new'}, '+')});
+  if (draftPin && draftPin.view === view && draftPin.tab === tabI) markers.push({p: draftPin, el: h('span', {class: 'pin new'}, '+')});
   overlay.append(...markers.map(m => m.el));
 
   if (view && !names) {
     const name = views.find(([k]) => k === view)[1];
     stage.append(h('div', {class: 'loading'}, t().loading3d), overlay);
-    if (view !== '2d') stage.append(h('span', {class: 'hint'}, t().drag));
-    showPictures(stage, file(v, name), view === '2d' ? 1 : v.spinGrid ** 2, markers, p => setPin(r, {view, ...p}));
+    if (view !== '2d') stage.append(h('span', {class: 'hint'}, vw ? t().dragAll : t().drag));
+    const g = v.spinGrid, sheet = view === '2d' ? {cols: 1, rows: 1, turns: 1, start: 0}
+      : vw ? {cols: vw.cols, rows: vw.pitches.length, turns: vw.cols, start: vw.start[0] * vw.cols + vw.start[1]}
+      : {cols: g, rows: g, turns: g * g, start: 0};
+    showPictures(stage, file(v, name), sheet, markers, p => setPin(r, {view, tab: tabI, ...p}));
   }
 
   const kids = [stage];
   if (views.length > 1) kids.unshift(h('div', {class: 'seg', role: 'tablist'}, views.map(([k, , label]) =>
     h('button', {type: 'button', role: 'tab', 'aria-selected': String(k === view), onclick: () => { sel['view' + r.id] = k; draftPin = null; rerender(r); }}, label))));
+  if (vw && vw.tabs.length > 1) kids.unshift(h('div', {class: 'seg plates', role: 'tablist'}, vw.tabs.map((p, i) =>
+    h('button', {type: 'button', role: 'tab', 'aria-selected': String(i === tabI), onclick: () => { sel['tab' + r.id] = i; draftPin = null; rerender(r); }}, p.title))));
   const open = r.status === 'waiting';
   if (open && view && !names) kids.push(h('div', {class: 'row'},
     h('button', {type: 'button', class: 'pick', 'aria-pressed': String(picking), onclick: () => { picking = !picking; rerender(r); }},
@@ -348,7 +356,7 @@ function guestError(status, detail) {
 
 // A pinned comment turns the view to its version, view and turn.
 function showPin(r, c) {
-  sel[r.id] = c.versionId; sel['view' + r.id] = c.pin.view; focus = c.id; draftPin = null; picking = false; rerender(r);
+  sel[r.id] = c.versionId; sel['view' + r.id] = c.pin.view; sel['tab' + r.id] = c.pin.tab || 0; focus = c.id; draftPin = null; picking = false; rerender(r);
   document.querySelector('.stage')?.scrollIntoView({block: 'nearest', behavior: 'smooth'});
 }
 function setPin(r, p) { draftPin = p; picking = false; rerender(r); }
@@ -383,29 +391,31 @@ function fail(e) {
   $('main').replaceChildren(h('p', {class: 'empty'}, e === 'gone' ? T[lang || 'he'].gone : T[lang || 'he'].failed));
 }
 
-// The views are pictures drawn on a canvas: the 2D image, or a sheet of turns for 3D
-// (the version's spinGrid squared: 6 x 6 = 36 from the Flag Maker, 10 x 10 = 100 from
-// Gift Factory). No mesh ever reaches the browser.
-// A pin is {x, y} on the picture plus z = the turn it was placed on.
+// The views are pictures drawn on a canvas: the 2D image, or a sheet of cols x rows tiles for 3D.
+// Read in [turns] a row: the Flag Maker's 6 x 6 (and older Gift Factory 10 x 10) are one long row of
+// 36 / 100 turns; Gift Factory's views are a row of turns per height, dragged up and down between.
+// No mesh ever reaches the browser. A pin is {x, y} on the picture plus z = the tile it was placed on.
 const frames = new Map();
-function showPictures(stage, url, count, markers, onPick) {
+function showPictures(stage, url, sheet, markers, onPick) {
+  const {cols, rows, turns} = sheet, count = cols * rows, levels = count / turns;
   const canvas = h('canvas', {'aria-hidden': 'true'}), ctx = canvas.getContext('2d');
   stage.prepend(canvas);
-  let alive = true, frame = 0, img = null, box = null, down = null;
+  let alive = true, frame = sheet.start, img = null, box = null, down = null;
   const draw = () => {
     if (!alive || !img) return;
     const W = stage.clientWidth, H = stage.clientHeight, dpr = Math.min(devicePixelRatio, 2);
     canvas.width = W * dpr; canvas.height = H * dpr;
-    const grid = Math.round(Math.sqrt(count)), tw = img.naturalWidth / grid, th = img.naturalHeight / grid;
+    const tw = img.naturalWidth / cols, th = img.naturalHeight / rows;
     const s = Math.min(W / tw, H / th), w = tw * s, hh = th * s, ox = (W - w) / 2, oy = (H - hh) / 2;
     box = {ox, oy, w, hh};
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-    ctx.drawImage(img, (frame % grid) * tw, Math.floor(frame / grid) * th, tw, th, ox, oy, w, hh);
+    ctx.drawImage(img, (frame % cols) * tw, Math.floor(frame / cols) * th, tw, th, ox, oy, w, hh);
     for (const m of markers) {
       m.el.style.transform = `translate(${ox + m.p.x * w}px,${oy + m.p.y * hh}px)`;
-      // Pins up to 3 turns away show faded, so every pin is findable while turning.
-      const away = Math.abs(((Math.round(m.p.z) - frame) % count + count + count / 2) % count - count / 2);
-      m.el.style.opacity = count === 1 || away === 0 ? '1' : away <= 3 ? '.4' : '0';
+      // Pins up to 3 turns away on the same row show faded, so every pin is findable while turning.
+      const z = Math.round(m.p.z), same = Math.floor(z / turns) === Math.floor(frame / turns);
+      const away = Math.abs(((z - frame) % turns + turns + turns / 2) % turns - turns / 2);
+      m.el.style.opacity = count === 1 || (same && away === 0) ? '1' : same && away <= 3 ? '.4' : '0';
     }
   };
   const ro = new ResizeObserver(draw); ro.observe(stage);
@@ -421,9 +431,12 @@ function showPictures(stage, url, count, markers, onPick) {
   stage.addEventListener('pointerdown', e => { down = {x: e.clientX, y: e.clientY, frame, moved: false}; stage.setPointerCapture(e.pointerId); });
   stage.addEventListener('pointermove', e => {
     if (!down || count === 1) return;
-    const dx = e.clientX - down.x;
-    if (Math.abs(dx) > 6) down.moved = true;
-    const next = ((down.frame - Math.round(dx * count / 360)) % count + count) % count; // a full turn per 360 px
+    const dx = e.clientX - down.x, dy = e.clientY - down.y;
+    if (Math.abs(dx) > 6 || (levels > 1 && Math.abs(dy) > 6)) down.moved = true;
+    const col = ((down.frame % turns - Math.round(dx * turns / 360)) % turns + turns) % turns; // a full turn per 360 px
+    // Dragging down tips the top towards you: a row seen from higher up. Stops at the top and bottom rows.
+    const row = Math.min(levels - 1, Math.max(0, Math.floor(down.frame / turns) - Math.round(dy / 40)));
+    const next = row * turns + col;
     if (next !== frame) { frame = next; draw(); }
   });
   stage.addEventListener('pointerup', e => {

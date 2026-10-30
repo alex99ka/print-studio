@@ -227,11 +227,23 @@ Future<void> addQuote(Doc request,
   return b.commit();
 }
 
-/// The client's 3D views: grid x grid turns on one sheet. A version stores its
-/// spinGrid (Gift Factory 10 = 100 turns); older ones are the Flag Maker's 6 x 6
-/// (crm_link.spin). A 3D pin is {x, y} on the picture and z = the turn.
+/// The client's 3D views: tiles on one sheet. A version stores its spinGrid,
+/// grid x grid turns read as one row (Gift Factory 10 = 100 turns; older ones are
+/// the Flag Maker's 6 x 6, crm_link.spin), or Gift Factory's views: cols turns a
+/// row, a row per height (C2b). A 3D pin is {x, y} on the picture and z = the tile.
 const spinGrid = 6;
 int spinGridOf(Map<String, dynamic>? version) => (version?['spinGrid'] as num?)?.toInt() ?? spinGrid;
+
+/// (cols, rows, turns a row, first tile) of a version's spin sheet.
+(int, int, int, int) spinSheetOf(Map<String, dynamic>? version) {
+  final v = version?['views'] as Map?;
+  if (v == null) {
+    final g = spinGridOf(version);
+    return (g, g, g * g, 0);
+  }
+  final cols = (v['cols'] as num).toInt(), start = v['start'] as List;
+  return (cols, (v['pitches'] as List).length, cols, (start[0] as num).toInt() * cols + (start[1] as num).toInt());
+}
 
 /// A client comment marked handled, or open again.
 Future<void> setHandled(DocumentReference<Map<String, dynamic>> comment, bool done) =>

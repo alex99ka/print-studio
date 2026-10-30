@@ -132,4 +132,19 @@ void main() {
     expect(namesFrom('Dan & Noa'), ['Dan', 'Noa']);
     expect(namesFrom('ורד'), ['ורד']);
   });
+
+  test('spin sheet: one long row of turns, or Gift Factory views a row per height', () {
+    expect(spinSheetOf(null), (6, 6, 36, 0));
+    expect(spinSheetOf({'spinGrid': 10}), (10, 10, 100, 0));
+    expect(
+        spinSheetOf({
+          'views': {
+            'cols': 24,
+            'pitches': [75, 50, 25, 0, -25, -50, -75],
+            'start': [2, 0],
+            'tabs': ['Plate 1'],
+          }
+        }),
+        (24, 7, 24, 48));
+  });
 }

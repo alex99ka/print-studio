@@ -49,11 +49,15 @@ FILES = {
     # Gift Factory's name check: every guest's name as printed, pages stacked in one tall picture.
     "names": ("names.jpg", "image/jpeg"),
 }
+# Gift Factory's plate tabs (views): tab k (2..20) has its own picture and all-round sheet.
+TABS = {f"{kind}_{k}": (f"{kind}_{k}.{ext}", t) for k in range(2, 21)
+        for kind, ext, t in (("preview", "png", "image/png"), ("spin", "jpg", "image/jpeg"))}
+FILES |= TABS
 SPIN_GRID = 6  # 6 x 6 tiles, frame i at row i // 6, column i % 6 (the Flag Maker's crm_link.spin)
 GF_SPIN_GRID = 10  # Gift Factory: 100 turns of 3.6 degrees; stored on each version as spinGrid
 TYPES = dict(FILES.values())
 # What the client's link serves: watermarked pictures only, never the print file, the recipe or a mesh.
-CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg", "names.jpg"}
+CLIENT_FILES = {"preview.png", "spin.jpg", "spin_asm.jpg", "names.jpg"} | {n for n, _ in TABS.values()}
 MAX_FILE = 60 * 1024 * 1024
 OPEN = ("draft", "waiting")  # a request takes new versions only before approval
 STATIC = Path(__file__).parent / "static"
@@ -92,6 +96,12 @@ class Upload:
     ):
         self.files = {"preview": preview, "model": model, "recipe": recipe, "spin": spin, "spin_asm": spin_asm}
         self.note = note.strip()
+        self.views = None  # Gift Factory's plate tabs and all-round sheet (giftfactory.Views)
+
+
+def tab_field(kind: str, k: int) -> str:
+    """Tab 1 is today's preview / spin, tab k the preview_k / spin_k (TABS)."""
+    return kind if k == 1 else f"{kind}_{k}"
 
 
 def _picture(path: Path, kind: str) -> bool:
@@ -116,12 +126,13 @@ def _check(path: Path) -> None:
         raise HTTPException(422, f"{path.name} is not a valid {path.suffix[1:]} file")
 
 
-def _watermark(path: Path, grid: int = 1) -> None:
+def _watermark(path: Path, cols: int = 1, rows: int = 0) -> None:
     """Stamps every picture the client sees, each tile of a spin sheet on its own,
     so a screenshot or a saved copy still says it is a preview."""
     with Image.open(path) as im:
         img = im.convert("RGB")
-    tw, th = img.width // grid, img.height // grid
+    rows = rows or cols
+    tw, th = img.width // cols, img.height // rows
     bh = min(th, tw)  # a tall picture (the name check) is stamped square by square down its length
     side = 2 * max(tw, bh)
     layer = Image.new("RGBA", (side, side), (0, 0, 0, 0))
@@ -133,8 +144,8 @@ def _watermark(path: Path, grid: int = 1) -> None:
     layer = layer.rotate(28, resample=Image.BICUBIC)
     left, top = (side - tw) // 2, (side - bh) // 2
     tile = layer.crop((left, top, left + tw, top + bh))
-    for r in range(grid):
-        for c in range(grid):
+    for r in range(rows):
+        for c in range(cols):
             for y in range(0, th, bh):
                 img.paste(tile, (c * tw, r * th + y), tile)
     if path.suffix == ".png":
@@ -143,7 +154,14 @@ def _watermark(path: Path, grid: int = 1) -> None:
         img.save(path, "JPEG", quality=85)
 
 
-def _save(vid: str, up: Upload, grid: int) -> list[str]:
+def _tiles(path: Path, cols: int, rows: int) -> None:
+    with Image.open(path) as im:
+        w, h = im.size
+    if w % cols or h % rows or w // cols != h // rows:
+        raise HTTPException(400, f"{path.name} is not {cols} x {rows} square tiles")
+
+
+def _save(vid: str, up: Upload, cols: int, rows: int) -> list[str]:
     tmp = Path(tempfile.mkdtemp(dir=_data()))
     try:
         names = []
@@ -159,8 +177,11 @@ def _save(vid: str, up: Upload, grid: int) -> list[str]:
                         raise HTTPException(413, f"{name} is over 60 MB")
                     out.write(chunk)
             _check(tmp / name)
+            spin = name.startswith("spin")
+            if spin and up.views:
+                _tiles(tmp / name, cols, rows)
             if name in CLIENT_FILES:
-                _watermark(tmp / name, grid if name.startswith("spin") else 1)
+                _watermark(tmp / name, *((cols, rows) if spin else (1, 1)))
             names.append(name)
         dest = _data() / "files" / vid
         dest.parent.mkdir(parents=True, exist_ok=True)
@@ -180,7 +201,8 @@ def create_version(rid: str, up: Upload, source: str) -> dict:
     if not req.get().exists:
         raise HTTPException(404, "No such request")
     grid = GF_SPIN_GRID if source == "giftfactory" else SPIN_GRID
-    names = _save(ref.id, up, grid)
+    cols, rows = (up.views["cols"], len(up.views["pitches"])) if up.views else (grid, grid)
+    names = _save(ref.id, up, cols, rows)
 
     @firestore.transactional
     def number(t) -> int:
@@ -190,7 +212,7 @@ def create_version(rid: str, up: Upload, source: str) -> dict:
         n = int(r.get("latestVersion") or 0) + 1
         t.set(ref, {
             "requestId": rid, "customerId": r.get("customerId"), "n": n, "state": "draft",
-            "files": names, "spinGrid": grid, "note": up.note, "source": source, "createdAt": firestore.SERVER_TIMESTAMP,
+            "files": names, **({"views": up.views} if up.views else {"spinGrid": grid}), "note": up.note, "source": source, "createdAt": firestore.SERVER_TIMESTAMP,
         })
         t.update(req, {"latestVersion": n, "updatedAt": firestore.SERVER_TIMESTAMP})
         return n
@@ -374,6 +396,8 @@ def portal_data(token: str, preview: str = "") -> dict:
             versions[v.get("requestId")].append({
                 "id": vid, "n": v.get("n"), "state": v.get("state"),
                 "files": [f for f in v.get("files", []) if f in CLIENT_FILES], "spinGrid": v.get("spinGrid", SPIN_GRID),
+                "views": {**vw, "tabs": [{"title": title, **{kind: FILES[tab_field(kind, k)][0] for kind in ("preview", "spin")}}
+                                         for k, title in enumerate(vw["tabs"], 1)]} if (vw := v.get("views")) else None,
                 "note": v.get("note", ""), "at": _iso(v.get("publishedAt") or v.get("createdAt")),
             })
     for qid, q in _mine(cid, "quotes"):
@@ -435,6 +459,7 @@ class Pin(BaseModel):
     x: float = Field(ge=-10000, le=10000)
     y: float = Field(ge=-10000, le=10000)
     z: float = Field(default=0, ge=-10000, le=10000)
+    tab: int = Field(default=0, ge=0, le=19)  # the plate tab of a version with views, 0 = the first
 
 
 class Comment(BaseModel):

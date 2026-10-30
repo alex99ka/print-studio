@@ -82,6 +82,31 @@ cut by it and `/p/{token}/data` gives each version's `spinGrid` to the portal vi
 0.3.0 have none and read as 6. Gift Factory sets `proof.SPIN_GRID = 10`, `SPIN_TILE = 400` once this is on
 the Pi; a 6 × 6 sheet sent through `/gf/` after that would be cut wrong.
 
+### Views: all-round view and plate tabs (C2b, CRM 0.3.1)
+
+Additive to contract v1 (`contract` stays 1); a version sent without `views` (the Flag Maker's, older Gift Factory)
+works exactly as above.
+
+- `GET /gf/info` (Gift Factory key, 401 like the other `/gf/` routes) → `{"contract": 1, "views": true}`. Gift
+  Factory 0.4.2 sends a proof only once this says `views: true`.
+- `POST /gf/requests/{rid}/versions` takes a form text field `views` (JSON):
+  `{"cols": 24, "pitches": [75, 50, 25, 0, -25, -50, -75], "start": [2, 0], "tabs": ["Plate 1 · דנה", "Plate 2 · רון"]}`.
+  `cols` turns around (360/cols° apart); one sheet row per entry of `pitches` (degrees above the gift, negative =
+  from below, row 0 at the top of the sheet); `start` = `[row, col]` shown first (col 0 = the name straight on);
+  `tabs` = 1 to 20 titles. Checked strictly (400): an unknown or missing key, a number as text, `cols` × rows
+  over 400, `start` outside the sheet, no tabs or over 20, a pitch outside ±90.
+- Tab 1's files are `preview` and `spin`; tab k (2…20) sends `preview_k` (PNG) and `spin_k` (JPEG). Exactly one of
+  each per tab and none beyond the last tab (400 otherwise). Every `spin…` (and a `spin_asm`, if sent) must be
+  cols × rows **square** tiles (400 otherwise; today 24 × 7 of 320 px = 7680 × 2240). Stored as `preview_k.png` /
+  `spin_k.jpg`, served to the client like `preview.png` / `spin.jpg`, each spin tile watermarked on its own.
+- The version stores `views` instead of `spinGrid`. `/p/{token}/data` gives each version
+  `"views": {"cols", "pitches", "start", "tabs": [{"title", "preview", "spin"}, ...]}` (file names per tab), or
+  `null`.
+- Portal: plate tabs above the viewer when there is more than one; each tab has its picture and its all-round
+  view. Sideways turns (wraps round), up/down moves between rows (stops at the top and bottom), starts at `start`.
+  `names.jpg` stays one picture for the whole version. A client's pin carries `tab` (0 = the first).
+- The studio app shows tab 1 of such a version (the rest through "תצוגת לקוח").
+
 ### Deadlines use the quote's `printHours` (CRM 0.3.0)
 
 The Pi's first deadline reminder comes `ceil(printHours × (platesTotal − platesDone) / platesTotal / 24) + 2`

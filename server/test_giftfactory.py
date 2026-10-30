@@ -156,6 +156,71 @@ def test_version_with_the_name_check(client, db):
     assert "names.jpg" not in db.document(f"versions/{fm['id']}").get().to_dict()["files"]
 
 
+# --- C2b: plate tabs and the all-round view --------------------------------------------
+
+VIEWS = {"cols": 24, "pitches": [75, 50, 25, 0, -25, -50, -75], "start": [2, 0], "tabs": ["Plate 1 · דנה"]}
+SHEET = picture("JPEG", (24 * 20, 7 * 20))  # 24 x 7 tiles of 20 px
+
+
+def proof(client, key, views, extra=(), spin=SHEET):
+    fs = [("preview", ("p.png", PNG, "image/png")), *([("spin", ("s.jpg", spin, "image/jpeg"))] if spin else []), *extra]
+    return client.post("/gf/requests/r1/versions", headers=key, data={"views": json.dumps(views)}, files=fs)
+
+
+def tab(k):
+    return [(f"preview_{k}", ("p.png", PNG, "image/png")), (f"spin_{k}", ("s.jpg", SHEET, "image/jpeg"))]
+
+
+def test_gf_info_says_views(client):
+    assert client.get("/gf/info").status_code == 401
+    assert client.get("/gf/info", headers={"X-Studio-Key": "wrong"}).status_code == 401
+    assert client.get("/gf/info", headers=gf(client)).json() == {"contract": 1, "views": True}
+
+
+def test_version_with_one_and_three_tabs(client, db):
+    key = gf(client)
+    one = proof(client, key, VIEWS).json()
+    doc = db.document(f"versions/{one['id']}").get().to_dict()
+    assert doc["views"]["cols"] == 24 and doc["views"]["start"] == [2, 0] and "spinGrid" not in doc
+    three = proof(client, key, {**VIEWS, "tabs": ["Plate 1", "Plate 2", "Plate 3"]}, [*tab(2), *tab(3)]).json()
+    doc = db.document(f"versions/{three['id']}").get().to_dict()
+    assert set(doc["files"]) == {"preview.png", "spin.jpg", "preview_2.png", "spin_2.jpg", "preview_3.png", "spin_3.jpg"}
+    publish(db, three["id"])
+    shown = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]
+    assert shown["views"]["tabs"] == [{"title": "Plate 1", "preview": "preview.png", "spin": "spin.jpg"},
+                                      {"title": "Plate 2", "preview": "preview_2.png", "spin": "spin_2.jpg"},
+                                      {"title": "Plate 3", "preview": "preview_3.png", "spin": "spin_3.jpg"}]
+    assert len(shown["views"]["pitches"]) == 7 and "spin_3.jpg" in shown["files"]
+    got = client.get(f"/p/{TOKEN_A}/f/{three['id']}/spin_3.jpg")
+    assert got.status_code == 200 and got.content != SHEET and Image.open(io.BytesIO(got.content)).size == (480, 140)
+    assert client.get(f"/p/{TOKEN_B}/f/{three['id']}/spin_3.jpg").status_code == 404  # another customer's link
+
+
+def test_off_views_are_refused(client, db):
+    key = gf(client)
+    for bad in ({**VIEWS, "extra": 1}, {**VIEWS, "cols": 60}, {**VIEWS, "start": [7, 0]}, {**VIEWS, "start": [0, 24]},
+                {**VIEWS, "tabs": []}, {**VIEWS, "tabs": ["t"] * 21}, {**VIEWS, "cols": "24"}, {**VIEWS, "pitches": []}):
+        assert proof(client, key, bad).status_code == 400, bad
+    assert client.post("/gf/requests/r1/versions", headers=key, data={"views": "not json"},
+                       files={"preview": ("p.png", PNG, "image/png"), "spin": ("s.jpg", SHEET, "image/jpeg")}).status_code == 400
+    two = {**VIEWS, "tabs": ["a", "b"]}
+    assert proof(client, key, two, tab(2)[:1]).status_code == 400  # no spin_2
+    assert proof(client, key, two, [*tab(2), *tab(3)]).status_code == 400  # a tab beyond the titles
+    assert proof(client, key, two, [*tab(2), tab(2)[0]]).status_code == 400  # two preview_2
+    assert proof(client, key, two, [("preview_2", ("p.png", PNG, "image/png"))], spin=None).status_code == 400  # tab 1 has no spin
+    assert proof(client, key, VIEWS, spin=picture("JPEG", (600, 600))).status_code == 400  # not 24 x 7 tiles
+    assert proof(client, key, VIEWS, spin=picture("JPEG", (24 * 20, 7 * 21))).status_code == 400  # not square tiles
+    assert db.collection("versions").get() == []  # nothing stored
+
+
+def test_flagmaker_versions_have_no_views(client, db):
+    v = client.post("/fm/requests/r1/versions", headers=paired(client), data={"views": json.dumps(VIEWS)}, files=files()).json()
+    doc = db.document(f"versions/{v['id']}").get().to_dict()
+    assert "views" not in doc and doc["spinGrid"] == 6
+    publish(db, v["id"])
+    assert client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]["views"] is None
+
+
 def test_production_merges_and_pushes_progress(client, db, pushes):
     key = gf(client)
     assert client.put("/gf/requests/nope/production", headers=key, json=PRODUCTION).status_code == 404

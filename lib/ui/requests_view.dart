@@ -389,7 +389,7 @@ class _RequestDetailState extends State<RequestDetail> {
   Stream<Doc>? _customer;
   String? _versionId;
   String _view = '2d';
-  int _frame = 0, _focus = 0; // _focus: bumped to re-open the preview on a comment's pin
+  int _frame = -1, _focus = 0; // _frame -1: the version's first tile; _focus: bumped to re-open the preview on a comment's pin
   bool _seen = false;
   final _reply = TextEditingController();
 
@@ -472,6 +472,7 @@ class _RequestDetailState extends State<RequestDetail> {
         if (version != null && filesOf(version).contains(f)) (k, f, label),
     ];
     final view = views.where((v) => v.$1 == _view).firstOrNull ?? views.firstOrNull;
+    final sheet = view != null && view.$2.startsWith('spin') ? spinSheetOf(version?.data()) : (1, 1, 1, 0);
     final openComments = comments.where((c) => c['from'] == 'client' && c.data()['done'] != true).length;
     // A pinned comment opens its version, view and turn in the preview.
     void show(QueryDocumentSnapshot<Map<String, dynamic>> c) {
@@ -556,7 +557,7 @@ class _RequestDetailState extends State<RequestDetail> {
                     selected: {view.$1},
                     onSelectionChanged: (k) => setState(() {
                       _view = k.first;
-                      _frame = 0;
+                      _frame = -1;
                     }),
                   ),
                 ),
@@ -577,11 +578,16 @@ class _RequestDetailState extends State<RequestDetail> {
                   child: PinnedPreview(
                     key: ValueKey('${version!.id}/${view.$1}/$_focus'),
                     url: fileUrl(token, version.id, view.$2),
-                    grid: view.$2.startsWith('spin') ? spinGridOf(version.data()) : 1,
-                    frame: _frame,
+                    cols: sheet.$1,
+                    rows: sheet.$2,
+                    turns: sheet.$3,
+                    frame: _frame < 0 ? sheet.$4 : _frame,
                     pins: [
+                      // shortcut: the app shows a version's first plate tab only; the others are in "תצוגת לקוח".
                       for (final c in comments)
-                        if (c['versionId'] == version.id && (c['pin'] as Map?)?['view'] == view.$1)
+                        if (c['versionId'] == version.id &&
+                            (c['pin'] as Map?)?['view'] == view.$1 &&
+                            (((c['pin'] as Map)['tab'] as num?) ?? 0) == 0)
                           (Offset(((c['pin'] as Map)['x'] as num).toDouble(), ((c['pin'] as Map)['y'] as num).toDouble()),
                               '${pinned[c.id]}', (((c['pin'] as Map)['z'] as num?) ?? 0).round()),
                     ],
@@ -928,13 +934,15 @@ class _Comment extends StatelessWidget {
 }
 
 /// A picture with numbered pins at fractions of it (not of the box: the
-/// picture is letterboxed), exactly where the customer tapped. With [grid] > 1
-/// the picture is a sheet of grid x grid turns: dragging sideways turns it,
-/// and a pin shows only on the turn it was placed on.
+/// picture is letterboxed), exactly where the customer tapped. With more than
+/// one tile the picture is a sheet of [cols] x [rows], read [turns] a row
+/// (spinSheetOf): dragging sideways turns it, up and down moves between rows,
+/// and a pin shows only on the tile it was placed on.
 class PinnedPreview extends StatefulWidget {
-  const PinnedPreview({super.key, required this.url, required this.pins, this.grid = 1, this.frame = 0});
+  const PinnedPreview(
+      {super.key, required this.url, required this.pins, this.cols = 1, this.rows = 1, this.turns = 1, this.frame = 0});
   final String url;
-  final int grid;
+  final int cols, rows, turns;
   final int frame;
   final List<(Offset, String, int)> pins;
 
@@ -946,9 +954,9 @@ class _PinnedPreviewState extends State<PinnedPreview> {
   ImageInfo? _info;
   bool _failed = false;
   ImageStream? _stream;
-  late final int _turns = widget.grid * widget.grid;
-  late int _frame = widget.frame % _turns;
-  double _drag = 0;
+  late final int _tiles = widget.cols * widget.rows, _turns = widget.turns, _levels = _tiles ~/ _turns;
+  late int _frame = widget.frame % _tiles;
+  double _drag = 0, _tilt = 0;
   late final _listener = ImageStreamListener(
     (info, _) {
       if (!mounted) return info.dispose();
@@ -977,11 +985,15 @@ class _PinnedPreviewState extends State<PinnedPreview> {
 
   void _turn(DragUpdateDetails d) {
     _drag += d.delta.dx;
+    _tilt += d.delta.dy;
     final px = 360 / _turns; // a full turn per 360 px, like the client's page
-    final step = (_drag / px).truncate();
-    if (step == 0) return;
+    final step = (_drag / px).truncate(), tilt = (_tilt / 40).truncate();
+    if (step == 0 && tilt == 0) return;
     _drag -= step * px;
-    setState(() => _frame = (_frame - step) % _turns);
+    _tilt -= tilt * 40;
+    // Dragging down tips the top towards you: a row seen from higher up.
+    final row = (_frame ~/ _turns - tilt).clamp(0, _levels - 1);
+    setState(() => _frame = row * _turns + (_frame % _turns - step) % _turns);
   }
 
   @override
@@ -995,23 +1007,25 @@ class _PinnedPreviewState extends State<PinnedPreview> {
     } else if (image == null) {
       child = const Center(child: CircularProgressIndicator());
     } else {
-      final g = widget.grid;
-      final tile = Size(image.width / g, image.height / g);
+      final g = widget.cols;
+      final tile = Size(image.width / g, image.height / widget.rows);
       final src = Offset((_frame % g) * tile.width, (_frame ~/ g) * tile.height) & tile;
+      int away(int turn) => turn ~/ _turns == _frame ~/ _turns ? turnsAway(turn, _frame, _turns) : _turns;
       child = GestureDetector(
-        onHorizontalDragUpdate: g > 1 ? _turn : null,
+        onHorizontalDragUpdate: _tiles > 1 && _levels == 1 ? _turn : null,
+        onPanUpdate: _levels > 1 ? _turn : null,
         child: FittedBox(
           child: SizedBox.fromSize(
             size: tile,
             child: Stack(clipBehavior: Clip.none, children: [
               Positioned.fill(child: CustomPaint(painter: _Tile(image, src))),
               for (final (at, label, turn) in widget.pins)
-                if (g == 1 || turnsAway(turn, _frame, _turns) <= 3)
+                if (_tiles == 1 || away(turn) <= 3)
                   Positioned(
                     left: at.dx * tile.width - tile.shortestSide * .04,
                     top: at.dy * tile.height - tile.shortestSide * .04,
                     // Pins placed up to 3 turns away show faded, so every pin is findable while turning.
-                    child: Opacity(opacity: g == 1 || turnsAway(turn, _frame, _turns) == 0 ? 1 : .4, child: Container(
+                    child: Opacity(opacity: _tiles == 1 || away(turn) == 0 ? 1 : .4, child: Container(
                       width: tile.shortestSide * .08,
                       height: tile.shortestSide * .08,
                       alignment: Alignment.center,
