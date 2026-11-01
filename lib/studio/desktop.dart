@@ -28,12 +28,20 @@ Future<bool> openLocal(Uint8List bytes, String fileName) async {
 }
 
 const _exeKey = 'flagMakerExe';
+// Since Flag Maker 5.7.0 one app folder is updated in place (older builds sat in "Interview Flag Maker vX.Y.Z").
+const _flagMakerDefault = r'C:\claude projects\3d\Flag Maker\dist\Interview Flag Maker\Interview Flag Maker.exe';
 
-/// The Flag Maker's EXE, asked for once (it is a portable folder, so there is
-/// no install location to find). [choose] asks again.
+/// The Flag Maker's EXE: the one app folder, else asked for once (it is a
+/// portable folder, so there is no install location to find). [choose] asks again.
+/// A running Flag Maker opens each start as a new tab.
 Future<String?> flagMakerExe({bool choose = false}) async {
   final prefs = await SharedPreferences.getInstance();
   var path = prefs.getString(_exeKey);
+  // A path chosen before 5.7.0 points at a frozen versioned folder: move to the one app.
+  if (!choose && (path == null || path.contains(r'\Interview Flag Maker v')) && File(_flagMakerDefault).existsSync()) {
+    path = _flagMakerDefault;
+    await prefs.setString(_exeKey, path);
+  }
   if (choose || path == null || !File(path).existsSync()) {
     final f = await openFile(
       confirmButtonText: 'בחירה',
