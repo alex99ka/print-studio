@@ -65,3 +65,6 @@ firestore-tests/node_modules/
 *-debug.log
 # Firebase Hosting deploy cache
 .firebase/
+
+# graphify knowledge graph (local)
+graphify-out/

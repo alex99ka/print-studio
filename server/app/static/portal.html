@@ -103,9 +103,9 @@ dialog .row{justify-content:flex-end;margin-top:16px}
   <div class="brand"><span id="barLabel"></span><b class="ltr" id="barTotal" style="font-size:19px"></b></div>
   <button class="approve" id="approve" type="button"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span></span></button>
 </div></div>
-<dialog id="decline"><h2 id="declineTitle"></h2><p id="declineText" class="muted"></p><textarea id="declineWhy" maxlength="2000"></textarea>
+<dialog id="decline" aria-labelledby="declineTitle" aria-describedby="declineText"><h2 id="declineTitle"></h2><p id="declineText" class="muted"></p><textarea id="declineWhy" maxlength="2000"></textarea>
   <div class="row"><button class="ghost" id="declineNo" type="button"></button><button class="danger" id="declineYes" type="button"></button></div></dialog>
-<dialog id="confirm"><h2 id="confirmTitle"></h2><p id="confirmText" class="muted"></p>
+<dialog id="confirm" aria-labelledby="confirmTitle" aria-describedby="confirmText"><h2 id="confirmTitle"></h2><p id="confirmText" class="muted"></p>
   <div class="row"><button class="ghost" id="confirmNo" type="button"></button><button class="approve" id="confirmYes" type="button" style="flex:none;padding:0 18px"></button></div></dialog>
 
 <script type="module">
@@ -308,19 +308,21 @@ function detail(r) {
   if (guests) kids.push(guests);
 
   const input = h('input', {type: 'text', placeholder: t().write, 'aria-label': t().write, maxlength: 2000});
+  const sendBtn = h('button', {type: 'button', class: 'send'}, t().send);
   const send = async () => {
-    const text = input.value.trim(); if (!text) return;
-    input.disabled = true;
+    const text = input.value.trim(); if (!text || input.disabled) return;
+    input.disabled = sendBtn.disabled = true; // one post per comment, even on a double click
     const ok = await post(`requests/${r.id}/comments`, {versionId: v.id, text, pin: draftPin});
-    input.disabled = false;
+    input.disabled = sendBtn.disabled = false;
     if (ok) { input.value = ''; draftPin = null; picking = false; await refresh(); }
   };
   input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
+  sendBtn.onclick = send;
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().comments),
     r.comments.map(c => h('div', {class: 'msg' + (c.from === 'client' ? ' me' : ''), ...(c.pin ? {role: 'button', tabindex: '0', style: 'cursor:pointer', onclick: () => showPin(r, c), onkeydown: e => { if (e.key === 'Enter') showPin(r, c); }} : {})},
       h('span', {class: 'num' + (c.pin ? ' p' : '')}, c.pin ? numbers.get(c.id) : (c.from === 'client' ? '' : t().studioName[0])),
       h('div', {class: 'bubble'}, h('span', {class: 'muted'}, `${c.from === 'client' ? t().you : t().studioName} · v${c.versionN ?? ''} · `, ltr(day(c.at))), c.text))),
-    r.status !== 'paid' && !preview ? h('label', {class: 'composer'}, input, h('button', {type: 'button', class: 'send', onclick: send}, t().send)) : null));
+    r.status !== 'paid' && !preview ? h('label', {class: 'composer'}, input, sendBtn) : null));
   $('main').replaceChildren(...kids);
 
   const canApprove = open && q && v.id === r.currentVersionId && !preview;
@@ -411,7 +413,7 @@ function confirmDecline(r) {
 async function post(path, body) {
   try {
     const res = await fetch(`${base}/${path}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
-    if (res.status === 409) { alertBox(t().changed); await refresh(); return false; }
+    if (res.status === 409) { await refresh(); alertBox(t().changed); return false; } // after: refresh redraws #main
     if (!res.ok) throw new Error(res.status);
     return true;
   } catch { alertBox(t().failed); return false; }
@@ -456,7 +458,7 @@ function showPictures(stage, url, sheet, markers, onPick) {
   stage.addEventListener('dragstart', e => e.preventDefault());
   if (!frames.has(url)) frames.set(url, new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = url; }));
   frames.get(url).then(i => { if (!alive) return; img = i; stage.querySelector('.loading')?.remove(); draw(); },
-    () => { if (alive) stage.querySelector('.loading').textContent = t().failed; });
+    () => { frames.delete(url); if (alive) stage.querySelector('.loading').textContent = t().failed; }); // a failure is not cached: the next open retries
   // Jump to the turn of a pin that is being placed or shown, so it is visible.
   const first = markers.find(m => m.el.classList.contains('new')) || markers.find(m => m.id === focus) || markers[0];
   if (count > 1 && first) frame = Math.round(first.p.z) % count;

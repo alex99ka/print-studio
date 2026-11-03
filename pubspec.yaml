@@ -56,11 +56,9 @@ flutter_launcher_icons:
   image_path: assets/icon/icon.png
   adaptive_icon_background: "#E3E8F2"
   adaptive_icon_foreground: assets/icon/foreground.png
+  # web icons come from tool/make_icon.py: this tool copies icon.png into the maskable slots too
   web:
-    generate: true
-    image_path: assets/icon/icon.png
-    background_color: "#E3E8F2"
-    theme_color: "#15171C"
+    generate: false
   windows:
     generate: true
     image_path: assets/icon/icon.png

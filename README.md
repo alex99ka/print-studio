@@ -3,7 +3,7 @@
 # סטודיו הדפסה
 
 CRM for a one-person 3D-printing studio (microphone flags from the
-[Flag Maker](../3d)). Built on the `app-shell` starter: one Flutter codebase
+[Flag Maker](../Flag%20Maker)). Built on the `app-shell` starter: one Flutter codebase
 for **Android, Web (installable, the iPad) and Windows**, with Google sign-in,
 fingerprint, silent updates, pushes, error codes, diagnostics, walkthrough,
 export, Drive backups, light/dark, RTL.
@@ -21,6 +21,7 @@ export, Drive backups, light/dark, RTL.
   quote before VAT + 18% VAT + total, and **one-step approval** of the current
   version and price. Approval locks the request (version, price, quantity).
 - **Statuses**: טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן → נמסר → שולם.
+  While waiting, the client may cancel instead: הלקוח ביטל (`declined`).
   Customer comments and approvals push to the app (type `client`).
 - **Flag Maker link** (PC): "Send to CRM" in the Flag Maker uploads the next
   version with a paired key (CRM › הגדרות › חיבור ה-Flag Maker); the CRM opens a
@@ -134,7 +135,7 @@ GitHub Releases ◄── release.yml (tag)        Pi: server/ (Docker, Tailscal
 | Service | Free limit | What uses it |
 |---|---|---|
 | Firestore | 50k reads, 20k writes a day; 1 GiB | The apps; the server polls every minute (≥ 1,440 reads a day per poller), and every rules check reads `config/access` once per request. |
-| Hosting | 10 GB stored, 360 MB a day | The web app, and the `next` channel (expires after 30 days). |
+| Hosting | 10 GB stored, 360 MB a day | The web app. |
 | Auth, FCM | Free | |
 | GitHub Actions, Releases | Free for a public repo | CI, builds, downloads. |
 | GitHub API | 60 unauthenticated calls an hour per IP | The update check: at start and at most every 6 hours. |

@@ -6,14 +6,19 @@ shadow into soft transparency. Writes:
   icon.png        transparent square: Windows, web, legacy Android
   foreground.png  smaller, inside the Android adaptive icon's 66% safe circle
   logo.png        the app bar and the client's page
-Then: dart run flutter_launcher_icons
+  web/icons, web/favicon.png  the PWA icons; the maskable ones on the background tile,
+                  inside the 80% safe circle (flutter_launcher_icons only copies icon.png there)
+Then: dart run flutter_launcher_icons (Android, Windows)
 """
 from pathlib import Path
 
 import numpy as np
 from PIL import Image, ImageDraw
 
-ICON = Path(__file__).resolve().parent.parent / "assets" / "icon"
+ROOT = Path(__file__).resolve().parent.parent
+ICON = ROOT / "assets" / "icon"
+WEB = ROOT / "web"
+TILE = (0xE3, 0xE8, 0xF2, 255)  # adaptive_icon_background in pubspec.yaml
 LIGHT = 150  # brighter than this (every channel) can be background; the dark outline stops the fill
 
 
@@ -47,4 +52,10 @@ if __name__ == "__main__":
     square(art, 1024, 0.96).save(ICON / "icon.png")
     square(art, 1024, 0.62).save(ICON / "foreground.png")  # a 0.62 box fits inside the 66% circle
     square(art, 512, 1.0).save(ICON / "logo.png")
-    print("wrote", sorted(p.name for p in ICON.iterdir()))
+    for size in (192, 512):
+        square(art, size, 0.96).save(WEB / "icons" / f"Icon-{size}.png")
+        # a 0.56 box fits inside the 80% maskable safe circle (0.56 * sqrt2 < 0.8)
+        Image.alpha_composite(Image.new("RGBA", (size, size), TILE), square(art, size, 0.56)).save(
+            WEB / "icons" / f"Icon-maskable-{size}.png")
+    square(art, 32, 1.0).save(WEB / "favicon.png")
+    print("wrote", sorted(p.name for p in ICON.iterdir()), "and the web icons")
