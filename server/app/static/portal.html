@@ -182,7 +182,7 @@ const day = iso => iso ? new Date(iso).toLocaleDateString('he-IL', {day: '2-digi
 // A day without a time (YYYY-MM-DD): 12.11, or 12 Nov.
 const date = s => { if (!s) return ''; const [y, m, d] = s.split('-').map(Number);
   return lang === 'he' ? `${d}.${m}` : new Date(y, m - 1, d).toLocaleDateString('en-GB', {day: 'numeric', month: 'short'}); };
-const file = (v, name) => `${base}/f/${v.id}/${name}`;
+const file = (v, name) => `${base}/f/${v.id}/${name}${v.id === preview ? '?preview=' + encodeURIComponent(preview) : ''}`;
 const has = (v, name) => v.files.includes(name);
 // Static markup only, never data: data always goes through h() and textContent.
 const icon = markup => { const tpl = document.createElement('template'); tpl.innerHTML = markup; return tpl.content.firstChild; };

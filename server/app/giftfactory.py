@@ -10,10 +10,7 @@ portal); firestore.rules refuse both to the app.
 
 import csv
 import io
-import json
 import re
-import secrets
-import time
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import quote
@@ -27,7 +24,7 @@ from openpyxl.styles import Font
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import firebase, jobs
-from .studio import TABS, Upload, User, _customer, _data, _iso, _limit, _sha, create_version, tab_field
+from .studio import TABS, Upload, User, _customer, _data, _iso, _limit, check_key, create_version, pair, tab_field
 
 router = APIRouter()
 LISTED = ("draft", "waiting", "approved", "printing")  # Gift Factory's request list
@@ -42,25 +39,13 @@ NOTE_ROW = re.compile(r"Empty amount = one copy|כמות ריקה = עותק א�
 # --- pairing (like the Flag Maker's, in its own file) ------------------------------
 
 
-def _key_file() -> Path:
-    return _data() / "giftfactory_key.json"
-
-
 @router.post("/studio/giftfactory-key")
 def pair_giftfactory(_: User) -> dict:
-    """A new key replaces the old one; only its hash is kept."""
-    key = secrets.token_urlsafe(24)
-    _key_file().write_text(json.dumps({"sha256": _sha(key), "created": time.time()}))
-    return {"key": key}
+    return pair("giftfactory")
 
 
 def giftfactory(x_studio_key: Annotated[str, Header()] = "") -> None:
-    try:
-        saved = json.loads(_key_file().read_text())["sha256"]
-    except (OSError, ValueError, KeyError):
-        raise HTTPException(401, "Gift Factory is not paired") from None
-    if not secrets.compare_digest(saved, _sha(x_studio_key)):
-        raise HTTPException(401, "Wrong Gift Factory key")
+    check_key("giftfactory", "Gift Factory is not paired", "Wrong Gift Factory key", x_studio_key)
 
 
 GiftFactory = Annotated[None, Depends(giftfactory)]

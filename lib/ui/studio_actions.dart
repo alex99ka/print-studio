@@ -184,7 +184,8 @@ Future<String?> newRequest(BuildContext context, {Doc? customer}) async {
   return id;
 }
 
-/// The calendar; the Pi reminds 3 days before, the day before, on the day and the day after.
+/// The calendar; the Pi reminds when printing must start (print days left + 2), the day
+/// before, on the day and the day after.
 Future<void> pickDeadline(BuildContext context, Doc request) async {
   final now = DateTime.now();
   final d = await showDatePicker(

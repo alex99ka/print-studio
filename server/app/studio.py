@@ -270,8 +270,21 @@ def delete_customer(cid: str, _: User) -> dict:
 # --- the Flag Maker (a desktop app with a paired key, not a Google account) ---------
 
 
-def _key_file() -> Path:
-    return _data() / "flagmaker_key.json"
+def pair(app: str) -> dict:
+    """A new key for [app] ("flagmaker", "giftfactory") replaces its old one, so pairing
+    again also revokes it; each app has its own. Only the hash is kept; the app shows the key once."""
+    key = secrets.token_urlsafe(24)
+    (_data() / f"{app}_key.json").write_text(json.dumps({"sha256": _sha(key), "created": time.time()}))
+    return {"key": key}
+
+
+def check_key(app: str, not_paired: str, wrong: str, key: str) -> None:
+    try:
+        saved = json.loads((_data() / f"{app}_key.json").read_text())["sha256"]
+    except (OSError, ValueError, KeyError):
+        raise HTTPException(401, not_paired) from None
+    if not secrets.compare_digest(saved, _sha(key)):
+        raise HTTPException(401, wrong)
 
 
 @router.get("/studio/versions/{vid}/{name}")
@@ -285,20 +298,11 @@ def studio_file(vid: str, name: str, _: User) -> FileResponse:
 
 @router.post("/studio/flagmaker-key")
 def pair_flagmaker(_: User) -> dict:
-    """A new key replaces the old one, so pairing again also revokes it. Only
-    its hash is kept; the app shows the key once."""
-    key = secrets.token_urlsafe(24)
-    _key_file().write_text(json.dumps({"sha256": _sha(key), "created": time.time()}))
-    return {"key": key}
+    return pair("flagmaker")
 
 
 def flagmaker(x_studio_key: Annotated[str, Header()] = "") -> None:
-    try:
-        saved = json.loads(_key_file().read_text())["sha256"]
-    except (OSError, ValueError, KeyError):
-        raise HTTPException(401, "The Flag Maker is not paired") from None
-    if not secrets.compare_digest(saved, _sha(x_studio_key)):
-        raise HTTPException(401, "Wrong Flag Maker key")
+    check_key("flagmaker", "The Flag Maker is not paired", "Wrong Flag Maker key", x_studio_key)
 
 
 FlagMaker = Annotated[None, Depends(flagmaker)]
@@ -445,11 +449,13 @@ def portal_data(token: str, preview: str = "") -> dict:
 
 
 @router.get("/p/{token}/f/{vid}/{name}")
-def portal_file(token: str, vid: str, name: str) -> FileResponse:
+def portal_file(token: str, vid: str, name: str, preview: str = "") -> FileResponse:
+    """Published (or approved) versions only, so a version Alex takes back is gone from saved
+    links too; a draft only in the studio's ?preview= of it, like portal_data."""
     cid, _ = _customer(token)
     path = _file(vid, name) if name in CLIENT_FILES else None
-    v = firebase.db().document(f"versions/{vid}").get() if path else None
-    if not v or not v.exists or (v.to_dict() or {}).get("customerId") != cid:
+    v = (firebase.db().document(f"versions/{vid}").get().to_dict() or {}) if path else {}
+    if v.get("customerId") != cid or (v.get("state") not in ("published", "approved") and vid != preview):
         raise HTTPException(404, "No such file")
     # A version's files never change: the id is the cache key.
     return FileResponse(path, media_type=TYPES[name], headers={"Cache-Control": "private, max-age=86400"})

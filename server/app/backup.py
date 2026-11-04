@@ -81,24 +81,29 @@ def _upload(s: AuthorizedSession, folder: str, name: str, data: bytes, mime: str
 
 
 def files(s: AuthorizedSession, parent: str) -> int:
-    """The design files live only on the Pi (an SD card): each version's
-    folder goes to Drive once, zipped, into "<backup folder>/files", never
-    pruned. Returns how many went up."""
+    """The design files and the clients' guest lists live only on the Pi (an SD
+    card): each version's folder goes to Drive once, zipped, into "<backup
+    folder>/files", never pruned; a guest list again each time the client sends a
+    new one (its name carries the file's time). Returns how many went up."""
     data = Path(os.environ.get("DATA_DIR", "."))
     done_file = data / "files_backed_up.json"
     done = set(json.loads(done_file.read_text())) if done_file.exists() else set()
-    root = data / "files"
-    todo = [d for d in sorted(root.iterdir()) if d.is_dir() and d.name not in done] if root.exists() else []
+    def dirs(p: Path) -> list[Path]:
+        return sorted(d for d in p.iterdir() if d.is_dir()) if p.exists() else []
+
+    todo = [(d, d.name) for d in dirs(data / "files")] + [
+        (d, f"guests-{d.name}-{max(int(f.stat().st_mtime) for f in fs)}") for d in dirs(data / "guests") if (fs := list(d.iterdir()))]
+    todo = [(d, name) for d, name in todo if name not in done]
     if not todo:
         return 0
     folder = _folder(s, "files", parent)
-    for d in todo:
+    for d, name in todo:
         buf = io.BytesIO()
         with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
             for f in sorted(d.iterdir()):
                 z.write(f, f.name)
-        _upload(s, folder, f"{d.name}.zip", buf.getvalue(), "application/zip")
-        done.add(d.name)
+        _upload(s, folder, f"{name}.zip", buf.getvalue(), "application/zip")
+        done.add(name)
         done_file.write_text(json.dumps(sorted(done)))  # after each, so a failure resumes
     return len(todo)
 

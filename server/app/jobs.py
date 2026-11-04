@@ -67,14 +67,19 @@ _unseen: dict[str, list[str]] = {}
 
 def send_to(people: list[tuple[str, dict]], kind: str, title: str, body: str, data: dict | None = None) -> int:
     """Pushes to everyone in [people] who hasn't turned [kind] off, and drops
-    tokens FCM says are gone."""
+    tokens FCM says are gone. Never raises: callers push after their write is
+    saved, and a lost alert must not turn a saved comment or approval into an error."""
     sent = 0
     tag = uuid.uuid4().hex[:16]
     for uid, u in people:
         if (u.get("notify") or {}).get(kind) is False:
             continue
         tokens = u.get("fcmTokens") or []
-        gone = firebase.push(tokens, title, body, data, tag=tag)
+        try:
+            gone = firebase.push(tokens, title, body, data, tag=tag)
+        except Exception:  # noqa: BLE001 - FCM or the network down: the record is saved, only the alert is lost
+            log.exception("Push failed: %s", title)
+            continue
         sent += len(tokens) - len(gone)
         if tokens:
             _unseen[uid] = [*_unseen.get(uid, [])[-49:], tag]

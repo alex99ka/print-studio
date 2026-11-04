@@ -9,7 +9,7 @@ os.environ["RUN_JOBS"] = "0"
 import pytest
 from fastapi.testclient import TestClient
 
-from app import firebase, jobs, main, telegram
+from app import backup, firebase, jobs, main, telegram
 
 
 @pytest.fixture
@@ -82,6 +82,21 @@ def test_send_to_respects_switches_and_drops_dead_tokens(monkeypatch):
     jobs.send_to(people, "client", "title", "body")
     assert pushed == [["t1", "dead"], []]  # b turned client pushes off; c has no tokens
     assert removed == ["users/a", "users/c"]
+
+
+def test_a_failed_push_never_raises(monkeypatch):
+    """Callers push after their write is saved: FCM down must not turn that into a 500."""
+    tried = []
+
+    def push(tokens, *a, **k):
+        tried.append(tokens)
+        if tokens == ["t1"]:
+            raise ConnectionError("FCM down")
+        return []
+
+    monkeypatch.setattr(firebase, "push", push)
+    assert jobs.send_to([("a", {"fcmTokens": ["t1"]}), ("b", {"fcmTokens": ["t2"]})], "client", "t", "b") == 1
+    assert tried == [["t1"], ["t2"]]  # the next person still gets it
 
 
 def test_a_push_seen_on_one_device_leaves_the_others(monkeypatch, tmp_path):
@@ -208,3 +223,21 @@ def test_release_announced_once_prereleases_to_early_users_only(monkeypatch):
     Res.status_code = 304
     jobs.new_release(state)
     assert sends[-1] == ("גרסה 1.4.0 של האפליקציה", ["a", "v"]) and len(sends) == 2
+
+
+def test_backup_takes_version_files_once_and_each_new_guest_list(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    (tmp_path / "files" / "v1").mkdir(parents=True)
+    (tmp_path / "files" / "v1" / "preview.png").write_bytes(b"png")
+    guests = tmp_path / "guests" / "r1"
+    guests.mkdir(parents=True)
+    (guests / "guests.xlsx").write_bytes(b"xlsx")
+    (tmp_path / "guests" / "r2").mkdir()  # empty: nothing to back up
+    up = []
+    monkeypatch.setattr(backup, "_folder", lambda s, name=None, parent=None: "f")
+    monkeypatch.setattr(backup, "_upload", lambda s, folder, name, data, mime: up.append(name))
+    assert backup.files(None, "root") == 2
+    assert up[0] == "v1.zip" and up[1].startswith("guests-r1-")
+    assert backup.files(None, "root") == 0  # nothing new
+    os.utime(guests / "guests.xlsx", (2_000_000_000, 2_000_000_000))  # the client sent a new list
+    assert backup.files(None, "root") == 1 and up[-1] == "guests-r1-2000000000.zip"

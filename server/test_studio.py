@@ -139,6 +139,8 @@ def test_portal_shows_only_published(client, db):
     assert client.get(f"/p/{TOKEN_A}/data").json()["requests"] == []  # nothing published yet
     vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
     assert client.get(f"/p/{TOKEN_A}/data").json()["requests"] == []  # a draft
+    assert client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").status_code == 404  # its pictures too
+    assert client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png?preview={vid}").status_code == 200  # the studio's preview
     assert len(client.get(f"/p/{TOKEN_A}/data?preview={vid}").json()["requests"]) == 1  # the studio's preview
     publish(db, vid)
     r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
@@ -157,6 +159,8 @@ def test_portal_shows_only_published(client, db):
     assert client.get(f"/p/{TOKEN_A}/f/{vid}/recipe.json").status_code == 404
     assert "model.3mf" not in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["versions"][0]["files"]
     assert client.get(f"/studio/versions/{vid}/model.3mf").content.startswith(b"PK")
+    db.document(f"versions/{vid}").update({"state": "draft"})  # Alex takes it back
+    assert client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").status_code == 404
     page = client.get(f"/p/{TOKEN_A}")
     assert page.status_code == 200 and "Content-Security-Policy" in page.headers
 
