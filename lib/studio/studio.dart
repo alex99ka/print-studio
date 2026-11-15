@@ -101,13 +101,21 @@ String daysLeftText(int n) => switch (n) {
       _ => 'בעוד $n ימים',
     };
 
-/// Agorot in, agorot out; VAT rounded half up to the agora, exactly like
-/// money() in server/app/studio.py (the portal shows the server's numbers).
-({int net, int vat, int total}) money(int unit, int qty, int vatPercent) {
-  final net = unit * qty;
+/// Agorot in, agorot out; [discount] (agorot) comes off before VAT, and VAT is rounded
+/// half up to the agora, exactly like money() in server/app/studio.py (the portal shows
+/// the server's numbers: the client sees only the total).
+({int net, int vat, int total}) money(int unit, int qty, int vatPercent, [int discount = 0]) {
+  final net = max(0, unit * qty - discount);
   final vat = (net * vatPercent + 50) ~/ 100;
   return (net: net, vat: vat, total: net + vat);
 }
+
+/// A saved quote's money (quotes before 0.3.5 have no discount).
+({int net, int vat, int total}) quoteMoney(Map<String, dynamic> q) =>
+    money(q['unit'] as int, q['qty'] as int, q['vatPercent'] as int, (q['discount'] as int?) ?? 0);
+
+/// [percent] of [unit] × [qty], rounded half up to the agora.
+int discountOf(int unit, int qty, num percent) => (unit * qty * percent / 100).round();
 
 /// 42480 → "₪424.80", 123456789 → "₪1,234,567.89".
 /// Keeps an amount or number left to right inside Hebrew text (an LTR isolate).
@@ -168,7 +176,7 @@ String portalMessage(String customerName, String url) =>
 
 // --- writes -------------------------------------------------------------------------
 
-Future<void> addCustomer({required String name, required String phone, required String lang}) =>
+Future<DocumentReference<Map<String, dynamic>>> addCustomer({required String name, required String phone, required String lang}) =>
     customersRef.add({
       'name': name.trim(),
       'phone': phone.trim(),
@@ -210,9 +218,15 @@ Future<void> publish(Doc request, Doc version) {
   return b.commit();
 }
 
-/// A new quote replaces the current one; quotes are never edited.
+/// A new quote replaces the current one; quotes are never edited. [discount] in agorot,
+/// [discountPct] only to show Alex how it was given (the client sees neither).
 Future<void> addQuote(Doc request,
-    {required int unit, required int qty, required int vatPercent, required String note}) {
+    {required int unit,
+    required int qty,
+    required int vatPercent,
+    required String note,
+    int discount = 0,
+    int? discountPct}) {
   final q = quotesRef.doc();
   final b = _db.batch()
     ..set(q, {
@@ -221,6 +235,8 @@ Future<void> addQuote(Doc request,
       'unit': unit,
       'qty': qty,
       'vatPercent': vatPercent,
+      if (discount > 0) 'discount': discount,
+      if (discount > 0 && discountPct != null) 'discountPct': discountPct,
       'note': note.trim(),
       'createdAt': FieldValue.serverTimestamp(),
       'by': FirebaseAuth.instance.currentUser?.uid ?? '',
@@ -336,7 +352,56 @@ Map<String, dynamic> productionOf(Map<String, dynamic> request) =>
 int? profit(Map<String, dynamic> request, Map<String, dynamic>? approvedQuote) {
   final cost = (productionOf(request)['actualCost'] as Map?)?['total'];
   if (approvedQuote == null || cost is! int || !owes('${request['status']}')) return null;
-  return money(approvedQuote['unit'] as int, approvedQuote['qty'] as int, 0).net - cost;
+  return quoteMoney({...approvedQuote, 'vatPercent': 0}).net - cost;
+}
+
+/// One month or quarter of the Money tab's report. Sales are the orders the client
+/// approved in it (price before VAT after discount, VAT, discount given, what Gift
+/// Factory says they cost); received is the money that came in, by its day.
+class Period {
+  Period(this.start, this.label);
+  final DateTime start;
+  final String label;
+  final sales = <({String requestId, DateTime at, int net, int vat, int discount, int? cost})>[];
+  final payments = <({String requestId, DateTime at, int amount, String method})>[];
+  int get net => sales.fold(0, (a, s) => a + s.net);
+  int get vat => sales.fold(0, (a, s) => a + s.vat);
+  int get discount => sales.fold(0, (a, s) => a + s.discount);
+  int get received => payments.fold(0, (a, p) => a + p.amount);
+
+  /// Profit of the sales whose cost is known (Gift Factory's actual cost), and how many those are.
+  ({int profit, int counted}) get profit {
+    final known = sales.where((s) => s.cost != null);
+    return (profit: known.fold(0, (a, s) => a + s.net - s.cost!), counted: known.length);
+  }
+}
+
+/// The last [count] months (or quarters, newest first) up to [now].
+List<Period> periodReport({
+  required bool quarterly,
+  required DateTime now,
+  required Iterable<({String requestId, DateTime at, int net, int vat, int discount, int? cost})> sales,
+  required Iterable<({String requestId, DateTime at, int amount, String method})> payments,
+  int count = 6,
+}) {
+  final step = quarterly ? 3 : 1;
+  final first = DateTime(now.year, quarterly ? (now.month - 1) ~/ 3 * 3 + 1 : now.month);
+  final periods = [
+    for (var i = 0; i < count; i++)
+      () {
+        final s = DateTime(first.year, first.month - i * step);
+        return Period(s, quarterly ? 'Q${(s.month - 1) ~/ 3 + 1}/${s.year}' : '${s.month.toString().padLeft(2, '0')}/${s.year}');
+      }(),
+  ];
+  // The newest period that started by then; older than the oldest one shown: left out.
+  Period? of(DateTime at) => periods.where((p) => !at.isBefore(p.start)).firstOrNull;
+  for (final s in sales) {
+    of(s.at)?.sales.add(s);
+  }
+  for (final p in payments) {
+    of(p.at)?.payments.add(p);
+  }
+  return periods;
 }
 
 /// "2026-11-12" → "12.11".

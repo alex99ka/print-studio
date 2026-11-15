@@ -42,11 +42,15 @@ def three_mf() -> bytes:
 
 
 def test_money_rounds_vat_half_up():
-    assert studio.money(18000, 2, 18) == {"unit": 18000, "qty": 2, "vatPercent": 18, "net": 36000, "vat": 6480, "total": 42480}
+    assert studio.money(18000, 2, 18) == {"unit": 18000, "qty": 2, "vatPercent": 18, "discount": 0, "net": 36000, "vat": 6480, "total": 42480}
     assert studio.money(1, 1, 18)["vat"] == 0  # 0.18 agora
     assert studio.money(3, 1, 18)["vat"] == 1  # 0.54 agora
     assert studio.money(18000, 2, 0)["total"] == 36000  # VAT off
     assert studio.money(0, 5, 18)["total"] == 0
+    # A discount comes off before VAT, never below zero (same cases as test/studio_test.dart).
+    assert {k: studio.money(18000, 2, 18, 3600)[k] for k in ("net", "vat", "total")} == {"net": 32400, "vat": 5832, "total": 38232}
+    assert studio.money(18000, 2, 0, 40000)["total"] == 0
+    assert studio.quote_total({"unit": 18000, "qty": 2, "vatPercent": 18}) == 42480  # a quote from before discounts
 
 
 @pytest.fixture
@@ -146,6 +150,10 @@ def test_portal_shows_only_published(client, db):
     r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
     assert r["currentVersionId"] == vid and r["quote"]["total"] == 42480 and r["status"] == "waiting"
     assert r["versions"][0]["spinGrid"] == 6  # the Flag Maker's sheet, as before
+    # A discounted quote: the client gets the final price only, never the unit price, the discount or the math.
+    db.document("quotes/q1").update({"discount": 3600, "discountPct": 10})
+    q = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["quote"]
+    assert q["total"] == 38232 and q["withVat"] and not {"unit", "qty", "discount", "discountPct", "vat", "net"} & q.keys()
     assert client.get(f"/p/{TOKEN_B}/data").json()["requests"] == []
     # The client gets the pictures, watermarked (same size, different pixels).
     shown = client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content

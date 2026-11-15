@@ -1,5 +1,5 @@
 """The home server: /health, /report, the studio and portal routes (studio.py),
-Gift Factory's (giftfactory.py) and the background jobs (jobs.py)."""
+Gift Factory's (giftfactory.py), the shop website's (website.py) and the background jobs (jobs.py)."""
 
 import asyncio
 import logging
@@ -11,7 +11,7 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import backup, firebase, giftfactory, jobs, studio, telegram
+from . import backup, firebase, giftfactory, jobs, studio, telegram, website
 
 logging.basicConfig(level=logging.INFO)
 APP = os.environ.get("APP_NAME") or "האפליקציה"
@@ -35,11 +35,12 @@ async def lifespan(_: FastAPI):
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(studio.router)
 app.include_router(giftfactory.router)
+app.include_router(website.router)
 # The web app calls from its Hosting origin; tokens, not cookies, so no credentials.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[o for o in os.environ.get("WEB_ORIGINS", "").split(",") if o] or ["*"],
-    allow_methods=["GET", "POST"],
+    allow_methods=["GET", "POST", "PUT", "DELETE"],
     allow_headers=["Authorization", "Content-Type"],
 )
 

@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// The collections Settings › "ייצוא נתונים" writes out. A new app lists its own.
-const exportedCollections = ['customers', 'requests', 'versions', 'quotes', 'comments'];
+const exportedCollections = ['customers', 'requests', 'versions', 'quotes', 'payments', 'comments'];
 
 /// One JSON with everything, plus a CSV per collection for a spreadsheet.
 /// Android and the web: the share sheet (the web downloads). Windows: a save
@@ -25,6 +25,15 @@ Future<int> exportData() async {
     for (final e in all.entries)
       _file('${e.key}-$stamp.csv', toCsv(e.value), 'text/csv'),
   ];
+  await _save(files, 'ייצוא נתונים');
+  return all.values.fold<int>(0, (n, rows) => n + rows.length);
+}
+
+/// One table as a CSV file (the Money tab's report), saved or shared like exportData.
+Future<void> exportCsv(String name, List<Map<String, dynamic>> rows) =>
+    _save([_file(name, toCsv(rows), 'text/csv')], name);
+
+Future<void> _save(List<XFile> files, String title) async {
   if (!kIsWeb && defaultTargetPlatform == TargetPlatform.windows) {
     for (final f in files) {
       final where = await getSaveLocation(suggestedName: f.name);
@@ -32,9 +41,8 @@ Future<int> exportData() async {
       await f.saveTo(where.path);
     }
   } else {
-    await SharePlus.instance.share(ShareParams(files: files, title: 'ייצוא נתונים'));
+    await SharePlus.instance.share(ShareParams(files: files, title: title));
   }
-  return all.values.fold<int>(0, (n, rows) => n + rows.length);
 }
 
 Object? _plain(Object? v) => v is Timestamp ? v.toDate().toIso8601String() : '$v';

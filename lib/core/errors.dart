@@ -13,7 +13,7 @@ import 'app_info.dart';
 ///
 /// Letters: N connection · A account · G Google sign-in · D data (Firestore)
 /// · U updates · S the home server · P the device · F design files and the
-/// studio's tools · X unexpected.
+/// studio's tools · W the shop website · X unexpected.
 /// A new app adds its own letters (Y for an invoicing API, C for AI…) and a
 /// line per code in test/errors_test.dart. Never bare numbers: they read as
 /// HTTP statuses.
@@ -90,6 +90,18 @@ abstract final class Errors {
   static const noPreview = AppError('F5', 'לא נבחרה תמונת PNG',
       'בוחרים את כל קבצי הייצוא, כולל ה-PNG');
 
+  // The shop website (lib/studio/website.dart picks them from the server's answer).
+  static const siteInvalid = AppError('W1', 'האתר לא קיבל את הנתונים', 'מתקנים את השדה ושומרים שוב');
+  static const siteSlugTaken = AppError('W2', 'כבר יש באתר מוצר עם המזהה הזה',
+      'בוחרים מזהה אחר, או עורכים את המוצר הקיים');
+  static const sitePicture = AppError('W3', 'הקובץ אינו תמונה (JPG, PNG, WebP) או שהוא גדול מ-15MB',
+      'בוחרים תמונה אחרת');
+  static const siteNotSetUp = AppError('W4', 'השרת בבית עוד לא מחובר ל-Supabase של האתר',
+      'מוסיפים SUPABASE_URL ו-SUPABASE_SERVICE_ROLE_KEY ל-.env של השרת ומפעילים אותו מחדש');
+  static const siteRefused = AppError('W5', 'Supabase לא ביצע את הפעולה',
+      'מנסים שוב. אם זה חוזר, שולחים את הקוד');
+  static const siteGone = AppError('W6', 'הרשומה כבר לא קיימת באתר', 'מרעננים את הרשימה');
+
   /// Every code, for the test that keeps them unique.
   static const all = <AppError>[
     noConnection, tooSlow, notAllowed, signedOut, accountDisabled,
@@ -98,6 +110,7 @@ abstract final class Errors {
     updateNotAllowed, updateTooOld, serverDown, serverBug, noBiometrics,
     notificationsBlocked, notificationsNeedHomeScreen, noServer, requestLocked,
     badFile, slicerFailed, noPreview,
+    siteInvalid, siteSlugTaken, sitePicture, siteNotSetUp, siteRefused, siteGone,
   ];
 }
 

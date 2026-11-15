@@ -9,6 +9,7 @@ Run from the repo root unless noted. Flutter: `/c/src/flutter/bin/flutter` (not 
 | `cd firestore-tests && npm test` | Every allow/deny of the rules, in the emulator. On Windows, kill the java process left on :8080 afterwards. |
 | `cd server && .venv/Scripts/pytest -q` | Server tests without Firestore (the studio tests skip). |
 | `cd server && npx -y firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json ".venv\Scripts\pytest.exe -q"` | All server tests, studio included, against the emulator. Kill the java on :8080 afterwards. |
+| `node tool/site_texts.mjs` | Rereads the website's `src/data/site.ts` into `server/app/static/site_texts.json` (the "אתר" tab's default wording). After the website's texts change; then deploy the server. |
 | `git archive HEAD:server \| ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "tar -x -C ~/docker/print-studio"` then on the Pi `docker compose up -d --build` | Deploys the server (README › The home server). |
 | `firebase.cmd deploy --only firestore:rules --project <id>` | Deploys the rules. Before the release that needs them. |
 | `git tag X.Y.Z && git push --atomic origin main X.Y.Z` | Releases: the latest release and the live web, straight away. |

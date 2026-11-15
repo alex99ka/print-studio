@@ -19,8 +19,9 @@ import 'settings_page.dart';
 import 'studio_actions.dart';
 import 'theme.dart';
 import 'update_banner.dart';
+import 'website_view.dart';
 
-/// Tabs along the top like Word's (בית · לקוחות · כספים · הגדרות), the ribbon under
+/// Tabs along the top like Word's (בית · לקוחות · כספים · אתר · הגדרות), the ribbon under
 /// them, and the tab's page below.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -29,7 +30,8 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-const _tabs = ['בית', 'לקוחות', 'כספים', 'הגדרות'];
+const _tabs = ['בית', 'לקוחות', 'כספים', 'אתר', 'הגדרות'];
+const _websiteTab = 3, _settingsTab = 4;
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
@@ -58,6 +60,11 @@ class _HomeScreenState extends State<HomeScreen> {
     final id = data['id'];
     if (data['route'] == '/request' && id is String && mounted) {
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RequestPage(requestId: id)));
+    }
+    // A new call-back request from the website: its list, reloaded.
+    if (data['route'] == '/leads' && mounted) {
+      setState(() => _tab = _websiteTab);
+      websiteLeadsPing.value++;
     }
   }
 
@@ -143,7 +150,12 @@ class _HomeScreenState extends State<HomeScreen> {
             alignment: AlignmentDirectional.centerStart,
             child: Row(children: [
               for (final (i, label) in _tabs.indexed)
-                if (i == 3) TourTarget('settings', child: _tabButton(i, label)) else _tabButton(i, label),
+                if (i == _settingsTab)
+                  TourTarget('settings', child: _tabButton(i, label))
+                else if (i == _websiteTab)
+                  TourTarget('website', child: _tabButton(i, label))
+                else
+                  _tabButton(i, label),
             ]),
           ),
         ),
@@ -154,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
             RequestsView(),
             CustomersView(),
             MoneyView(),
+            WebsiteView(),
             SettingsPage(embedded: true),
           ]),
         ),

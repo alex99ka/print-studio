@@ -19,7 +19,7 @@ typedef _Snap = AsyncSnapshot<QuerySnapshot<Map<String, dynamic>>>;
     paid['${p['requestId']}'] = (paid['${p['requestId']}'] ?? 0) + (p['amount'] as int);
   }
   return (
-    totals: {for (final q in quotes) q.id: money(q['unit'] as int, q['qty'] as int, q['vatPercent'] as int).total},
+    totals: {for (final q in quotes) q.id: quoteMoney(q.data()!).total},
     paid: paid,
   );
 }

@@ -1,0 +1,607 @@
+{
+ "meta.title": {
+  "he": "מתנות לאורחי החתונה, עם שם לכל אורח",
+  "en": "Wedding guest gifts, printed with every name",
+  "ru": "Подарки гостям свадьбы с именем каждого"
+ },
+ "meta.description": {
+  "he": "Gift Factory מדפיסה בתלת ממד מתנה אישית לכל אורח בחתונה, עם השם שלו. בוחרים מתנה, שולחים רשימת אורחים, מאשרים כל שם לפני ההדפסה.",
+  "en": "Gift Factory 3D prints a personal gift for every wedding guest, with their name on it. Pick a gift, send the guest list, approve every name before printing.",
+  "ru": "Gift Factory печатает на 3D-принтере личный подарок каждому гостю свадьбы, с его именем. Выберите подарок, пришлите список гостей, проверьте каждое имя до печати."
+ },
+ "meta.gifts": {
+  "he": "כל המתנות",
+  "en": "All gifts",
+  "ru": "Все подарки"
+ },
+ "meta.giftsDescription": {
+  "he": "כל המתנות המודפסות של Gift Factory לאורחי חתונה. מסובבים כל מתנה ב-360 מעלות ורואים איך השם שלכם נראה עליה.",
+  "en": "Every 3D printed wedding guest gift from Gift Factory. Turn each one through 360 degrees and see how your own name looks next to it.",
+  "ru": "Все подарки Gift Factory для гостей свадьбы, напечатанные на 3D-принтере. Поверните каждый на 360 градусов и посмотрите, как выглядит ваше имя."
+ },
+ "meta.callback": {
+  "he": "חזרו אליי",
+  "en": "Call me back",
+  "ru": "Перезвоните мне"
+ },
+ "meta.callbackDescription": {
+  "he": "השאירו שם וטלפון ונחזור אליכם עם הצעה למתנות לאורחי החתונה שלכם. בלי התחייבות ובלי תשלום באתר.",
+  "en": "Leave a name and a phone number and we call you back with an offer for your wedding guest gifts. No payment on the site, no commitment.",
+  "ru": "Оставьте имя и телефон, и мы перезвоним с предложением по подаркам для гостей вашей свадьбы. Без оплаты на сайте и без обязательств."
+ },
+ "meta.cookies": {
+  "he": "מדיניות עוגיות",
+  "en": "Cookie policy",
+  "ru": "Политика cookie"
+ },
+ "meta.cookiesDescription": {
+  "he": "אילו עוגיות ונתונים האתר של Gift Factory שומר בדפדפן שלכם, למה, ואיך משנים את הבחירה.",
+  "en": "Which cookies and data the Gift Factory website keeps in your browser, why it keeps them, and how to change your choice.",
+  "ru": "Какие cookie и данные сайт Gift Factory хранит в вашем браузере, зачем они нужны и как изменить свой выбор."
+ },
+ "skip": {
+  "he": "דילוג לתוכן",
+  "en": "Skip to content",
+  "ru": "Перейти к содержанию"
+ },
+ "nav.gifts": {
+  "he": "המתנות",
+  "en": "Gifts",
+  "ru": "Подарки"
+ },
+ "nav.how": {
+  "he": "איך זה עובד",
+  "en": "How it works",
+  "ru": "Как это работает"
+ },
+ "nav.call": {
+  "he": "חזרו אליי",
+  "en": "Call me back",
+  "ru": "Перезвоните мне"
+ },
+ "nav.label": {
+  "he": "ניווט ראשי",
+  "en": "Main navigation",
+  "ru": "Главное меню"
+ },
+ "nav.lang": {
+  "he": "שפה",
+  "en": "Language",
+  "ru": "Язык"
+ },
+ "hero.h1": {
+  "he": "מתנה לכל אורח, עם השם שלו.",
+  "en": "A gift for every guest, with their name on it.",
+  "ru": "Подарок каждому гостю, с его именем."
+ },
+ "hero.sub": {
+  "he": "אנחנו מדפיסים בתלת ממד מתנה קטנה לכל מי שמגיע לחתונה שלכם. על כל אחת מודפס השם של האורח שיקבל אותה.",
+  "en": "We 3D print a small gift for everyone who comes to your wedding. Each one carries the name of the guest who takes it home.",
+  "ru": "Мы печатаем на 3D-принтере небольшой подарок для каждого, кто придёт на вашу свадьбу. На каждом напечатано имя гостя, который заберёт его домой."
+ },
+ "hero.nameLabel": {
+  "he": "כתבו שם וראו אותו על השולחן",
+  "en": "Type a name and see it on the table",
+  "ru": "Напишите имя и увидите его на столе"
+ },
+ "hero.namePlaceholder": {
+  "he": "השם שלכם",
+  "en": "Your name",
+  "ru": "Ваше имя"
+ },
+ "hero.gifts": {
+  "he": "לכל המתנות",
+  "en": "See all gifts",
+  "ru": "Все подарки"
+ },
+ "hero.sceneNote": {
+  "he": "בגודל אמיתי, על צלחת של 18 ס״מ. איור מתוך קובצי ההדפסה.",
+  "en": "True to size on an 18 cm plate. Drawn from the real print files.",
+  "ru": "В натуральную величину на тарелке 18 см. Нарисовано по файлам печати."
+ },
+ "hero.sceneAlt": {
+  "he": "שולחן חתונה מלמעלה: על כל צלחת מתנה מודפסת וכרטיס הושבה עם שם",
+  "en": "A wedding table from above: a printed gift on every plate and a place card with a name",
+  "ru": "Свадебный стол сверху: на каждой тарелке напечатанный подарок и карточка с именем"
+ },
+ "statement": {
+  "he": "לפני שמדפיסים אפילו מתנה אחת, אתם מקבלים תמונה של כל שם כפי שיודפס. שם שגוי מתקנים במסך, לא על השולחן.",
+  "en": "Before a single gift is printed, you get a picture of every name exactly as it will print. A wrong name is fixed on a screen, not on the table.",
+  "ru": "До того как напечатан хоть один подарок, вы получаете изображение каждого имени так, как оно будет напечатано. Ошибку в имени исправляют на экране, а не на столе."
+ },
+ "featured.title": {
+  "he": "שלוש שאוהבים במיוחד",
+  "en": "Three we like most",
+  "ru": "Три самых любимых"
+ },
+ "featured.all": {
+  "he": "לכל המתנות",
+  "en": "See all gifts",
+  "ru": "Все подарки"
+ },
+ "how.title": {
+  "he": "מהבחירה ועד השולחן",
+  "en": "From choosing to the table",
+  "ru": "От выбора до стола"
+ },
+ "how.steps.0.t": {
+  "he": "בוחרים מתנה",
+  "en": "Pick a gift",
+  "ru": "Выбираете подарок"
+ },
+ "how.steps.0.d": {
+  "he": "מסמנים בלב את המתנות שמצאו חן בעיניכם ומשאירים טלפון.",
+  "en": "Mark the gifts you like with a heart and leave a phone number.",
+  "ru": "Отмечаете сердечком то, что понравилось, и оставляете телефон."
+ },
+ "how.steps.1.t": {
+  "he": "מדברים",
+  "en": "We talk",
+  "ru": "Созваниваемся"
+ },
+ "how.steps.1.d": {
+  "he": "אנחנו חוזרים אליכם, מתאימים צבעים וכמות, ונותנים מחיר.",
+  "en": "We call you back, agree on colours and quantity, and give you a price.",
+  "ru": "Мы перезваниваем, согласуем цвета и количество и называем цену."
+ },
+ "how.steps.2.t": {
+  "he": "שולחים רשימת אורחים",
+  "en": "Send the guest list",
+  "ru": "Присылаете список гостей"
+ },
+ "how.steps.2.d": {
+  "he": "קובץ אקסל פשוט: שם וכמות. אפשר לעדכן עד שמתחילים להדפיס.",
+  "en": "A plain Excel file: name and amount. You can update it until printing starts.",
+  "ru": "Простой файл Excel: имя и количество. Его можно менять до начала печати."
+ },
+ "how.steps.3.t": {
+  "he": "מאשרים את השמות",
+  "en": "Approve the names",
+  "ru": "Проверяете имена"
+ },
+ "how.steps.3.d": {
+  "he": "מקבלים תמונה של כל מתנה עם השם שעליה, ומאשרים.",
+  "en": "You get a picture of every gift with its name on it, and you approve.",
+  "ru": "Получаете изображение каждого подарка с именем и подтверждаете."
+ },
+ "how.steps.4.t": {
+  "he": "מדפיסים ומוסרים",
+  "en": "We print and deliver",
+  "ru": "Печатаем и привозим"
+ },
+ "how.steps.4.d": {
+  "he": "רואים את ההתקדמות, והמתנות מגיעות ארוזות לפני החתונה.",
+  "en": "You follow the progress, and the gifts arrive packed before the wedding.",
+  "ru": "Вы видите, как идёт работа, а подарки приезжают упакованными до свадьбы."
+ },
+ "back.title": {
+  "he": "ברוכים השבים",
+  "en": "Welcome back",
+  "ru": "С возвращением"
+ },
+ "back.titleName": {
+  "he": "ברוכים השבים, {name}",
+  "en": "Welcome back, {name}",
+  "ru": "С возвращением, {name}"
+ },
+ "back.liked": {
+  "he": "המתנות שסימנתם",
+  "en": "The gifts you marked",
+  "ru": "Подарки, которые вы отметили"
+ },
+ "back.request": {
+  "he": "השארתם פרטים ב-{date}. נחזור אליכם בהקדם.",
+  "en": "You left your details on {date}. We will call you soon.",
+  "ru": "Вы оставили заявку {date}. Мы скоро перезвоним."
+ },
+ "back.suggest": {
+  "he": "אולי תאהבו גם",
+  "en": "You may also like",
+  "ru": "Вам может понравиться"
+ },
+ "back.finish": {
+  "he": "לשליחת הפרטים",
+  "en": "Send my details",
+  "ru": "Отправить заявку"
+ },
+ "form.title": {
+  "he": "חזרו אליי",
+  "en": "Call me back",
+  "ru": "Перезвоните мне"
+ },
+ "form.lead": {
+  "he": "בלי תשלום באתר ובלי התחייבות. משאירים פרטים, ואנחנו מתקשרים.",
+  "en": "No payment on the site and no commitment. Leave your details and we call you.",
+  "ru": "Без оплаты на сайте и без обязательств. Оставьте контакты, и мы позвоним."
+ },
+ "form.name": {
+  "he": "שם",
+  "en": "Name",
+  "ru": "Имя"
+ },
+ "form.phone": {
+  "he": "טלפון",
+  "en": "Phone",
+  "ru": "Телефон"
+ },
+ "form.date": {
+  "he": "תאריך החתונה",
+  "en": "Wedding date",
+  "ru": "Дата свадьбы"
+ },
+ "form.guests": {
+  "he": "מספר אורחים",
+  "en": "Number of guests",
+  "ru": "Число гостей"
+ },
+ "form.time": {
+  "he": "מתי נוח לדבר",
+  "en": "Best time to call",
+  "ru": "Когда удобно говорить"
+ },
+ "form.times.any": {
+  "he": "לא משנה",
+  "en": "Any time",
+  "ru": "В любое время"
+ },
+ "form.times.morning": {
+  "he": "בבוקר",
+  "en": "Morning",
+  "ru": "Утром"
+ },
+ "form.times.noon": {
+  "he": "בצהריים",
+  "en": "Afternoon",
+  "ru": "Днём"
+ },
+ "form.times.evening": {
+  "he": "בערב",
+  "en": "Evening",
+  "ru": "Вечером"
+ },
+ "form.chosen": {
+  "he": "מתנות שסימנתם",
+  "en": "Gifts you marked",
+  "ru": "Отмеченные подарки"
+ },
+ "form.none": {
+  "he": "עוד לא סימנתם מתנות. אפשר לשלוח גם בלי.",
+  "en": "You have not marked any gifts yet. You can send without them.",
+  "ru": "Вы пока не отметили подарки. Можно отправить и без них."
+ },
+ "form.remove": {
+  "he": "הסרה",
+  "en": "Remove",
+  "ru": "Убрать"
+ },
+ "form.consent": {
+  "he": "אני מסכים/ה ש-Gift Factory תיצור איתי קשר בטלפון לגבי הפנייה הזאת.",
+  "en": "I agree that Gift Factory may phone me about this request.",
+  "ru": "Я согласен(на), чтобы Gift Factory позвонила мне по этой заявке."
+ },
+ "form.send": {
+  "he": "שלחו לי הצעה",
+  "en": "Send me an offer",
+  "ru": "Пришлите предложение"
+ },
+ "form.sending": {
+  "he": "שולחים",
+  "en": "Sending",
+  "ru": "Отправляем"
+ },
+ "form.okTitle": {
+  "he": "תודה, {name}. הפרטים אצלנו.",
+  "en": "Thank you, {name}. We have your details.",
+  "ru": "Спасибо, {name}. Заявка у нас."
+ },
+ "form.okText": {
+  "he": "נתקשר אליכם בהקדם. המתנות שסימנתם נשמרו בפנייה.",
+  "en": "We will call you soon. The gifts you marked are saved with the request.",
+  "ru": "Мы скоро перезвоним. Отмеченные подарки сохранены в заявке."
+ },
+ "form.error": {
+  "he": "השליחה לא הצליחה. בדקו את השם והטלפון ונסו שוב.",
+  "en": "Sending did not work. Check the name and phone number and try again.",
+  "ru": "Отправить не получилось. Проверьте имя и телефон и попробуйте ещё раз."
+ },
+ "gifts.title": {
+  "he": "כל המתנות",
+  "en": "All gifts",
+  "ru": "Все подарки"
+ },
+ "gifts.intro": {
+  "he": "כל מתנה אפשר לסובב, ועל כל אחת מודפס שם. מסמנים בלב את מה שמתאים לשולחן שלכם.",
+  "en": "Every gift can be turned, and every one is printed with a name. Mark the ones that fit your table with a heart.",
+  "ru": "Каждый подарок можно повернуть, и на каждом печатается имя. Отметьте сердечком те, что подходят вашему столу."
+ },
+ "gifts.kinds.all": {
+  "he": "הכול",
+  "en": "All",
+  "ru": "Все"
+ },
+ "gifts.kinds.table": {
+  "he": "לשולחן",
+  "en": "For the table",
+  "ru": "На стол"
+ },
+ "gifts.kinds.pocket": {
+  "he": "לכיס",
+  "en": "For the pocket",
+  "ru": "В карман"
+ },
+ "gifts.kinds.play": {
+  "he": "למשחק",
+  "en": "To play with",
+  "ru": "Для игры"
+ },
+ "gifts.filter": {
+  "he": "סינון לפי סוג",
+  "en": "Filter by kind",
+  "ru": "Фильтр по виду"
+ },
+ "gift.turn": {
+  "he": "גררו לצדדים כדי לסובב",
+  "en": "Drag sideways to turn",
+  "ru": "Тяните в стороны, чтобы повернуть"
+ },
+ "gift.above": {
+  "he": "מבט מלמעלה",
+  "en": "From above",
+  "ru": "Вид сверху"
+ },
+ "gift.below": {
+  "he": "מבט מלמטה",
+  "en": "From below",
+  "ru": "Вид снизу"
+ },
+ "gift.view": {
+  "he": "מבט {n} מתוך {total}",
+  "en": "View {n} of {total}",
+  "ru": "Вид {n} из {total}"
+ },
+ "gift.viewer": {
+  "he": "תצוגת 360 של {name}. מקשי החיצים מסובבים.",
+  "en": "360 view of {name}. Arrow keys turn it.",
+  "ru": "Обзор 360 градусов: {name}. Стрелки поворачивают."
+ },
+ "gift.nameTitle": {
+  "he": "ככה ייכתב השם",
+  "en": "How the name is written",
+  "ru": "Так будет написано имя"
+ },
+ "gift.nameNote": {
+  "he": "דוגמת כיתוב בלבד. לפני ההדפסה תקבלו תמונה של כל שם על המתנה עצמה.",
+  "en": "Sample lettering only. Before printing you get a picture of every name on the gift itself.",
+  "ru": "Это только образец надписи. Перед печатью вы получите изображение каждого имени на самом подарке."
+ },
+ "gift.size": {
+  "he": "גודל",
+  "en": "Size",
+  "ru": "Размер"
+ },
+ "gift.min": {
+  "he": "כמות מינימלית",
+  "en": "Smallest order",
+  "ru": "Минимальный заказ"
+ },
+ "gift.lead": {
+  "he": "להזמין לפני החתונה",
+  "en": "Order before the wedding",
+  "ru": "Заказать до свадьбы за"
+ },
+ "gift.cm": {
+  "he": "ס״מ",
+  "en": "cm",
+  "ru": "см"
+ },
+ "gift.units": {
+  "he": "יחידות",
+  "en": "units",
+  "ru": "шт."
+ },
+ "gift.days": {
+  "he": "ימים",
+  "en": "days",
+  "ru": "дней"
+ },
+ "gift.add": {
+  "he": "הוסיפו לרשימה שלי",
+  "en": "Add to my list",
+  "ru": "Добавить в мой список"
+ },
+ "gift.added": {
+  "he": "ברשימה שלי",
+  "en": "On my list",
+  "ru": "В моём списке"
+ },
+ "gift.ask": {
+  "he": "חזרו אליי לגבי המתנה הזאת",
+  "en": "Call me back about this gift",
+  "ru": "Перезвоните мне по этому подарку"
+ },
+ "gift.more": {
+  "he": "עוד לאותו שולחן",
+  "en": "More for the same table",
+  "ru": "Ещё для того же стола"
+ },
+ "gift.like": {
+  "he": "סימון {name}",
+  "en": "Mark {name}",
+  "ru": "Отметить: {name}"
+ },
+ "cookie.banner": {
+  "he": "לשמור לכם מקום? בהסכמתכם נזכור בדפדפן הזה את השם שכתבתם ואת המתנות שסימנתם, כדי שיחכו לכם בביקור הבא.",
+  "en": "Shall we save your seat? With your consent this browser remembers the name you typed and the gifts you marked, so they wait for you next time.",
+  "ru": "Сохранить за вами место? С вашего согласия этот браузер запомнит имя, которое вы написали, и отмеченные подарки, чтобы они ждали вас в следующий раз."
+ },
+ "cookie.accept": {
+  "he": "כן, לשמור",
+  "en": "Yes, save it",
+  "ru": "Да, сохранить"
+ },
+ "cookie.necessary": {
+  "he": "רק מה שהכרחי",
+  "en": "Only what is needed",
+  "ru": "Только необходимое"
+ },
+ "cookie.choose": {
+  "he": "בחירה",
+  "en": "Choose",
+  "ru": "Выбрать"
+ },
+ "cookie.save": {
+  "he": "שמירת הבחירה",
+  "en": "Save my choice",
+  "ru": "Сохранить выбор"
+ },
+ "cookie.prefs": {
+  "he": "זיכרון אישי",
+  "en": "Personal memory",
+  "ru": "Личная память"
+ },
+ "cookie.prefsText": {
+  "he": "השם שכתבתם, המתנות שסימנתם, המתנות שצפיתם בהן והפנייה ששלחתם. נשמר רק בדפדפן שלכם.",
+  "en": "The name you typed, the gifts you marked, the gifts you looked at and the request you sent. Kept only in your browser.",
+  "ru": "Имя, которое вы написали, отмеченные и просмотренные подарки и отправленная заявка. Хранится только в вашем браузере."
+ },
+ "cookie.ads": {
+  "he": "פרסום",
+  "en": "Advertising",
+  "ru": "Реклама"
+ },
+ "cookie.adsText": {
+  "he": "כלי פרסום של מטא או גוגל, כדי להציג לכם מודעות שלנו באתרים אחרים. כרגע לא מותקן אף כלי כזה.",
+  "en": "Meta or Google ad tools, to show you our ads on other sites. No such tool is installed right now.",
+  "ru": "Рекламные инструменты Meta или Google, чтобы показывать вам нашу рекламу на других сайтах. Сейчас ни один не установлен."
+ },
+ "cookie.must": {
+  "he": "הכרחי",
+  "en": "Needed",
+  "ru": "Необходимое"
+ },
+ "cookie.mustText": {
+  "he": "הבחירה שלכם בחלון הזה ושפת האתר. בלי זה האתר לא עובד.",
+  "en": "Your choice in this window and the site language. The site does not work without it.",
+  "ru": "Ваш выбор в этом окне и язык сайта. Без этого сайт не работает."
+ },
+ "cookie.policy": {
+  "he": "מדיניות העוגיות",
+  "en": "Cookie policy",
+  "ru": "Политика cookie"
+ },
+ "cookie.settings": {
+  "he": "הגדרות עוגיות",
+  "en": "Cookie settings",
+  "ru": "Настройки cookie"
+ },
+ "cookie.dialog": {
+  "he": "הגדרות עוגיות",
+  "en": "Cookie settings",
+  "ru": "Настройки cookie"
+ },
+ "policy.title": {
+  "he": "מדיניות עוגיות",
+  "en": "Cookie policy",
+  "ru": "Политика cookie"
+ },
+ "policy.updated": {
+  "he": "עודכן: 15.11.2026",
+  "en": "Updated: 15 November 2026",
+  "ru": "Обновлено: 15.11.2026"
+ },
+ "policy.sections.0.h": {
+  "he": "מה נשמר בדפדפן שלכם",
+  "en": "What is kept in your browser",
+  "ru": "Что хранится в вашем браузере"
+ },
+ "policy.sections.0.p": {
+  "he": "האתר שומר מידע בזיכרון של הדפדפן שלכם בשלוש קבוצות. את שתי האחרונות אפשר לכבות.",
+  "en": "The site keeps information in your browser storage in three groups. You can switch the last two off.",
+  "ru": "Сайт хранит данные в памяти вашего браузера в трёх группах. Две последние можно отключить."
+ },
+ "policy.sections.1.h": {
+  "he": "הכרחי",
+  "en": "Needed",
+  "ru": "Необходимое"
+ },
+ "policy.sections.1.p": {
+  "he": "הבחירה שעשיתם בחלון העוגיות. בלי זה נצטרך לשאול בכל עמוד מחדש.",
+  "en": "The choice you made in the cookie window. Without it we would have to ask again on every page.",
+  "ru": "Выбор, который вы сделали в окне cookie. Без него пришлось бы спрашивать на каждой странице заново."
+ },
+ "policy.sections.2.h": {
+  "he": "זיכרון אישי",
+  "en": "Personal memory",
+  "ru": "Личная память"
+ },
+ "policy.sections.2.p": {
+  "he": "השם שכתבתם על כרטיס ההושבה, המתנות שסימנתם בלב, המתנות שצפיתם בהן, ותאריך הפנייה ששלחתם. המידע נשאר בדפדפן ומשמש כדי להציג לכם את הרשימה שלכם והצעות בביקור הבא. בלי הסכמה הוא נמחק כשסוגרים את הלשונית.",
+  "en": "The name you typed on the place card, the gifts you marked with a heart, the gifts you looked at, and the date of the request you sent. It stays in your browser and is used to show you your list and suggestions on your next visit. Without consent it is erased when you close the tab.",
+  "ru": "Имя, которое вы написали на карточке, подарки, отмеченные сердечком, просмотренные подарки и дата отправленной заявки. Данные остаются в браузере и нужны, чтобы показать ваш список и подсказки при следующем визите. Без согласия они стираются, когда вы закрываете вкладку."
+ },
+ "policy.sections.3.h": {
+  "he": "פרסום",
+  "en": "Advertising",
+  "ru": "Реклама"
+ },
+ "policy.sections.3.p": {
+  "he": "אם תסכימו, נוכל להפעיל כלי פרסום של מטא (פייסבוק ואינסטגרם) או גוגל, שמזהים שביקרתם באתר ומציגים לכם מודעות שלנו. נכון להיום אף כלי כזה לא מותקן. כשנתקין, הוא יופעל רק למי שהסכים, והרשימה כאן תתעדכן.",
+  "en": "If you agree, we may switch on ad tools from Meta (Facebook and Instagram) or Google, which recognise that you visited and show you our ads. Today no such tool is installed. When one is, it runs only for people who agreed, and this list is updated.",
+  "ru": "Если вы согласитесь, мы сможем включить рекламные инструменты Meta (Facebook и Instagram) или Google, которые узнают, что вы были на сайте, и показывают нашу рекламу. Сегодня ни один такой инструмент не установлен. Когда появится, он будет работать только у тех, кто согласился, а этот список обновится."
+ },
+ "policy.sections.4.h": {
+  "he": "מה נשלח אלינו",
+  "en": "What is sent to us",
+  "ru": "Что отправляется нам"
+ },
+ "policy.sections.4.p": {
+  "he": "רק מה שאתם ממלאים בטופס \"חזרו אליי\": שם, טלפון, תאריך החתונה, מספר האורחים, מתי נוח לדבר והמתנות שסימנתם. המידע נשמר במסד נתונים מאובטח ומשמש רק כדי לחזור אליכם.",
+  "en": "Only what you fill in the \"Call me back\" form: name, phone, wedding date, number of guests, best time to call and the gifts you marked. It is stored in a secured database and used only to call you back.",
+  "ru": "Только то, что вы заполнили в форме «Перезвоните мне»: имя, телефон, дата свадьбы, число гостей, удобное время и отмеченные подарки. Данные хранятся в защищённой базе и используются только для обратного звонка."
+ },
+ "policy.sections.5.h": {
+  "he": "איך משנים או מוחקים",
+  "en": "How to change or erase it",
+  "ru": "Как изменить или удалить"
+ },
+ "policy.sections.5.p": {
+  "he": "בכפתור \"הגדרות עוגיות\" בתחתית כל עמוד אפשר לשנות את הבחירה בכל רגע. כיבוי הזיכרון האישי מוחק את המידע מהדפדפן. למחיקת פנייה ששלחתם, בקשו מאיתנו בטלפון כשנחזור אליכם.",
+  "en": "The \"Cookie settings\" button at the bottom of every page changes your choice at any time. Switching personal memory off erases it from the browser. To erase a request you sent, ask us on the phone when we call.",
+  "ru": "Кнопка «Настройки cookie» внизу каждой страницы меняет ваш выбор в любой момент. Отключение личной памяти стирает её из браузера. Чтобы удалить отправленную заявку, попросите нас об этом по телефону, когда мы позвоним."
+ },
+ "footer.line": {
+  "he": "מתנות מודפסות לאורחי חתונה, עם שם לכל אורח.",
+  "en": "Printed wedding guest gifts, with a name for every guest.",
+  "ru": "Напечатанные подарки гостям свадьбы, с именем для каждого."
+ },
+ "footer.rights": {
+  "he": "כל הזכויות שמורות",
+  "en": "All rights reserved",
+  "ru": "Все права защищены"
+ },
+ "footer.made": {
+  "he": "מודפס בישראל",
+  "en": "Printed in Israel",
+  "ru": "Напечатано в Израиле"
+ },
+ "notFound.title": {
+  "he": "אין כרטיס הושבה בשם הזה",
+  "en": "No place card by this name",
+  "ru": "Карточки с таким именем нет"
+ },
+ "notFound.text": {
+  "he": "עברנו על כל השולחנות. לכתובת הזאת לא שמור מקום.",
+  "en": "We went round every table. No seat is saved for this address.",
+  "ru": "Мы обошли все столы. Для этого адреса место не оставлено."
+ },
+ "notFound.home": {
+  "he": "חזרה לשולחן",
+  "en": "Back to the table",
+  "ru": "Вернуться к столу"
+ },
+ "curtain": {
+  "he": "עורכים שולחן",
+  "en": "Setting the table",
+  "ru": "Накрываем на стол"
+ }
+}

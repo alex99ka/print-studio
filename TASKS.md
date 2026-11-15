@@ -40,12 +40,27 @@ without these the app connects to nothing.
    - Paste them into the Pi's `~/docker/print-studio/.env`, then `docker compose up -d` there.
 8. Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
    address and key in Flag Maker › Send to CRM.
+9. **0.3.5 (discounts, price-only portal, reports), to go live:** rules
+   (`firebase.cmd deploy --only firestore:rules --project print-studio-1786a`; the
+   app cannot save a discount before this) and the Pi server (the portal stops
+   sending the unit price and the math only after that). Then tag `v0.3.5`.
+10. **The "אתר" tab (shop website; built and tested 15.11, not deployed, not released).** To go live, in order:
+   - Supabase: no project for the website exists yet (15.11: the account has one paused, unnamed project).
+     Create one, run the website's `supabase/schema.sql` in its SQL editor, and give Claude (or paste into the
+     Pi's `~/docker/print-studio/.env`) `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
+   - Pi `.env`: also `LEAD_WEBHOOK_KEY=<a long random text>`, the same value as the website's Vercel
+     `LEAD_WEBHOOK_KEY`. Then deploy the server (say the word).
+   - Cloudflare Tunnel to the Pi's `127.0.0.1:8010`, ideally only the paths `/gifts/*` and `/website/lead`.
+     On Vercel: `NEXT_PUBLIC_ASSET_BASE=https://<tunnel host>`, `LEAD_WEBHOOK_URL=https://<tunnel host>/website/lead`.
+   - Release the app (say the word; no Firestore rules change). The tour step is tagged `0.4.0`.
+   - The website session's part: README › Shop website, and the list Claude gave on 15.11.
 
 ## אצל Claude
 
-1. ✅ Server, portal, rules, file backup, tests (server 40, rules 15 on 2.11).
+1. ✅ Server, portal, rules, file backup, tests (server 42, rules 15 on 4.11).
 2. ✅ App: palette A, tabs + ribbon, requests, customers, quotes, comments, PC
-   (Bambu, Flag Maker). 28 Flutter tests on 2.11.
+   (Bambu, Flag Maker). 29 Flutter tests on 4.11. Quote discounts and the
+   monthly/quarterly report in 0.3.5.
 3. ✅ Firebase configs filled (`lib/firebase_options.dart`,
    `web/firebase-messaging-sw.js`, `.firebaserc`).
 4. ✅ Flag Maker code (`Flag Maker\app\crm_link.py`, Send to CRM button,

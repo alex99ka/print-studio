@@ -113,7 +113,7 @@ const T = {
   he: {studio:'סטודיו הדפסה', ordersOf:n=>`ההזמנות של ${n}`, waiting:'ממתין לאישור', approvedTab:'אושר', back:'חזרה לרשימה',
     version:'גרסה', units:'יח׳', updated:'עודכן', now:'עכשיו', versions:'גרסאות:', view2d:'2D', view3d:'3D', asm:'על המיקרופון',
     drag:'גררו ימינה ושמאלה לסיבוב', dragAll:'גררו לצדדים כדי לסובב, למעלה ולמטה כדי לראות מלמעלה ומלמטה', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
-    pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', unitsX:(q,u)=>`${q} יחידות × ${u}`, vat:p=>`מע״מ ${p}%`, total:'סה״כ לתשלום',
+    pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', total:'סה״כ לתשלום',
     noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a})`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
     approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
     yes:'כן, מאשר/ת', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
@@ -138,7 +138,7 @@ const T = {
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
     drag:'Drag left and right to turn', dragAll:'Drag sideways to turn, up and down to look from above and below', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
-    pinSet:'The comment will be pinned there', quote:'Quote', unitsX:(q,u)=>`${q} pcs × ${u}`, vat:p=>`VAT ${p}%`, total:'Total',
+    pinSet:'The comment will be pinned there', quote:'Quote', total:'Total',
     noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a})`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
     approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t,vat)=>`Version ${v} for ${t}${vat ? ' incl. VAT' : ''}. This can't be changed afterwards.`,
     yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send',
@@ -294,9 +294,7 @@ function detail(r) {
 
   const q = r.quote;
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().quote), q ? [
-    h('div', {class: 'line'}, h('span', {class: 'muted'}, t().unitsX(q.qty, ''), ltr(shekel(q.unit))), ltr(shekel(q.net))),
-    q.vatPercent ? h('div', {class: 'line'}, h('span', {class: 'muted'}, t().vat(q.vatPercent)), ltr(shekel(q.vat))) : null,
-    h('div', {class: 'line total'}, h('span', {}, t().total), ltr(shekel(q.total))),
+    h('div', {class: 'line total'}, h('span', {}, q.withVat ? t().totalVat : t().total), ltr(shekel(q.total))),
     r.due > 0 ? h('div', {class: 'line total'}, h('span', {}, t().toPay), ltr(shekel(r.due))) : null,
     q.note ? h('span', {class: 'muted', style: 'white-space:pre-wrap'}, q.note) : null,
     r.previousQuotes.length ? h('span', {class: 'muted'}, t().prevQuote(shekel(r.previousQuotes[r.previousQuotes.length - 1].total), day(q.at))) : null,
@@ -328,7 +326,7 @@ function detail(r) {
   const canApprove = open && q && v.id === r.currentVersionId && !preview;
   $('bar').hidden = !canApprove;
   if (canApprove) {
-    $('barLabel').textContent = q.vatPercent ? t().totalVat : t().total; $('barTotal').textContent = shekel(q.total);
+    $('barLabel').textContent = q.withVat ? t().totalVat : t().total; $('barTotal').textContent = shekel(q.total);
     $('approve').querySelector('span').textContent = t().approve;
     $('approve').onclick = () => confirmApprove(r, v, q);
   }
@@ -382,7 +380,7 @@ function rerender(r) { if (viewer) { viewer.dispose(); viewer = null; } detail(d
 
 function confirmApprove(r, v, q) {
   const d = $('confirm');
-  $('confirmTitle').textContent = t().confirmTitle; $('confirmText').textContent = t().confirmText(v.n, shekel(q.total), q.vatPercent > 0);
+  $('confirmTitle').textContent = t().confirmTitle; $('confirmText').textContent = t().confirmText(v.n, shekel(q.total), q.withVat);
   $('confirmNo').textContent = t().no; $('confirmYes').textContent = t().yes;
   $('confirmNo').onclick = () => d.close();
   $('confirmYes').onclick = async () => {

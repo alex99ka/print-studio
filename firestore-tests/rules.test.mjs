@@ -157,6 +157,13 @@ test('quotes: created whole, in agorot, never edited', async () => {
   await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, unit: 180.5 }));
   await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, unit: -1 }));
   await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, vatPercent: 117 }));
+  // A discount: whole agorot, up to the full price; its % is 0-100.
+  await assertSucceeds(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: 3600, discountPct: 10 }));
+  await assertSucceeds(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: 36000 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: 36001 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: -1 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: 10.5 }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...quote, discount: 100, discountPct: 101 }));
   await assertFails(updateDoc(doc(db(ALEX), 'quotes/q1'), { unit: 1 }));
   await assertFails(deleteDoc(doc(db(ALEX), 'quotes/q1')));
 });

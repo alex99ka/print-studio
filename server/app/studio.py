@@ -71,12 +71,17 @@ def _sha(s: str) -> str:
     return hashlib.sha256(s.encode()).hexdigest()
 
 
-def money(unit: int, qty: int, vat_percent: int) -> dict:
-    """Agorot in, agorot out; VAT rounded half up to the agora. The app's
-    lib/studio/money.dart computes the same."""
-    net = unit * qty
+def money(unit: int, qty: int, vat_percent: int, discount: int = 0) -> dict:
+    """Agorot in, agorot out; the discount comes off before VAT, VAT rounded half up to the
+    agora. The app's money() in lib/studio/studio.dart computes the same."""
+    net = max(0, unit * qty - discount)
     vat = (net * vat_percent + 50) // 100
-    return {"unit": unit, "qty": qty, "vatPercent": vat_percent, "net": net, "vat": vat, "total": net + vat}
+    return {"unit": unit, "qty": qty, "vatPercent": vat_percent, "discount": discount, "net": net, "vat": vat, "total": net + vat}
+
+
+def quote_total(q: dict) -> int:
+    """What the client pays for a saved quote (quotes before 0.3.5 have no discount)."""
+    return money(int(q.get("unit", 0)), int(q.get("qty", 1)), int(q.get("vatPercent", 18)), int(q.get("discount", 0)))["total"]
 
 
 # --- uploads ----------------------------------------------------------------------
@@ -405,9 +410,10 @@ def portal_data(token: str, preview: str = "") -> dict:
                 "note": v.get("note", ""), "at": _iso(v.get("publishedAt") or v.get("createdAt")),
             })
     for qid, q in _mine(cid, "quotes"):
+        # The final price only: unit price, discount and VAT amounts stay in the studio.
         quotes[q.get("requestId")].append({
             "id": qid, "note": q.get("note", ""), "at": _iso(q.get("createdAt")),
-            **money(int(q.get("unit", 0)), int(q.get("qty", 1)), int(q.get("vatPercent", 18))),
+            "total": quote_total(q), "withVat": int(q.get("vatPercent", 18)) > 0,
         })
     for mid, m in _mine(cid, "comments"):
         comments[m.get("requestId")].append({
@@ -534,7 +540,7 @@ def portal_approve(token: str, rid: str, body: Approval) -> dict:
             "approvedAt": firestore.SERVER_TIMESTAMP, "updatedAt": firestore.SERVER_TIMESTAMP,
         })
         t.update(db.document(f"versions/{body.versionId}"), {"state": "approved"})
-        return {**r, "total": money(int(q.get("unit", 0)), int(q.get("qty", 1)), int(q.get("vatPercent", 18)))["total"]}
+        return {**r, "total": quote_total(q)}
 
     r = approve(db.transaction())
     jobs.send_to(jobs.users(), "client", f"✅ {c.get('name', 'לקוח')} אישר/ה: {r.get('title', '')}",

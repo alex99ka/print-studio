@@ -8,6 +8,31 @@ void main() {
     expect(money(3, 1, 18).vat, 1); // 0.54 agora rounds up
     expect(money(18000, 2, 0), (net: 36000, vat: 0, total: 36000)); // VAT off
     expect(money(0, 5, 18).total, 0);
+    // A discount comes off before VAT, never below zero.
+    expect(money(18000, 2, 18, 3600), (net: 32400, vat: 5832, total: 38232));
+    expect(money(18000, 2, 0, 40000).total, 0);
+    expect(discountOf(18000, 2, 10), 3600);
+    expect(discountOf(333, 1, 5), 17); // 16.65 rounds up
+    expect(quoteMoney({'unit': 18000, 'qty': 2, 'vatPercent': 18}).total, 42480); // a quote from before discounts
+  });
+
+  test('period report: months and quarters, newest first', () {
+    final now = DateTime(2026, 11, 4);
+    ({String requestId, DateTime at, int net, int vat, int discount, int? cost}) sale(DateTime at, int net, int? cost) =>
+        (requestId: 'r', at: at, net: net, vat: 0, discount: 100, cost: cost);
+    final sales = [sale(DateTime(2026, 11, 2), 10000, 4000), sale(DateTime(2026, 10, 31), 5000, null), sale(DateTime(2025, 1, 1), 999, 0)];
+    final pays = [
+      (requestId: 'r', at: DateTime(2026, 11, 3), amount: 2500, method: 'bit'),
+      (requestId: 'r', at: DateTime(2026, 8, 1), amount: 700, method: 'cash'),
+    ];
+    final m = periodReport(quarterly: false, now: now, sales: sales, payments: pays);
+    expect(m.map((p) => p.label).take(3), ['11/2026', '10/2026', '09/2026']);
+    expect((m[0].net, m[0].discount, m[0].received, m[0].profit), (10000, 100, 2500, (profit: 6000, counted: 1)));
+    expect((m[1].net, m[1].profit.counted), (5000, 0)); // cost not reported yet: no profit counted
+    expect(m.fold(0, (a, p) => a + p.net), 15000, reason: 'January 2025 is older than the 6 months shown');
+    final q = periodReport(quarterly: true, now: now, sales: sales, payments: pays);
+    expect(q.map((p) => p.label).take(3), ['Q4/2026', 'Q3/2026', 'Q2/2026']);
+    expect((q[0].net, q[0].received, q[1].received), (15000, 2500, 700));
   });
 
   test('shekel formats agorot', () {

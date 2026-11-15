@@ -35,6 +35,8 @@ export, Drive backups, light/dark, RTL.
   the day and the day after if missed (`jobs.deadline_reminders`).
 - **Gift Factory link** (below): event-gift runs report their quote, progress and real cost here; the client
   sends a guest list through the portal.
+- **Shop website** (below): the "אתר" tab manages the public shop site: its call-back requests, products,
+  pictures and every sentence.
 
 ## Gift Factory link
 
@@ -66,6 +68,39 @@ Records are in Firestore (the rules check every app write). Files live on the
 Pi (`DATA_DIR/files/<version id>/`; Firebase Storage needs Blaze) and are
 zipped to Drive once each by the daily backup. The customer only ever talks to
 the Pi, which writes their comments and approvals with the Admin SDK.
+
+## Shop website
+
+The public shop ([`..\website`](../website), Next.js on Vercel) is managed from the **אתר** tab; the code is
+`server/app/website.py`, `lib/studio/website.dart` and `lib/ui/website_view.dart`. The contract is the
+website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; this repo never edits that project.
+
+- **Supabase** is the site's database (`gifts`, `site_texts`, `leads`). Only the Pi holds its service role
+  key (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` in the Pi's `.env`) and talks plain PostgREST; the app
+  goes through the Pi's `/website/...` routes, all behind sign-in. The site re-reads Supabase every 5 minutes.
+- **Products**: add (hidden until it has a picture), edit, delete. `size_mm` and `spin` are the renderer's
+  and `photo` follows `photo.jpg`: none is editable by hand.
+- **Pictures** live on the Pi in `data/gifts/<slug>/` and are public at `/gifts/<slug>/<file>` (the site's
+  `NEXT_PUBLIC_ASSET_BASE`, through the Cloudflare Tunnel): a year's cache with `?v=<time>`, an hour without.
+  Only `photo.jpg`, `still.jpg`, `top.jpg`, `spin-0.jpg` … `spin-6.jpg` are ever stored or served: no models.
+  `photo.jpg` is uploaded in the app (JPG/PNG/WebP up to 15 MB, saved as a JPEG of at most 2000 px).
+  The drawn ones come from the website's `tools/render_gifts.py`:
+  `POST /website/gifts/<slug>/renders`, header `X-Studio-Key` (הגדרות › חיבור סקריפט התמונות של האתר),
+  multipart fields `still`, `top`, `spin-0` … `spin-6` (JPEG, any subset) and `meta` =
+  `{"size_mm": [x, y, z], "spin": {"cols", "rows", "start": [row, col], "tile"}, "gift": {…}}`. `gift`
+  (`name`, `text`, `kind`, `min_qty`, `lead_days`, `published`, `feature`, `sort`) is optional and creates the
+  product only when the site does not have it yet: what was edited in the CRM is never overwritten.
+- **Wording**: `server/app/static/site_texts.json` is the code's wording per key (`hero.h1`,
+  `how.steps.0.t`), made by `node tool/site_texts.mjs` from the website's `site.ts`; rerun it and deploy the
+  server when `site.ts` changes. An override is a `site_texts` row holding only the languages that differ;
+  "איפוס" deletes the row. Dropping a placeholder (`{name}`, `{n}`) warns before saving.
+- **Call-back requests** (`leads`, personal data: signed-in users only): newest first, a status
+  (`new` / `called` / `opened` / `dropped`), and "פתיחת בקשה", which finds or adds the customer by phone and
+  opens a request with the guests, the wedding day and the gifts they liked.
+- **New lead alert**: the site calls `POST /website/lead` (its `LEAD_WEBHOOK_URL`) with the shared key in
+  `x-key` (`LEAD_WEBHOOK_KEY` on both sides, compared in constant time); the studio gets a `client` push
+  that opens the list. The phone number is not in the push.
+- Errors are `W1`–`W6` (`lib/core/errors.dart`), carrying the server's plain words.
 
 ## Start a new app from this
 
@@ -158,7 +193,11 @@ GitHub Releases ◄── release.yml (tag)        Pi: server/ (Docker, Tailscal
 - **Updates** install only if the SHA-256 matches the release and, on
   Android, the signature matches the installed app.
 
-Known limits, accepted for a household app: anyone who can publish releases
+- **The shop website's Supabase service role key** is only in the Pi's `.env`: never in the app, a web
+  bundle or git. The Pi's `/gifts/...` pictures are the one public, unauthenticated read.
+
+Known limits, accepted for a household app: the website's product pictures are on the Pi only (not in the
+Drive backup: keep the original photos; the drawn ones are redrawn by the script); anyone who can publish releases
 on the GitHub repo can ship an update (keep 2FA on); an item's "added by" is
 not enforced by the rules (undo restores others' items); the Windows installer
 is unsigned, so SmartScreen warns on first install.
@@ -189,7 +228,7 @@ FastAPI in Docker on the Pi, published by Tailscale Funnel. On the Pi:
 ```sh
 mkdir -p ~/docker/<slug>/data && cd ~/docker/<slug>
 # from the PC: git archive HEAD:server | ssh pi5 "tar -x -C ~/docker/<slug>"
-nano .env   # GOOGLE_CLOUD_PROJECT, GITHUB_REPO, APP_NAME, PORT, TELEGRAM_*, DRIVE_*
+nano .env   # GOOGLE_CLOUD_PROJECT, GITHUB_REPO, APP_NAME, PORT, TELEGRAM_*, DRIVE_*, SUPABASE_*, LEAD_WEBHOOK_KEY
 chmod 600 .env data/service-account.json
 docker compose up -d --build
 ```

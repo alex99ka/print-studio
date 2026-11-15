@@ -178,8 +178,9 @@ Future<void> downloadGuests(BuildContext context, Selection s) => _guard(context
     });
 
 /// Returns the new request's id; [customer] picks the customer up front.
-Future<String?> newRequest(BuildContext context, {Doc? customer}) async {
-  final id = await showDialog<String>(context: context, builder: (_) => NewRequestDialog(customer: customer));
+Future<String?> newRequest(BuildContext context, {Doc? customer, int qty = 1, String notes = '', DateTime? deadline}) async {
+  final id = await showDialog<String>(
+      context: context, builder: (_) => NewRequestDialog(customer: customer, qty: qty, notes: notes, deadline: deadline));
   if (id != null && context.mounted) say(context, 'הבקשה נוצרה. עכשיו מייצאים אליה עיצוב מה-Flag Maker');
   return id;
 }

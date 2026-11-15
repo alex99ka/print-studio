@@ -20,6 +20,10 @@ services:
       DRIVE_CLIENT_ID: ${DRIVE_CLIENT_ID:-}
       DRIVE_CLIENT_SECRET: ${DRIVE_CLIENT_SECRET:-}
       DRIVE_REFRESH_TOKEN: ${DRIVE_REFRESH_TOKEN:-}
+      # The shop website (app/website.py): its Supabase, service role key (server only), and the key of its new-lead alert.
+      SUPABASE_URL: ${SUPABASE_URL:-}
+      SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY:-}
+      LEAD_WEBHOOK_KEY: ${LEAD_WEBHOOK_KEY:-}
       DATA_DIR: /data
     volumes:
       - type: bind

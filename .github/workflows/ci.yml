@@ -67,4 +67,4 @@ jobs:
       - run: pip install -r requirements-dev.txt
       # studio.py's tests need Firestore: the emulator, as for the rules.
       - run: |
-          npx --yes firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json "pytest -q test_api.py test_studio.py"
+          npx --yes firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json "pytest -q"

@@ -20,6 +20,7 @@ import '../core/update.dart';
 import '../core/web_update.dart';
 import '../studio/desktop.dart';
 import '../studio/studio.dart';
+import '../studio/website.dart';
 import 'skeleton.dart';
 
 /// The standard set, in this order: updates, sign-in and security, look,
@@ -295,6 +296,14 @@ class _SettingsPageState extends State<SettingsPage> {
             subtitle: const Text(r'pythonw.exe ואז app\main.py, ל"פתח ב-Gift Factory"'),
             onTap: () => giftFactoryCommand(choose: true),
           ),
+
+        _Section('האתר'),
+        ListTile(
+          leading: const Icon(Icons.link),
+          title: const Text('חיבור סקריפט התמונות של האתר'),
+          subtitle: const Text('מפתח חדש ל-render_gifts.py, ששולח את ציורי המוצרים לשרת. הקודם שלו מפסיק לעבוד'),
+          onTap: () => _pair('סקריפט התמונות', pairRenderScript, 'בסקריפט התמונות של האתר (render_gifts.py)'),
+        ),
 
         _Section('עזרה'),
         TourTarget(

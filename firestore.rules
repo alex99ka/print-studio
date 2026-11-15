@@ -104,11 +104,16 @@ service cloud.firestore {
     match /quotes/{id} {
       allow read: if allowed();
       allow create: if allowed()
-        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'unit', 'qty', 'vatPercent', 'note', 'createdAt', 'by'])
+        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'unit', 'qty', 'vatPercent', 'note', 'createdAt', 'by', 'discount', 'discountPct'])
         && request.resource.data.unit is int && request.resource.data.unit >= 0
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.vatPercent is int
         && request.resource.data.vatPercent >= 0 && request.resource.data.vatPercent <= 100
+        // A discount (agorot) comes off the whole price, never below zero; discountPct only shows how it was given.
+        && (!('discount' in request.resource.data) || (request.resource.data.discount is int
+            && request.resource.data.discount >= 0 && request.resource.data.discount <= request.resource.data.unit * request.resource.data.qty))
+        && (!('discountPct' in request.resource.data) || (request.resource.data.discountPct is int
+            && request.resource.data.discountPct >= 0 && request.resource.data.discountPct <= 100))
         && shortText(request.resource.data.note, 1000);
     }
 

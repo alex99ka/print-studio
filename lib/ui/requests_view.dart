@@ -621,7 +621,8 @@ class _RequestDetailState extends State<RequestDetail> {
       ),
     );
 
-    final money_ = quote == null ? null : money(quote['unit'] as int, quote['qty'] as int, quote['vatPercent'] as int);
+    final money_ = quote == null ? null : quoteMoney(quote.data());
+    final discount = (quote?.data()['discount'] as int?) ?? 0;
     final quoteCard = Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -631,13 +632,16 @@ class _RequestDetailState extends State<RequestDetail> {
           if (quote == null)
             Text('עוד אין מחיר. הלקוח יכול לאשר רק עיצוב עם מחיר.', style: TextStyle(color: s.muted))
           else ...[
-            MoneyLine('${quote['qty']} × ${ltr(shekel(quote['unit'] as int))}', money_!.net),
-            if ((quote['vatPercent'] as int) > 0) MoneyLine('מע״מ ${quote['vatPercent']}%', money_.vat),
+            MoneyLine('${quote['qty']} × ${ltr(shekel(quote['unit'] as int))}', (quote['unit'] as int) * (quote['qty'] as int)),
+            if (discount > 0)
+              MoneyLine(quote.data()['discountPct'] != null ? 'הנחה ${quote['discountPct']}%' : 'הנחה', -discount),
+            if ((quote['vatPercent'] as int) > 0) MoneyLine('מע״מ ${quote['vatPercent']}%', money_!.vat),
             const Divider(),
-            MoneyLine('סה״כ', money_.total, bold: true),
+            MoneyLine('סה״כ ללקוח', money_!.total, bold: true),
+            Text('בפורטל הלקוח רואה רק את הסה״כ.', style: TextStyle(color: s.muted, fontSize: 12)),
             if ('${quote['note'] ?? ''}'.isNotEmpty) Text('${quote['note']}', style: TextStyle(color: s.muted)),
             for (final q in quotes.where((q) => q.id != quote.id))
-              Text('קודם: ${ltr(shekel(q['unit'] as int))} × ${q['qty']} · ${day(q['createdAt'])}',
+              Text('קודם: ${ltr(shekel(quoteMoney(q.data()).total))} · ${day(q['createdAt'])}',
                   style: TextStyle(color: s.muted, fontSize: 12)),
           ],
           if (r['approvedAt'] != null)
@@ -652,7 +656,9 @@ class _RequestDetailState extends State<RequestDetail> {
             const SizedBox(height: 12),
             OutlinedButton(
               onPressed: () => showDialog<void>(
-                  context: context, builder: (_) => QuoteDialog(request: request, current: quote?.data())),
+                  context: context,
+                  builder: (_) => QuoteDialog(
+                      request: request, current: quote?.data(), suggestion: productionOf(r)['quote'] as Map?)),
               child: Text(quote == null ? 'הוספת מחיר' : 'מחיר חדש'),
             ),
           ],
@@ -752,7 +758,8 @@ class _RequestDetailState extends State<RequestDetail> {
                               request: request,
                               current: quote?.data(),
                               unit: gfQuote['unitPrice'] as int,
-                              qty: gfQuote['units'] as int)),
+                              qty: gfQuote['units'] as int,
+                              suggestion: gfQuote)),
                       child: const Text('שימוש כהצעת מחיר'),
                     ),
                 ],
