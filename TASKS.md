@@ -40,20 +40,18 @@ without these the app connects to nothing.
    - Paste them into the Pi's `~/docker/print-studio/.env`, then `docker compose up -d` there.
 8. Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
    address and key in Flag Maker › Send to CRM.
-9. **0.3.5 (discounts, price-only portal, reports), to go live:** rules
-   (`firebase.cmd deploy --only firestore:rules --project print-studio-1786a`; the
-   app cannot save a discount before this) and the Pi server (the portal stops
-   sending the unit price and the math only after that). Then tag `v0.3.5`.
-10. **The "אתר" tab (shop website; built and tested 15.11, not deployed, not released).** To go live, in order:
-   - Supabase: no project for the website exists yet (15.11: the account has one paused, unnamed project).
-     Create one, run the website's `supabase/schema.sql` in its SQL editor, and give Claude (or paste into the
-     Pi's `~/docker/print-studio/.env`) `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`.
-   - Pi `.env`: also `LEAD_WEBHOOK_KEY=<a long random text>`, the same value as the website's Vercel
-     `LEAD_WEBHOOK_KEY`. Then deploy the server (say the word).
-   - Cloudflare Tunnel to the Pi's `127.0.0.1:8010`, ideally only the paths `/gifts/*` and `/website/lead`.
-     On Vercel: `NEXT_PUBLIC_ASSET_BASE=https://<tunnel host>`, `LEAD_WEBHOOK_URL=https://<tunnel host>/website/lead`.
-   - Release the app (say the word; no Firestore rules change). The tour step is tagged `0.4.0`.
-   - The website session's part: README › Shop website, and the list Claude gave on 15.11.
+9. ✅ 15.11 Released as **0.4.0** (0.3.5 was never tagged): discounts, price-only portal, reports, and the
+   "אתר" tab. Rules and the Pi server deployed the same day.
+10. **Shop website, what is left** (the CRM side is live since 15.11: Supabase project `vzjqsofiunxhmtjalvtr`
+   with the schema, its keys and `LEAD_WEBHOOK_KEY` in the Pi's `.env`; the key is also in
+   `~/.keystores/lead_webhook_key.txt`; the site is on Vercel at https://website-blue-alpha-78.vercel.app):
+   - The website session: read `site_texts`, make `tools/render_gifts.py` upload to the CRM and import the 8
+     gifts, send the lead key as `x-key`, add `?v=` to picture URLs (README › Shop website).
+   - Only after the gifts are in Supabase, on Vercel: `SUPABASE_URL` (no `/rest/v1`), `SUPABASE_ANON_KEY`,
+     `SUPABASE_SERVICE_ROLE_KEY`, `NEXT_PUBLIC_ASSET_BASE` and `LEAD_WEBHOOK_URL`, then `npx.cmd vercel --prod`.
+   - No domain yet (Alex wants a .co.il one later), so no Cloudflare Tunnel: pictures and the lead alert go
+     through the Pi's Funnel address, `https://pi5-home-server-ts.tail4f470e.ts.net:8443/print-studio`.
+   - Vercel's free plan is for non-commercial sites: decide before advertising the address.
 
 ## אצל Claude
 
