@@ -1,3 +1,4 @@
 -r requirements.txt
 pytest==8.4.2
 httpx==0.28.1
+numpy==2.3.4  # test_flagmaker_client.py: the Flag Maker's crm_link imports it

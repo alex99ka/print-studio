@@ -88,6 +88,20 @@ the older ones. Added in 0.5.0, all optional for the Flag Maker:
 - **B12 problems**: `POST /fm/problem` `{"version", "code", "message"}` → Alex's Telegram, at most 10 an hour
   (429), same as Gift Factory's (`server/GIFT_FACTORY.md` › C-0 additions).
 
+## Cross-repo checks
+
+Both need the repo secret **`CROSS_REPO_TOKEN`**: a fine-grained GitHub token (Settings › Developer settings ›
+Fine-grained tokens), resource owner `alex99ka`, **only** the repos `interview-flag-maker`, `gift-factory-orca`
+(`gift-factory` after its rename) and `gift-factory-website`, permissions **Contents: Read-only** and **Issues: Read
+and write** (Metadata: Read-only comes with it), longest expiry. Without it both stay off (a warning, a skipped test).
+
+- **Contract alarm** (C-3, `.github/workflows/contract-alarm.yml`): a push to main that changes the Flag Maker's
+  `/fm/` code in `studio.py`, `giftfactory.py` / `GIFT_FACTORY.md` or `website.py` opens an issue in that app's repo.
+- **The Flag Maker's client in CI** (C-4, `server/test_flagmaker_client.py`): CI checks out the Flag Maker's
+  `app/crm_link.py` and sends a version through it to the server it just built. Locally:
+  `FLAG_MAKER_APP="../../Flag Maker/app"` with the emulator (COMMANDS.md). Gift Factory's half waits for a CRM
+  client it can run headless (OPERATION.md log).
+
 ## Shop website
 
 The public shop ([`..\website`](../website), Next.js on Vercel) is managed from the **אתר** tab; the code is

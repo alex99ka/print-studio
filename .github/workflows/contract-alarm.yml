@@ -1,0 +1,47 @@
+name: Contract alarm
+
+# C-3 (OPERATION.md A6): a push to main that changes what another app relies on opens an issue in that
+# app's repo, so its next session sees it. Needs CROSS_REPO_TOKEN (README › Cross-repo checks); without it
+# the job says so and does nothing.
+on:
+  push:
+    branches: [main]
+    paths:
+      - server/app/studio.py
+      - server/app/giftfactory.py
+      - server/GIFT_FACTORY.md
+      - server/app/website.py
+
+permissions:
+  contents: read
+
+jobs:
+  alarm:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      GH_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+      BEFORE: ${{ github.event.before }}
+      URL: ${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Open issues in the affected repos
+        run: |
+          if [ -z "$GH_TOKEN" ]; then echo "::warning::CROSS_REPO_TOKEN is not set: no issues opened"; exit 0; fi
+          base="$BEFORE"; git cat-file -e "$base" 2>/dev/null || base="HEAD~1"
+          changed() { git diff --name-only "$base" HEAD -- "$@" | grep -q .; }
+          # studio.py also holds the portal: only /fm/ and Flag Maker lines count for the Flag Maker.
+          fm() { git diff "$base" HEAD -- server/app/studio.py | grep -E '^[+-][^+-]' | grep -qiE '/fm/|flag ?maker|FlagUpload|SPIN_GRID|FILES'; }
+          open() {
+            gh issue create -R "$1" --title "CRM contract changed: $(git log -1 --format=%s | cut -c1-80)" --body "$(printf '%s\n\n%s\n\n```\n%s\n```\n\n%s' \
+              "The CRM changed $2 in $URL." "Check your side (OPERATION.md: your Approved tasks, and the Updates log)." \
+              "$(git diff --stat "$base" HEAD -- $3)" "Opened by print-studio's contract alarm (C-3).")"
+          }
+          if fm; then open alex99ka/interview-flag-maker "the Flag Maker's /fm/ routes" server/app/studio.py; fi
+          if changed server/app/giftfactory.py server/GIFT_FACTORY.md; then
+            open alex99ka/gift-factory-orca "Gift Factory's /gf/ routes or contract" "server/app/giftfactory.py server/GIFT_FACTORY.md"
+          fi
+          if changed server/app/website.py; then open alex99ka/gift-factory-website "the /website/ routes" server/app/website.py; fi

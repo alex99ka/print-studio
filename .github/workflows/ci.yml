@@ -47,6 +47,8 @@ jobs:
   server:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
     defaults:
       run:
         working-directory: server
@@ -64,7 +66,21 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
+      # C-4: the Flag Maker's own crm_link.py against this server (test_flagmaker_client.py). Private repo:
+      # CROSS_REPO_TOKEN (README › Cross-repo checks); without it that test is skipped.
+      - name: Flag Maker checkout
+        if: env.CROSS_REPO_TOKEN != ''
+        uses: actions/checkout@v7
+        with:
+          repository: alex99ka/interview-flag-maker
+          token: ${{ secrets.CROSS_REPO_TOKEN }}
+          path: flag-maker
+          sparse-checkout: app/crm_link.py
+          sparse-checkout-cone-mode: false
+          persist-credentials: false
       - run: pip install -r requirements-dev.txt
       # studio.py's tests need Firestore: the emulator, as for the rules.
       - run: |
-          npx --yes firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json "pytest -q"
+          npx --yes firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json "pytest -q -rs"
+        env:
+          FLAG_MAKER_APP: ${{ github.workspace }}/flag-maker/app
