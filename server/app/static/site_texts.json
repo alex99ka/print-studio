@@ -339,6 +339,11 @@
   "en": "Filter by kind",
   "ru": "Фильтр по виду"
  },
+ "gifts.empty": {
+  "he": "המתנות הראשונות בדרך. השאירו פרטים ונחזור אליכם כשהן יהיו כאן.",
+  "en": "The first gifts are on their way. Leave your details and we will call you when they are here.",
+  "ru": "Первые подарки уже в пути. Оставьте контакты, и мы позвоним, когда они появятся."
+ },
  "gift.turn": {
   "he": "גררו לצדדים כדי לסובב",
   "en": "Drag sideways to turn",

@@ -3,6 +3,7 @@ The parser, template and contract shapes run anywhere; the routes need the Fires
 
 import io
 import json
+import zipfile
 
 import openpyxl
 import pytest
@@ -128,6 +129,9 @@ def test_request_list_with_guests(client, db):
     got = {r["id"]: r for r in client.get("/gf/requests", headers=key).json()}
     assert set(got) == {"r1", "r3"}
     assert got["r1"]["guests"] is None and got["r1"]["status"] == "draft"
+    assert got["r1"]["gift"] is None
+    db.document("requests/r1").update({"gift": "cart-coin"})  # B4
+    assert {r["id"]: r for r in client.get("/gf/requests", headers=key).json()}["r1"]["gift"] == "cart-coin"
     assert got["r3"]["guests"] == {"names": 3, "gifts": 4, "uploadedAt": None} and got["r3"]["customer"] == ""
 
 
@@ -174,7 +178,8 @@ def tab(k):
 def test_gf_info_says_views(client):
     assert client.get("/gf/info").status_code == 401
     assert client.get("/gf/info", headers={"X-Studio-Key": "wrong"}).status_code == 401
-    assert client.get("/gf/info", headers=gf(client)).json() == {"contract": 1, "views": True}
+    assert client.get("/gf/info", headers=gf(client)).json() == {
+        "contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem"]}
 
 
 def test_version_with_one_and_three_tabs(client, db):
@@ -302,3 +307,118 @@ def test_portal_shows_guests_and_progress_but_no_costs(client, db, pushes):
     text = json.dumps(r)
     for secret in ("unitCost", "unitPrice", "actualCost", "platesDone", "Cart-Coin", "breakdown", "fileName"):
         assert secret not in text, secret
+
+
+# --- C-0 additions ---------------------------------------------------------------------------
+
+
+def status(db, rid="r1"):
+    return db.document(f"requests/{rid}").get().to_dict()["status"]
+
+
+def test_production_moves_the_status_once_each_way(client, db, pushes):
+    key = gf(client)
+    p = {**PRODUCTION["progress"], "platesDone": 1, "unitsOk": 25, "failedUnits": 0}
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": p})
+    assert status(db) == "draft"  # never before the client approved
+    db.document("requests/r1").update({"status": "approved"})
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": {**p, "platesDone": 2}})
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": {**p, "platesDone": 3}})
+    assert status(db) == "printing"
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": {**p, "platesDone": 4, "unitsOk": 105}})
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": {**p, "platesDone": 4, "unitsOk": 106}})
+    assert status(db) == "ready"
+    assert [t for _, t, _ in pushes if t.startswith(("🖨️", "✅"))] == ["🖨️ התחילה הדפסה: אלכס ❤ אביטל", "✅ מוכן: אלכס ❤ אביטל"]
+    db.document("requests/r1").update({"status": "delivered"})
+    client.put("/gf/requests/r1/production", headers=key, json={"contract": 1, "progress": {**p, "platesDone": 4, "unitsOk": 106}})
+    assert status(db) == "delivered"  # never backwards
+
+
+PRINTER = {"plate": 2, "plates": 4, "minutesLeft": 95, "state": "printing"}
+
+
+def test_printer_status_is_kept_and_pushes_a_plate_once(client, db, pushes):
+    key = gf(client)
+    assert client.put("/gf/requests/r1/printer", json=PRINTER).status_code == 401
+    assert client.put("/gf/requests/nope/printer", headers=key, json=PRINTER).status_code == 404
+    assert client.put("/gf/requests/r1/printer", headers=key, json={**PRINTER, "state": "done"}).status_code == 422
+    assert client.put("/gf/requests/r1/printer", headers=key, json={**PRINTER, "extra": 1}).status_code == 422
+    db.document("requests/r1").update({"status": "approved"})
+    assert client.put("/gf/requests/r1/printer", headers=key, json=PRINTER).status_code == 200
+    assert status(db) == "printing"
+    got = db.document("requests/r1").get().to_dict()["printer"]
+    assert {k: got[k] for k in PRINTER} == PRINTER and got["at"]
+    for state in ("finished", "finished", "failed"):
+        client.put("/gf/requests/r1/printer", headers=key, json={**PRINTER, "state": state, "minutesLeft": 0})
+    assert [t for _, t, _ in pushes][1:] == ["פלטה 2 מתוך 4 הסתיימה: אלכס ❤ אביטל", "פלטה 2 מתוך 4 נכשלה ❌: אלכס ❤ אביטל"]
+
+
+def test_low_stock_pushes(client, pushes):
+    key = gf(client)
+    body = {"low": [{"spool": "PLA white #3", "gramsLeft": 120}], "buy": ["PLA white 1kg"]}
+    assert client.post("/gf/stock", json=body).status_code == 401
+    assert client.post("/gf/stock", headers=key, json={"low": []}).status_code == 422
+    assert client.post("/gf/stock", headers=key, json={**body, "low": [{"spool": "x", "gramsLeft": -1}]}).status_code == 422
+    assert client.post("/gf/stock", headers=key, json=body).status_code == 200
+    assert pushes == [("production", "🧵 מלאי חוטים נמוך", "PLA white #3: 120 גרם · לקנות: PLA white 1kg")]
+
+
+def zipped(text="x") -> bytes:
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w") as z:
+        z.writestr("spools.json", text)
+    return buf.getvalue()
+
+
+def test_backups_one_a_day_newest_30(client, tmp_path):
+    key = gf(client)
+    assert client.post("/gf/backup", files={"file": ("b.zip", zipped())}).status_code == 401
+    assert client.post("/gf/backup", headers=key, files={"file": ("b.zip", b"not a zip")}).status_code == 422
+    folder = tmp_path / "gf_backups"
+    for day in range(1, 32):
+        (folder / f"giftfactory-2026-10-{day:02d}.zip").write_bytes(zipped())
+    r = client.post("/gf/backup", headers=key, files={"file": ("b.zip", zipped("today"))})
+    assert r.status_code == 200 and r.json()["file"].startswith("giftfactory-20")
+    r = client.post("/gf/backup", headers=key, files={"file": ("b.zip", zipped("again"))})  # the same day replaces it
+    kept = sorted(p.name for p in folder.iterdir())
+    assert len(kept) == 30 and kept[-1] == r.json()["file"] and "giftfactory-2026-10-02.zip" not in kept
+    with zipfile.ZipFile(folder / kept[-1]) as z:
+        assert z.read("spools.json") == b"again"
+
+
+def test_problem_reports_go_to_telegram_10_an_hour(client, monkeypatch):
+    from app import telegram
+    sent = []
+    monkeypatch.setattr(telegram, "send", sent.append)
+    key, fm = gf(client), paired(client)
+    body = {"version": "1.0.0", "code": "GF-SLICE-3", "message": "Slicer crashed"}
+    assert client.post("/gf/problem", json=body).status_code == 401
+    assert client.post("/gf/problem", headers=key, json={**body, "message": ""}).status_code == 422
+    assert client.post("/gf/problem", headers=key, json=body).status_code == 200
+    assert client.post("/fm/problem", headers=fm, json=body).status_code == 200
+    assert sent == ["🐞 Gift Factory 1.0.0 · GF-SLICE-3\nSlicer crashed", "🐞 Flag Maker 1.0.0 · GF-SLICE-3\nSlicer crashed"]
+    for _ in range(9):
+        client.post("/gf/problem", headers=key, json=body)
+    assert client.post("/gf/problem", headers=key, json=body).status_code == 429
+    assert client.post("/fm/problem", headers=fm, json=body).status_code == 200  # each app has its own 10
+
+
+def test_flag_maker_estimate_and_printed(client, db, pushes):
+    fm = paired(client)
+    est = {"printMinutes": "185", "grams": "64.5", "costAgorot": "2350", "suggestedAgorot": "9000"}
+    v = client.post("/fm/requests/r1/versions", headers=fm, files=files(), data=est).json()
+    assert db.document(f"versions/{v['id']}").get().to_dict()["estimate"] == {
+        "printMinutes": 185, "grams": 64.5, "costAgorot": 2350, "suggestedAgorot": 9000}
+    assert db.document("requests/r1").get().to_dict()["estimate"]["printMinutes"] == 185  # the printer schedule's (C-2)
+    v = client.post("/fm/requests/r1/versions", headers=fm, files=files(), data={"grams": "10"}).json()
+    assert db.document(f"versions/{v['id']}").get().to_dict()["estimate"] == {"grams": 10}
+    v = client.post("/fm/requests/r1/versions", headers=fm, files=files()).json()
+    assert "estimate" not in db.document(f"versions/{v['id']}").get().to_dict()  # as before
+    assert client.post("/fm/requests/r1/versions", headers=fm, files=files(), data={"printMinutes": "-1"}).status_code == 422
+    assert client.post("/fm/requests/r1/printed").status_code == 401
+    assert client.post("/fm/requests/nope/printed", headers=fm).status_code == 404
+    assert client.post("/fm/requests/r1/printed", headers=fm).status_code == 409  # a draft
+    db.document("requests/r1").update({"status": "approved"})
+    assert client.post("/fm/requests/r1/printed", headers=fm).json() == {"ok": True, "status": "ready"}
+    assert status(db) == "ready" and pushes == [("production", "✅ מוכן: אלכס ❤ אביטל", "INTERVIEW")]
+    assert client.post("/fm/requests/r1/printed", headers=fm).status_code == 409

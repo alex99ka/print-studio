@@ -207,29 +207,67 @@ REMIND = {1: "מחר", 0: "היום", -1: "עבר אתמול"}
 SPARE_DAYS = 2  # the first reminder: the printing still ahead plus 2 days
 
 
-def print_days_left(r: dict) -> int:
-    """Days of printing still ahead: Gift Factory's printHours for the run (production.quote),
-    less the plates already done (production.progress). Without its numbers (a Flag Maker
-    microphone flag) one day."""
+def print_hours_left(r: dict) -> float:
+    """Hours of printing still ahead: Gift Factory's printHours for the run (production.quote)
+    less the plates already done (production.progress); else the Flag Maker's printMinutes per
+    unit (request.estimate, B8) times the quantity; else one day. lib/studio/studio.dart counts the same."""
     p = r.get("production") or {}
     hours = (p.get("quote") or {}).get("printHours")
-    if not isinstance(hours, (int, float)) or hours <= 0:
-        return 1
-    prog = p.get("progress") or {}
-    total, done = prog.get("platesTotal") or 0, prog.get("platesDone") or 0
-    if total > 0:
-        hours *= max(0, total - done) / total
-    return math.ceil(hours / 24)
+    if isinstance(hours, (int, float)) and hours > 0:
+        prog = p.get("progress") or {}
+        total, done = prog.get("platesTotal") or 0, prog.get("platesDone") or 0
+        return hours * max(0, total - done) / total if total > 0 else hours
+    minutes = (r.get("estimate") or {}).get("printMinutes")
+    if isinstance(minutes, (int, float)) and minutes > 0:
+        return minutes * max(1, int(r.get("qty") or 1)) / 60
+    return 24
+
+
+def print_days_left(r: dict) -> int:
+    return math.ceil(print_hours_left(r) / 24)
+
+
+UNSCHEDULED = ("ready", "delivered", "paid", "declined")  # nothing left to print
+
+
+def print_schedule(rows: dict[str, dict]) -> dict[str, tuple[datetime, datetime]]:
+    """C-2 (B9): one X2D for Gift Factory runs and Flag Maker flags alike. Every request with a
+    deadline and printing still ahead gets (start, end): as late as it can, ending SPARE_DAYS
+    before its deadline, and before the next one starts (latest deadline placed first), so two
+    orders never share the printer. A start before today means the printer can no longer make it.
+    The same as printSchedule() in lib/studio/studio.dart (same test cases)."""
+    queue = []
+    for rid, r in rows.items():
+        try:
+            due = date.fromisoformat(r.get("deadline") or "")
+        except ValueError:
+            continue
+        if r.get("status") not in UNSCHEDULED:
+            queue.append((due, rid, print_hours_left(r)))
+    out, cursor = {}, None
+    for due, rid, hours in sorted(queue, reverse=True):
+        end = datetime.combine(due - timedelta(days=SPARE_DAYS), datetime.min.time())
+        end = min(end, cursor) if cursor else end
+        cursor = end - timedelta(hours=hours)
+        out[rid] = (cursor, end)
+    return out
 
 
 def deadline_reminders(today: date | None = None) -> int:
-    """One push per request whose deadline (a day, "2026-11-12", set in the app) is as far
-    as its printing still ahead plus 2 days (a 7-day run: 9 days before), tomorrow, today
-    or was yesterday; none once it is delivered (or the client declined it)."""
+    """One push per request whose printing must start today on the shared printer schedule
+    (print_schedule; alone, its printing plus 2 days before the deadline: a 7-day run 9 days
+    before), or whose deadline is tomorrow, today or was yesterday; none once it is delivered
+    (or the client declined it). Plus one push naming every order the printer can no longer fit."""
     today = today or datetime.now(ISRAEL).date()
+    rows = {d.id: d.to_dict() or {} for d in firebase.db().collection("requests").stream()}
+    plan = print_schedule(rows)
     people, sent = None, 0
-    for d in firebase.db().collection("requests").stream():
-        r = d.to_dict() or {}
+    late = [r.get("title", "") for rid, r in rows.items() if rid in plan and plan[rid][0].date() < today and r.get("status") != "printing"]
+    if late:  # every morning until Alex moves a deadline or an order
+        people = users()
+        send_to(people, "deadlines", "⚠️ המדפסת לא תספיק בזמן", " · ".join(late)[:300], {"route": "/schedule"})
+        sent += 1
+    for rid, r in rows.items():
         if r.get("status") in ("delivered", "paid", "declined"):
             continue
         try:
@@ -237,7 +275,7 @@ def deadline_reminders(today: date | None = None) -> int:
         except ValueError:
             continue
         left, printing = (due - today).days, print_days_left(r)
-        if left == printing + SPARE_DAYS and left not in REMIND:
+        if rid in plan and plan[rid][0].date() == today and left not in REMIND:
             title = f"🖨️ להתחיל להדפיס: {r.get('title', '')}"
             ahead = {0: "ההדפסה הסתיימה", 1: "נשאר כיום הדפסה אחד"}.get(printing, f"נשארו כ-{printing} ימי הדפסה")
             body = f"תאריך היעד בעוד {left} ימים ({due:%d.%m}) · {ahead} · {r.get('customerName', '')}"
@@ -247,6 +285,6 @@ def deadline_reminders(today: date | None = None) -> int:
         else:
             continue
         people = people if people is not None else users()
-        send_to(people, "deadlines", title, body, {"route": "/request", "id": d.id})
+        send_to(people, "deadlines", title, body, {"route": "/request", "id": rid})
         sent += 1
     return sent

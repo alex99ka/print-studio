@@ -337,3 +337,26 @@ def test_a_sleeping_supabase_is_a_502(client, monkeypatch):
 
     monkeypatch.setattr(website.requests, "request", down)
     assert client.get("/website/gifts").status_code == 502
+
+
+def test_measured_print_minutes_are_kept_on_the_pi(client, sb, key, tmp_path):
+    add(client)
+    assert client.get("/website/gifts").json()["gifts"][0]["unit_minutes"] is None
+    for bad in (0, -3, "x"):
+        assert client.post("/website/gifts/cart-coin/renders", headers=key,
+                           data={"meta": json.dumps({**META, "unit_minutes": bad})}).status_code == 422
+    assert client.post("/website/gifts/cart-coin/renders", headers=key,
+                       data={"meta": json.dumps({**META, "unit_minutes": 7.5})}, files=renders("still")).status_code == 200
+    assert client.get("/website/gifts").json()["gifts"][0]["unit_minutes"] == 7.5
+    assert "unit_minutes" not in sb.tables["gifts"]["cart-coin"]  # not a Supabase column
+
+
+def test_a_lead_with_a_gift_and_amount(sb, monkeypatch):
+    sent = []
+    monkeypatch.setattr(jobs, "users", lambda: [("u", {})])
+    monkeypatch.setattr(jobs, "send_to", lambda people, kind, title, body, data: sent.append(body))
+    monkeypatch.setenv("LEAD_WEBHOOK_KEY", "shared")
+    c = TestClient(main.app)
+    assert c.post("/website/lead", json={"name": "דנה", "gift": "cart-coin", "qty": 120}, headers={"x-key": "shared"}).status_code == 200
+    assert c.post("/website/lead", json={"name": "דנה", "gift": "cart-coin"}, headers={"x-key": "shared"}).status_code == 200
+    assert sent == ["120 × cart-coin", "cart-coin"]

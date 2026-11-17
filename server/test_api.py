@@ -176,11 +176,11 @@ def test_deadline_reminders_when_printing_must_start_the_day_before_on_the_day_a
     monkeypatch.setattr(firebase, "db", lambda: Db())
     monkeypatch.setattr(jobs, "users", lambda: [("alex", {})])
     sends = []
-    monkeypatch.setattr(jobs, "send_to", lambda people, kind, title, body, data: sends.append((kind, title, body, data["id"])))
+    monkeypatch.setattr(jobs, "send_to", lambda people, kind, title, body, data: sends.append((kind, title, body, data.get("id"))))
     assert jobs.deadline_reminders(date(2026, 10, 29)) == 5
-    assert [s[3] for s in sends] == ["soon", "stand", "tomorrow", "today", "missed"]
-    # A microphone flag prints in a day: 3 days before.
-    assert sends[0] == ("deadlines", "🖨️ להתחיל להדפיס: דגל", "תאריך היעד בעוד 3 ימים (01.11) · נשאר כיום הדפסה אחד · נועה", "soon")
+    # One printer (C-2): the two stands fill it, so what is due before them can no longer fit ("soon" is on it already).
+    assert [s[3] for s in sends] == [None, "stand", "tomorrow", "today", "missed"]
+    assert sends[0] == ("deadlines", "⚠️ המדפסת לא תספיק בזמן", "מעמד · מטבעות · x", None)
     assert sends[1][2] == "תאריך היעד בעוד 9 ימים (07.11) · נשארו כ-7 ימי הדפסה · "
     assert sends[4][1] == "⏰ תאריך יעד עבר אתמול: y"
 
@@ -241,3 +241,65 @@ def test_backup_takes_version_files_once_and_each_new_guest_list(monkeypatch, tm
     assert backup.files(None, "root") == 0  # nothing new
     os.utime(guests / "guests.xlsx", (2_000_000_000, 2_000_000_000))  # the client sent a new list
     assert backup.files(None, "root") == 1 and up[-1] == "guests-r1-2000000000.zip"
+
+
+def test_backup_takes_each_gift_factory_zip_as_it_is(monkeypatch, tmp_path):
+    monkeypatch.setenv("DATA_DIR", str(tmp_path))
+    (tmp_path / "gf_backups").mkdir()
+    z = tmp_path / "gf_backups" / "giftfactory-2026-11-17.zip"
+    z.write_bytes(b"PK zip")
+    up = []
+    monkeypatch.setattr(backup, "_folder", lambda s, name=None, parent=None: "f")
+    monkeypatch.setattr(backup, "_upload", lambda s, folder, name, data, mime: up.append((name, data)))
+    assert backup.files(None, "root") == 1 and up[0][1] == b"PK zip" and up[0][0].startswith("giftfactory-2026-11-17-")
+    assert backup.files(None, "root") == 0
+    os.utime(z, (2_000_000_000, 2_000_000_000))  # sent again the same day
+    assert backup.files(None, "root") == 1 and up[-1][0] == "giftfactory-2026-11-17-2000000000.zip"
+
+
+def test_a_lone_flag_starts_3_days_before(monkeypatch):
+    from datetime import date
+
+    class Db:
+        def collection(self, name):
+            return self
+
+        def stream(self):
+            r = {"title": "דגל", "customerName": "נועה", "deadline": "2026-11-01", "status": "approved"}
+            return [type("D", (), {"id": "soon", "to_dict": lambda _: r})()]
+
+    monkeypatch.setattr(firebase, "db", lambda: Db())
+    monkeypatch.setattr(jobs, "users", lambda: [("alex", {})])
+    sends = []
+    monkeypatch.setattr(jobs, "send_to", lambda people, kind, title, body, data: sends.append((title, body)))
+    assert jobs.deadline_reminders(date(2026, 10, 29)) == 1
+    assert sends == [("🖨️ להתחיל להדפיס: דגל", "תאריך היעד בעוד 3 ימים (01.11) · נשאר כיום הדפסה אחד · נועה")]
+
+
+# The same cases as test/studio_test.dart's printSchedule.
+SCHEDULE = {
+    "gift": {"deadline": "2026-11-20", "status": "approved", "production": {"quote": {"printHours": 48}}},
+    "flag": {"deadline": "2026-11-19", "status": "draft", "qty": 2, "estimate": {"printMinutes": 180}},
+    "plain": {"deadline": "2026-11-25", "status": "waiting"},
+    "done": {"deadline": "2026-11-21", "status": "ready"},
+    "nodate": {"status": "approved"},
+}
+
+
+def test_print_hours_from_gift_factory_then_the_flag_maker_then_a_day():
+    assert jobs.print_hours_left(SCHEDULE["gift"]) == 48
+    assert jobs.print_hours_left(SCHEDULE["flag"]) == 6  # 180 minutes x 2
+    assert jobs.print_hours_left(SCHEDULE["plain"]) == 24
+    assert jobs.print_days_left(SCHEDULE["flag"]) == 1
+
+
+def test_one_printer_schedule_backwards_from_the_deadlines():
+    from datetime import datetime
+
+    got = {rid: (a.isoformat(), b.isoformat()) for rid, (a, b) in jobs.print_schedule(SCHEDULE).items()}
+    assert got == {
+        "plain": ("2026-11-22T00:00:00", "2026-11-23T00:00:00"),
+        "gift": ("2026-11-16T00:00:00", "2026-11-18T00:00:00"),
+        "flag": ("2026-11-15T18:00:00", "2026-11-16T00:00:00"),  # ends where the gift run starts
+    }
+    assert isinstance(jobs.print_schedule(SCHEDULE)["gift"][0], datetime)

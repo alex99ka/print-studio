@@ -6,13 +6,14 @@ import '../studio/studio.dart';
 
 /// A new request: who it's for, what (the names on the flag), how many.
 class NewRequestDialog extends StatefulWidget {
-  const NewRequestDialog({super.key, this.customer, this.qty = 1, this.notes = '', this.deadline});
+  const NewRequestDialog({super.key, this.customer, this.qty = 1, this.notes = '', this.deadline, this.gift});
   final Doc? customer;
 
   /// What a call-back request from the website already says (lib/ui/website_view.dart).
   final int qty;
   final String notes;
   final DateTime? deadline;
+  final String? gift;
 
   @override
   State<NewRequestDialog> createState() => _NewRequestDialogState();
@@ -40,7 +41,7 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text, deadline: _deadline);
+      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text, deadline: _deadline, gift: widget.gift);
       if (mounted) Navigator.pop(context, id);
     } catch (e) {
       if (mounted) {
@@ -110,6 +111,7 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
                     IconButton(
                         tooltip: 'בלי תאריך יעד', icon: const Icon(Icons.close), onPressed: () => setState(() => _deadline = null)),
                 ]),
+                if (widget.gift != null) Align(alignment: AlignmentDirectional.centerStart, child: Text('מוצר מהאתר: ${widget.gift}')),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _notes,
@@ -271,7 +273,8 @@ class _QuoteDialogState extends State<QuoteDialog> {
               child: Text('הלקוח יראה את המחיר החדש, וגם שהיה מחיר קודם.'),
             ),
           if (g != null) ...[
-            const Text('הצעה מ-Gift Factory', style: TextStyle(fontWeight: FontWeight.w500)),
+            Text('הצעה מ-${g['from'] ?? 'Gift Factory'}', style: const TextStyle(fontWeight: FontWeight.w500)),
+            if (g['breakdown'] != null) ...[
             for (final (k, label) in const [
               ('filament', 'חומר'),
               ('power', 'חשמל'),
@@ -281,7 +284,8 @@ class _QuoteDialogState extends State<QuoteDialog> {
             ])
               MoneyLine('  $label ליחידה', ((g['breakdown'] as Map?)?[k] as int?) ?? 0),
             Text('  מרווח לכשלים: ${(g['breakdown'] as Map?)?['failureMarginPct'] ?? 0}%', style: muted),
-            MoneyLine('עלות ליחידה', cost ?? 0),
+            ],
+            if (cost != null) MoneyLine('עלות ליחידה', cost),
             Row(children: [
               Expanded(child: MoneyLine('מחיר מוצע ליחידה', g['unitPrice'] as int, bold: true)),
               TextButton(

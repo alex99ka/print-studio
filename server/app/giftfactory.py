@@ -11,6 +11,9 @@ portal); firestore.rules refuse both to the app.
 import csv
 import io
 import re
+import tempfile
+import zipfile
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 from urllib.parse import quote
@@ -24,7 +27,7 @@ from openpyxl.styles import Font
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import firebase, jobs
-from .studio import TABS, Upload, User, _customer, _data, _iso, _limit, check_key, create_version, pair, tab_field
+from .studio import TABS, Problem, Upload, User, _customer, _data, _iso, _limit, advance, check_key, create_version, pair, problem, tab_field
 
 router = APIRouter()
 LISTED = ("draft", "waiting", "approved", "printing")  # Gift Factory's request list
@@ -54,7 +57,8 @@ GiftFactory = Annotated[None, Depends(giftfactory)]
 @router.get("/gf/info")
 def gf_info(_: GiftFactory) -> dict:
     """Gift Factory sends a proof with views only once this says views: true."""
-    return {"contract": 1, "views": True}
+    # The C-0 additions (B4, B5, B7, B10, B11, B12): an older server answers 404 on their routes.
+    return {"contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem"]}
 
 
 def _ref(rid: str):
@@ -77,7 +81,7 @@ def gf_requests(_: GiftFactory) -> list[dict]:
     out = [
         {"id": d.id, "title": r.get("title", ""), "customer": r.get("customerName", ""), "qty": r.get("qty", 1),
          "status": r.get("status"), "latestVersion": r.get("latestVersion", 0), "updated": _iso(r.get("updatedAt")),
-         "guests": _guests(r)}
+         "guests": _guests(r), "gift": r.get("gift")}
         for d in docs if (r := d.to_dict() or {})
     ]
     return sorted(out, key=lambda r: r["updated"] or "", reverse=True)
@@ -217,7 +221,106 @@ def put_production(rid: str, _: GiftFactory, body: Production) -> dict:
         if news or failed > 0:
             news.append(f"{failed} units failed on {r.get('title', '')}" if failed > 0 else r.get("title", ""))
             jobs.send_to(jobs.users(), "production", " · ".join(news), r.get("customerName", ""), {"route": "/request", "id": rid})
+        # B5: the first plate moves אושר → בהדפסה; every unit OK → מוכן.
+        if p["unitsTarget"] > 0 and p["unitsOk"] >= p["unitsTarget"]:
+            advance(rid, "ready")
+        elif p["platesDone"] > 0:
+            advance(rid, "printing")
     return {"ok": True}
+
+
+# --- B10: the printer, live ------------------------------------------------------------
+
+
+class Printer(Part):
+    plate: int = Field(ge=1)
+    plates: int = Field(ge=1)
+    minutesLeft: Count
+    state: Literal["printing", "paused", "failed", "finished"]
+
+
+@router.put("/gf/requests/{rid}/printer")
+def put_printer(rid: str, _: GiftFactory, body: Printer) -> dict:
+    """Replaces requests.printer. A plate starting moves אושר → בהדפסה (B5); a plate finished
+    or failed pushes once (the same report sent again does not)."""
+    ref, r = _ref(rid)
+    now = body.model_dump()
+    old = r.get("printer") or {}
+    ref.update({"printer": {**now, "at": firestore.SERVER_TIMESTAMP}})
+    if body.state == "printing":
+        advance(rid, "printing")
+    elif body.state in ("finished", "failed") and (old.get("state"), old.get("plate")) != (body.state, body.plate):
+        what = "הסתיימה" if body.state == "finished" else "נכשלה ❌"
+        jobs.send_to(jobs.users(), "production", f"פלטה {body.plate} מתוך {body.plates} {what}: {r.get('title', '')}",
+                     r.get("customerName", ""), {"route": "/request", "id": rid})
+    return {"ok": True}
+
+
+# --- B7: spools running low --------------------------------------------------------------
+
+
+class Spool(Part):
+    spool: str = Field(min_length=1, max_length=100)
+    gramsLeft: Count
+
+
+class Stock(Part):
+    low: list[Spool] = Field(min_length=1, max_length=50)
+    buy: list[Annotated[str, Field(min_length=1, max_length=200)]] = Field(default_factory=list, max_length=50)
+
+
+@router.post("/gf/stock")
+def low_stock(_: GiftFactory, body: Stock) -> dict:
+    """One push per report; Gift Factory decides when a spool is low and reports it once."""
+    _limit("gf-stock", 20)
+    jobs.send_to(jobs.users(), "production", "🧵 מלאי חוטים נמוך",
+                 " · ".join([f"{s.spool}: {s.gramsLeft} גרם" for s in body.low] + ([f"לקנות: {', '.join(body.buy)}"] if body.buy else []))[:500],
+                 {"route": "/requests"})
+    return {"ok": True}
+
+
+# --- B11: Gift Factory's own data, backed up through the Pi -------------------------------
+
+MAX_BACKUP = 200 * 1024 * 1024
+KEEP_BACKUPS = 30
+
+
+def gf_backups() -> Path:
+    return _data() / "gf_backups"
+
+
+@router.post("/gf/backup")
+def put_backup(_: GiftFactory, file: Annotated[UploadFile, File()]) -> dict:
+    """One zip a day (a second one that day replaces it), the newest 30 kept; the 03:00
+    Drive backup takes each new one (backup.files)."""
+    folder = gf_backups()
+    folder.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=folder, suffix=".part")
+    try:
+        size = 0
+        with open(fd, "wb") as out:
+            while chunk := file.file.read(1 << 20):
+                size += len(chunk)
+                if size > MAX_BACKUP:
+                    raise HTTPException(413, "The backup is over 200 MB")
+                out.write(chunk)
+        if not zipfile.is_zipfile(tmp):
+            raise HTTPException(422, "The backup is not a zip file")
+        name = f"giftfactory-{datetime.now(timezone.utc):%Y-%m-%d}.zip"
+        Path(tmp).replace(folder / name)
+    finally:
+        Path(tmp).unlink(missing_ok=True)
+    for old in sorted(folder.glob("giftfactory-*.zip"))[:-KEEP_BACKUPS]:
+        old.unlink()
+    return {"ok": True, "file": name, "bytes": size}
+
+
+# --- B12 ---------------------------------------------------------------------------------
+
+
+@router.post("/gf/problem")
+def gf_problem(_: GiftFactory, body: Problem) -> dict:
+    return problem("Gift Factory", body)
 
 
 # --- C3: the client's guest list ------------------------------------------------------

@@ -92,6 +92,14 @@ def _folder(slug: str) -> Path:
     return _data() / "gifts" / slug
 
 
+def _measured(slug: str) -> float | None:
+    """B13: one unit's print minutes as Gift Factory measured it (kept on the Pi, not in Supabase)."""
+    try:
+        return json.loads((_folder(slug) / "measured.json").read_text())["unit_minutes"]
+    except (OSError, ValueError, KeyError):
+        return None
+
+
 def _images(slug: str) -> dict[str, int]:
     """The pictures the Pi has for a product, each with its time (the version in its URL)."""
     folder = _folder(slug)
@@ -132,7 +140,7 @@ def _shown(gift: Gift, slug: str, coming: tuple[str, ...] = ()) -> None:
 @router.get("/website/gifts")
 def gifts(_: User) -> dict:
     rows = _sb("GET", "gifts?select=*&order=sort.asc,slug.asc")
-    return {"gifts": [{**g, "images": _images(g["slug"])} for g in rows]}
+    return {"gifts": [{**g, "images": _images(g["slug"]), "unit_minutes": _measured(g["slug"])} for g in rows]}
 
 
 @router.post("/website/gifts")
@@ -255,6 +263,7 @@ class Meta(BaseModel):
     size_mm: tuple[Mm, Mm, Mm]
     spin: Spin
     gift: Gift | None = None
+    unit_minutes: float | None = Field(default=None, gt=0, le=10000)  # B13: one unit's print time, measured
 
 
 async def render_form(request: Request) -> dict:
@@ -290,6 +299,8 @@ def put_renders(slug: str, _: Annotated[None, Depends(render_script)], form: Ann
         folder.mkdir(parents=True, exist_ok=True)
         for name in files:
             (tmp / name).replace(folder / name)
+        if meta.unit_minutes:
+            (folder / "measured.json").write_text(json.dumps({"unit_minutes": meta.unit_minutes, "at": _now()}))
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
     return {"created": created, "images": _images(slug)}
@@ -358,6 +369,8 @@ class Lead(BaseModel):
     name: str = Field(default="", max_length=80)
     guests: int | None = None
     wedding_date: str | None = Field(default=None, max_length=10)
+    gift: str | None = Field(default=None, max_length=60)  # B3: the product the form was sent from (leads.gift)
+    qty: int | None = None  # B3: how many they want (leads.qty)
 
 
 @router.post("/website/lead")
@@ -368,7 +381,8 @@ def new_lead(body: Lead, x_key: Annotated[str, Header()] = "", x_site_key: Annot
         raise HTTPException(503, "LEAD_WEBHOOK_KEY is not set on the server")
     if not secrets.compare_digest(want.encode(), (x_key or x_site_key).encode()):
         raise HTTPException(401, "Wrong key")
-    about = [f"{body.guests} אורחים" if body.guests else "", f"חתונה ב-{body.wedding_date}" if body.wedding_date else ""]
+    about = [f"{body.qty} × {body.gift or 'מתנה'}" if body.qty else body.gift or "",
+             f"{body.guests} אורחים" if body.guests else "", f"חתונה ב-{body.wedding_date}" if body.wedding_date else ""]
     jobs.send_to(jobs.users(), "client", f"פנייה חדשה מהאתר: {body.name}", " · ".join(filter(None, about)) or "מבקשים שנחזור אליהם",
                  {"route": "/leads"})
     return {"ok": True}

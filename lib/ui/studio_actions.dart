@@ -8,6 +8,7 @@ import '../core/errors.dart';
 import '../core/server.dart';
 import '../studio/desktop.dart';
 import '../studio/studio.dart';
+import '../studio/website.dart';
 import 'studio_dialogs.dart';
 
 /// The request on screen, for the ribbon: its customer, its versions (by
@@ -177,10 +178,29 @@ Future<void> downloadGuests(BuildContext context, Selection s) => _guard(context
       }
     });
 
+/// B4: which shop product the request is for (Gift Factory opens its model by it).
+Future<void> pickGift(BuildContext context, Doc request) => _guard(context, 'רשימת המוצרים לא נטענה', () async {
+      final gifts = await siteGifts();
+      if (!context.mounted) return;
+      final picked = await showDialog<String>(
+        context: context,
+        builder: (_) => SimpleDialog(title: const Text('מוצר מהאתר'), children: [
+          for (final g in gifts)
+            SimpleDialogOption(
+                onPressed: () => Navigator.pop(context, '${g['slug']}'),
+                child: Text('${(g['name'] as Map?)?['he'] ?? g['slug']} · ${g['slug']}')),
+          SimpleDialogOption(onPressed: () => Navigator.pop(context, ''), child: const Text('בלי מוצר')),
+        ]),
+      );
+      if (picked != null) await setGift(request, picked.isEmpty ? null : picked);
+    });
+
 /// Returns the new request's id; [customer] picks the customer up front.
-Future<String?> newRequest(BuildContext context, {Doc? customer, int qty = 1, String notes = '', DateTime? deadline}) async {
+Future<String?> newRequest(BuildContext context,
+    {Doc? customer, int qty = 1, String notes = '', DateTime? deadline, String? gift}) async {
   final id = await showDialog<String>(
-      context: context, builder: (_) => NewRequestDialog(customer: customer, qty: qty, notes: notes, deadline: deadline));
+      context: context,
+      builder: (_) => NewRequestDialog(customer: customer, qty: qty, notes: notes, deadline: deadline, gift: gift));
   if (id != null && context.mounted) say(context, 'הבקשה נוצרה. עכשיו מייצאים אליה עיצוב מה-Flag Maker');
   return id;
 }

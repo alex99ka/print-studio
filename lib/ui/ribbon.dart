@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/tour.dart';
 import '../studio/desktop.dart';
+import 'schedule_page.dart';
 import 'studio_actions.dart';
 import 'theme.dart';
 
@@ -24,6 +25,8 @@ class Ribbon extends StatelessWidget {
                 TourTarget('home.new',
                     child: _Button(Icons.add_box_outlined, 'בקשה חדשה', () => newRequest(context), primary: true)),
                 _Button(Icons.person_add_alt, 'לקוח חדש', () => newCustomer(context)),
+                _Button(Icons.calendar_month_outlined, 'לוח מדפסת',
+                    () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SchedulePage()))),
               ]),
             _Group('Flag Maker', [
               _Button(Icons.upload_file_outlined, 'ייבוא גרסה',

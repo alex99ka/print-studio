@@ -7,7 +7,7 @@ Improvements to `lib/core/` go back into the starter.
 
 - `lib/core/` = the standard. `lib/studio/` = records, money, links (and
   `desktop.dart`, PC only). `lib/ui/` = screens: `home_screen` (tabs + ribbon),
-  `requests_view`, `customers_view`, `ribbon`, `studio_actions`, `studio_dialogs`.
+  `requests_view`, `customers_view`, `ribbon`, `studio_actions`, `studio_dialogs`, `schedule_page` (one printer).
 - Server: `server/app/studio.py` (versions, Flag Maker key, portal) and
   `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\Flag Maker\app\crm_link.py`
   (follow that repo's AGENTS.md: its releases need its acceptance suite, including

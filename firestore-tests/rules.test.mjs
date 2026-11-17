@@ -106,6 +106,15 @@ test("requests: created as drafts, approval fields are the server's", async () =
   await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'waiting' })); // reopened
 });
 
+test('requests: a gift is a product slug or nothing, also after approval', async () => {
+  await assertSucceeds(addDoc(collection(db(ALEX), 'requests'), { ...request, gift: 'cart-coin' }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, gift: 'Cart Coin' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { gift: 'table-flag-2' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { gift: null }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { gift: 'x'.repeat(61) }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { printer: { state: 'printing' } })); // the server's
+});
+
 test('requests: a deadline is a day or nothing, also after approval', async () => {
   await assertSucceeds(addDoc(collection(db(ALEX), 'requests'), { ...request, deadline: '2026-11-12' }));
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, deadline: 'next week' }));

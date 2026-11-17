@@ -33,7 +33,7 @@ from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel, Field
 
-from . import firebase, jobs
+from . import firebase, jobs, telegram
 
 router = APIRouter()
 User = Annotated[dict, Depends(firebase.current_user)]
@@ -102,6 +102,28 @@ class Upload:
         self.files = {"preview": preview, "model": model, "recipe": recipe, "spin": spin, "spin_asm": spin_asm}
         self.note = note.strip()
         self.views = None  # Gift Factory's plate tabs and all-round sheet (giftfactory.Views)
+        self.estimate = {}  # B8: the Flag Maker's print time, grams and price (FlagUpload)
+
+
+class FlagUpload(Upload):
+    """B8: the Flag Maker may also send what one unit takes (all optional, agorot and whole minutes)."""
+
+    def __init__(
+        self,
+        preview: Annotated[UploadFile, File()],
+        model: Annotated[UploadFile | None, File()] = None,
+        recipe: Annotated[UploadFile | None, File()] = None,
+        spin: Annotated[UploadFile | None, File()] = None,
+        spin_asm: Annotated[UploadFile | None, File()] = None,
+        note: Annotated[str, Form(max_length=500)] = "",
+        printMinutes: Annotated[int | None, Form(ge=0, le=100000)] = None,  # noqa: N803 (the contract's names)
+        grams: Annotated[float | None, Form(ge=0, le=100000)] = None,
+        costAgorot: Annotated[int | None, Form(ge=0, le=100_000_000)] = None,  # noqa: N803
+        suggestedAgorot: Annotated[int | None, Form(ge=0, le=100_000_000)] = None,  # noqa: N803
+    ):
+        super().__init__(preview, model, recipe, spin, spin_asm, note)
+        sent = {"printMinutes": printMinutes, "grams": grams, "costAgorot": costAgorot, "suggestedAgorot": suggestedAgorot}
+        self.estimate = {k: v for k, v in sent.items() if v is not None}
 
 
 def tab_field(kind: str, k: int) -> str:
@@ -218,8 +240,10 @@ def create_version(rid: str, up: Upload, source: str) -> dict:
         t.set(ref, {
             "requestId": rid, "customerId": r.get("customerId"), "n": n, "state": "draft",
             "files": names, **({"views": up.views} if up.views else {"spinGrid": grid}), "note": up.note, "source": source, "createdAt": firestore.SERVER_TIMESTAMP,
+            **({"estimate": up.estimate} if up.estimate else {}),
         })
-        t.update(req, {"latestVersion": n, "updatedAt": firestore.SERVER_TIMESTAMP})
+        # The newest estimate is the request's too: the printer schedule counts its printMinutes (C-2).
+        t.update(req, {"latestVersion": n, "updatedAt": firestore.SERVER_TIMESTAMP, **({"estimate": up.estimate} if up.estimate else {})})
         return n
 
     try:
@@ -325,8 +349,69 @@ def open_requests(_: FlagMaker) -> list[dict]:
 
 
 @router.post("/fm/requests/{rid}/versions")
-def upload_from_flagmaker(rid: str, _: FlagMaker, up: Annotated[Upload, Depends()]) -> dict:
+def upload_from_flagmaker(rid: str, _: FlagMaker, up: Annotated[FlagUpload, Depends()]) -> dict:
     return create_version(rid, up, "flagmaker")
+
+
+# --- B5: the status moves by itself (Gift Factory's reports, the Flag Maker's "printed") ----
+
+MOVES = {"printing": ("approved",), "ready": ("approved", "printing")}  # to: from
+MOVE_TEXT = {"printing": "🖨️ התחילה הדפסה", "ready": "✅ מוכן"}
+
+
+def advance(rid: str, to: str) -> bool:
+    """Moves the request to [to] if it is at a status before it; one push when it moved.
+    Inside a transaction, so two reports at once push once."""
+    db = firebase.db()
+    req = db.document(f"requests/{rid}")
+
+    @firestore.transactional
+    def move(t) -> dict | None:
+        r = req.get(transaction=t).to_dict() or {}
+        if r.get("status") not in MOVES[to]:
+            return None
+        t.update(req, {"status": to, "updatedAt": firestore.SERVER_TIMESTAMP})
+        return r
+
+    r = move(db.transaction())
+    if r is not None:
+        jobs.send_to(jobs.users(), "production", f"{MOVE_TEXT[to]}: {r.get('title', '')}", r.get("customerName", ""),
+                     {"route": "/request", "id": rid})
+    return r is not None
+
+
+@router.post("/fm/requests/{rid}/printed")
+def flag_printed(rid: str, _: FlagMaker) -> dict:
+    """The flag is printed: אושר / בהדפסה → מוכן. Anything else is 409 (not approved yet, or already further)."""
+    if not rid.isalnum() or not firebase.db().document(f"requests/{rid}").get().exists:
+        raise HTTPException(404, "No such request")
+    if not advance(rid, "ready"):
+        raise HTTPException(409, "The request is not approved or printing")
+    return {"ok": True, "status": "ready"}
+
+
+# --- B12: one problem channel for the desktop apps -----------------------------------
+
+
+class Problem(BaseModel):
+    version: str = Field(default="", max_length=50)
+    code: str = Field(default="", max_length=50)
+    message: str = Field(min_length=1, max_length=2000)
+
+
+def problem(app: str, body: Problem) -> dict:
+    """→ the builder's Telegram, at most 10 an hour per app (an app in a crash loop can't flood it)."""
+    _limit(f"problem-{app}", 10)
+    try:
+        telegram.send(f"🐞 {app} {body.version} · {body.code or 'no code'}\n{body.message}")
+    except Exception:  # noqa: BLE001 - Telegram or the network down
+        raise HTTPException(502, "Telegram did not take the report") from None
+    return {"ok": True, "sent": telegram.configured()}
+
+
+@router.post("/fm/problem")
+def fm_problem(_: FlagMaker, body: Problem) -> dict:
+    return problem("Flag Maker", body)
 
 
 @router.get("/fm/versions/{vid}/recipe")

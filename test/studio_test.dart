@@ -143,6 +143,31 @@ void main() {
     expect(printDaysLeft(r(7 * 24, done: 7, total: 7)), 0);
   });
 
+  // The same cases as server/test_api.py's SCHEDULE.
+  final schedule = <String, Map<String, dynamic>>{
+    'gift': {'deadline': '2026-11-20', 'status': 'approved', 'production': {'quote': {'printHours': 48}}},
+    'flag': {'deadline': '2026-11-19', 'status': 'draft', 'qty': 2, 'estimate': {'printMinutes': 180}},
+    'plain': {'deadline': '2026-11-25', 'status': 'waiting'},
+    'done': {'deadline': '2026-11-21', 'status': 'ready'},
+    'nodate': {'status': 'approved'},
+  };
+
+  test('print hours from Gift Factory, then the Flag Maker, then a day', () {
+    expect(printHoursLeft(schedule['gift']!), 48);
+    expect(printHoursLeft(schedule['flag']!), 6); // 180 minutes x 2
+    expect(printHoursLeft(schedule['plain']!), 24);
+    expect(printDaysLeft(schedule['flag']!), 1);
+  });
+
+  test('one printer: scheduled back from the deadlines, never two at once (C-2)', () {
+    final got = {for (final e in printSchedule(schedule).entries) e.key: (e.value.start, e.value.end)};
+    expect(got, {
+      'plain': (DateTime.utc(2026, 11, 22), DateTime.utc(2026, 11, 23)),
+      'gift': (DateTime.utc(2026, 11, 16), DateTime.utc(2026, 11, 18)),
+      'flag': (DateTime.utc(2026, 11, 15, 18), DateTime.utc(2026, 11, 16)), // ends where the gift run starts
+    });
+  });
+
   test('isoDay shows a contract date the way the app writes days', () {
     expect(isoDay('2026-11-12'), '12.11');
     expect(isoDay(null), '');

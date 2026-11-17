@@ -15,6 +15,7 @@ import 'customers_view.dart';
 import 'money_view.dart';
 import 'requests_view.dart';
 import 'ribbon.dart';
+import 'schedule_page.dart';
 import 'settings_page.dart';
 import 'studio_actions.dart';
 import 'theme.dart';
@@ -60,6 +61,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final id = data['id'];
     if (data['route'] == '/request' && id is String && mounted) {
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RequestPage(requestId: id)));
+    }
+    if (data['route'] == '/schedule' && mounted) {
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SchedulePage()));
     }
     // A new call-back request from the website: its list, reloaded.
     if (data['route'] == '/leads' && mounted) {

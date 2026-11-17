@@ -22,7 +22,7 @@ pair/copy flow as the Flag Maker's.
 
 | Route | Body / answer | Notes |
 |---|---|---|
-| `GET /gf/requests` | `[{"id","title","customer","qty","status","latestVersion","updated","guests": {"names","gifts","uploadedAt"} or null}]` | Requests in status `draft`, `waiting`, `approved`, `printing`, newest first. |
+| `GET /gf/requests` | `[{"id","title","customer","qty","status","latestVersion","updated","guests": {"names","gifts","uploadedAt"} or null, "gift": slug or null}]` (`gift` since CRM 0.5.0) | Requests in status `draft`, `waiting`, `approved`, `printing`, newest first. |
 | `POST /gf/requests/{rid}/versions` | multipart, same fields as the Flag Maker's upload (`preview`, `spin`, `spin_asm`, `model`, `recipe`, `note`) **plus** `names` (JPEG, the name proof sheet) | C2. Same `create_version(..., source="giftfactory")`. `names` is stored as `names.jpg`, added to `FILES` and `CLIENT_FILES`, watermarked like `preview.png` (grid 1). 409 when the request is locked (as now). |
 | `PUT /gf/requests/{rid}/production` | JSON, see below | C1, C4, C6. Merged into `requests/{rid}.production`, `updatedAt` set. Any subset of the three parts may be sent. 404 unknown request. |
 | `GET /gf/requests/{rid}/guests` | the uploaded file as it came (`.xlsx` or `.csv`, original name in `Content-Disposition`) | C3. 404 when there is none. |
@@ -143,3 +143,22 @@ Gift Factory skips a row with a bad amount where the portal refuses the file, an
 
 Note: the portal lists a request only once a version of it is published, so a fresh draft (nothing published)
 can't take a guest list yet.
+
+### C-0 additions (CRM 0.5.0, 17.11.2026)
+
+All additive: still `contract: 1`, nothing above changed. Every route takes Gift Factory's `X-Studio-Key`
+(401 without it). `GET /gf/info` now also answers `"additions": ["gift", "status", "stock", "printer", "backup",
+"problem"]`; an older server lacks the field and answers 404 on these routes, so check it before calling them.
+Bodies are checked strictly like `production` (an unknown field → 422).
+
+| | Route | Body | What the CRM does |
+|---|---|---|---|
+| B4 | `GET /gf/requests` | — | each request carries `gift`: the shop product's slug (`[a-z0-9-]{1,60}`, the website's `gifts.slug`) or `null`. Set by Alex or from a website lead. |
+| B5 | `PUT /gf/requests/{rid}/production` | as above | `progress.platesDone ≥ 1` moves אושר → בהדפסה; `unitsOk ≥ unitsTarget` (target > 0) moves אושר / בהדפסה → מוכן. One push each; never backwards, never before the client approved. |
+| B10 | `PUT /gf/requests/{rid}/printer` | `{"plate": 2, "plates": 4, "minutesLeft": 95, "state": "printing"}`; `state` = `printing` \| `paused` \| `failed` \| `finished`; `plate`, `plates` ≥ 1 | Replaces `requests/{rid}.printer` (+ `at`), shown on the request. `printing` also moves אושר → בהדפסה (B5). `finished` / `failed` push once per plate (the same report again does not). Send it when the state or plate changes, or every few minutes while printing. 404 unknown request. |
+| B7 | `POST /gf/stock` | `{"low": [{"spool": "PLA white #3", "gramsLeft": 120}], "buy": ["PLA white 1kg"]}`; `low` 1–50, `buy` optional, ≤ 50 | One push "🧵 מלאי חוטים נמוך". Report a spool once when it crosses your threshold, not on every print: at most 20 an hour (429 after). |
+| B11 | `POST /gf/backup` | multipart `file`: a zip of `%LOCALAPPDATA%\GiftFactory`, ≤ 200 MB | Kept as `DATA_DIR/gf_backups/giftfactory-YYYY-MM-DD.zip` (UTC day; a second one that day replaces it), newest 30 kept; each new one goes to Drive with the 03:00 backup. 413 too big, 422 not a zip. Answer `{"ok", "file", "bytes"}`. Once a day is enough. |
+| B12 | `POST /gf/problem` | `{"version": "1.0.0", "code": "GF-SLICE-3", "message": "…"}`; `message` 1–2000 chars, `version`/`code` ≤ 50 | To Alex's Telegram: `🐞 Gift Factory <version> · <code>`. At most 10 an hour (429 after); 502 when Telegram refuses. Answer `{"ok", "sent"}` (`sent: false` = Telegram not set up on the Pi). |
+
+B13 (measured print minutes for the shop) goes with the website pictures: `unit_minutes` in the renders' `meta`
+(README › Shop website).

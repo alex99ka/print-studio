@@ -101,6 +101,17 @@ See `server/GIFT_FACTORY.md` › As built. In short: PUT bodies are checked stri
 `+00:00`, not `Z`; the portal refuses a guest file with a bad amount (Gift Factory skips that row); a request
 shows on the portal (and takes a guest list) only after a version is published.
 
+## Next (Alex asked 17.11.2026, not built)
+
+1. **Several versions, the client picks one.** Publish more than one version at once; the portal shows them
+   side by side and the client approves one specific version (with the price). Today only one version is
+   published at a time (`publishedVersionId`) and approval takes that one. Touches the portal, `portal_approve`,
+   the rules (a list of published versions) and the request page.
+2. **A price fixed by mistake stays hidden.** 17.11: Alex published ₪120 by accident, fixed it to ₪150, and the
+   client saw the ₪120 (the portal lists earlier quotes as "previousQuotes"). To decide: never show earlier
+   prices, or a "תיקון טעות" switch on a new quote that hides the one it replaces (the QuoteDialog line "הלקוח
+   יראה ... שהיה מחיר קודם" changes with it).
+
 ## After the MVP (not built, to decide)
 
 - Image attachment on a portal comment (the design had a button; not built).

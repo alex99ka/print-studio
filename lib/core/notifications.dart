@@ -22,7 +22,7 @@ import 'update.dart';
 /// The types every app starts with. A new app adds its own.
 const notificationTypes = <String, String>{
   'client': 'כשלקוח מעיר, מאשר או שולח רשימת אורחים',
-  'production': 'כש-Gift Factory מסיים פלטה או כשיחידות נכשלות',
+  'production': 'ייצור: פלטה הסתיימה או נכשלה, הזמנה בהדפסה או מוכנה, מלאי חוטים נמוך',
   'deadlines': 'כשתאריך יעד מתקרב (כשצריך להתחיל להדפיס, יום לפני, ביום עצמו)',
   'updates': 'כשיש גרסה חדשה',
 };

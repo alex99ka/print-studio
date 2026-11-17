@@ -28,6 +28,10 @@ Set<String> placeholders(String text) => {for (final m in RegExp(r'\{[A-Za-z]+\}
 Set<String> missingPlaceholders(String original, String override) =>
     override.trim().isEmpty ? const {} : placeholders(original).difference(placeholders(override));
 
+/// B13: days to make [minQty] units at the measured minutes each, on one printer around the
+/// clock, plus the same 2 spare days the Pi's reminders keep (server jobs.SPARE_DAYS).
+int suggestedLeadDays(int minQty, num unitMinutes) => (minQty * unitMinutes / 60 / 24).ceil() + 2;
+
 /// The first part of a text's key: "hero" of "hero.h1".
 String textGroup(String key) => key.split('.').first;
 
@@ -35,18 +39,21 @@ String textGroup(String key) => key.split('.').first;
 String pictureUrl(String slug, String file, Object? version) =>
     '${AppConfig.serverUrl}/gifts/$slug/$file${version == null ? '' : '?v=$version'}';
 
-/// What a new CRM request takes from a lead: the guests as the quantity, the wedding day as
-/// the deadline when the calendar can show it, and the rest as notes.
-({int qty, DateTime? deadline, String notes}) requestFromLead(Map<String, dynamic> lead, DateTime today) {
+/// What a new CRM request takes from a lead: the amount asked for (else the guests) as the
+/// quantity, the product it was sent from, the wedding day as the deadline when the calendar
+/// can show it, and the rest as notes.
+({int qty, DateTime? deadline, String notes, String? gift}) requestFromLead(Map<String, dynamic> lead, DateTime today) {
   final day = DateTime.tryParse('${lead['wedding_date'] ?? ''}');
   final from = DateTime(today.year, today.month, today.day);
-  final guests = lead['guests'];
+  final guests = lead['guests'], qty = lead['qty'], gift = '${lead['gift'] ?? ''}';
   return (
-    qty: guests is int && guests > 0 ? guests : 1,
+    qty: qty is int && qty > 0 ? qty : guests is int && guests > 0 ? guests : 1,
+    gift: validSlug(gift) ? gift : null,
     deadline: day != null && !day.isBefore(from) && day.isBefore(DateTime(today.year + 2)) ? day : null,
     notes: [
       'פנייה מהאתר',
       if (day != null) 'חתונה ב-${day.day}.${day.month}.${day.year}',
+      if (qty is int && guests is int && guests > 0) '$guests אורחים',
       if ((lead['gifts'] as List? ?? const []).isNotEmpty) 'אהבו: ${(lead['gifts'] as List).join(', ')}',
       'נוח לדבר: ${callTimes[lead['call_time']] ?? lead['call_time']}',
     ].join(' · '),

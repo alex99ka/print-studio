@@ -46,6 +46,19 @@ void main() {
     expect((past.qty, past.deadline), (1, null));
     expect(past.notes, contains('1.1.2026'));
     expect(requestFromLead({'wedding_date': '2029-01-01', 'call_time': 'any'}, today).deadline, isNull);
+    expect(r.gift, isNull);
+  });
+
+  test('a lead sent from a product brings its slug and amount (B3)', () {
+    final r = requestFromLead({'guests': 200, 'qty': 120, 'gift': 'cart-coin', 'call_time': 'any'}, DateTime(2026, 11, 17));
+    expect((r.qty, r.gift), (120, 'cart-coin'));
+    expect(r.notes, 'פנייה מהאתר · 200 אורחים · נוח לדבר: לא משנה מתי');
+    expect(requestFromLead({'gift': 'Not A Slug', 'qty': 0, 'call_time': 'any'}, DateTime(2026, 11, 17)).gift, isNull);
+  });
+
+  test('lead days from the measured print time (B13)', () {
+    expect(suggestedLeadDays(30, 7.5), 3); // 225 minutes: one day + 2
+    expect(suggestedLeadDays(500, 12), 7); // 100 hours: 5 days + 2
   });
 
   test('the server\'s answers become website codes, with its words', () {

@@ -49,6 +49,11 @@ service cloud.firestore {
       return !('deadline' in d) || d.deadline == null || (d.deadline is string && d.deadline.matches('[0-9]{4}-[0-9]{2}-[0-9]{2}'));
     }
 
+    // The shop's product slug (B4: gifts.slug on the website), or none.
+    function giftOk(d) {
+      return !('gift' in d) || d.gift == null || (d.gift is string && d.gift.matches('[a-z0-9-]{1,60}'));
+    }
+
     match /customers/{id} {
       allow read, delete: if allowed();
       allow create, update: if allowed()
@@ -64,8 +69,8 @@ service cloud.firestore {
       allow read: if allowed();
       allow create: if allowed()
         && request.resource.data.keys().hasOnly(['customerId', 'customerName', 'title', 'qty', 'notes', 'status',
-             'latestVersion', 'createdAt', 'updatedAt', 'deadline'])
-        && deadlineOk(request.resource.data)
+             'latestVersion', 'createdAt', 'updatedAt', 'deadline', 'gift'])
+        && deadlineOk(request.resource.data) && giftOk(request.resource.data)
         && shortText(request.resource.data.title, 200) && request.resource.data.title.size() > 0
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.status == 'draft'
@@ -77,8 +82,8 @@ service cloud.firestore {
       // version, the price and the quantity the customer approved.
       allow update: if allowed()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'qty', 'notes', 'status',
-             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline'])
-        && deadlineOk(request.resource.data)
+             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline', 'gift'])
+        && deadlineOk(request.resource.data) && giftOk(request.resource.data)
         // declined is the client's (server); Alex may set it too, and back to reopen.
         && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid', 'declined']
         && shortText(request.resource.data.title, 200)

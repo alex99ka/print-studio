@@ -77,16 +77,46 @@ int? daysLeft(Map<String, dynamic>? r, DateTime today) {
   return DateTime.utc(d.year, d.month, d.day).difference(DateTime.utc(today.year, today.month, today.day)).inDays;
 }
 
-/// Days of printing still ahead: Gift Factory's printHours less the plates done; one day
-/// without its numbers (a microphone flag). Same as print_days_left in server/app/jobs.py.
-int printDaysLeft(Map<String, dynamic> r) {
+/// Hours of printing still ahead: Gift Factory's printHours less the plates done; else the
+/// Flag Maker's printMinutes per unit (request.estimate) times the quantity; else one day.
+/// Same as print_hours_left in server/app/jobs.py.
+double printHoursLeft(Map<String, dynamic> r) {
   final p = productionOf(r);
   final hours = ((p['quote'] as Map?)?['printHours'] as num?)?.toDouble() ?? 0;
-  if (hours <= 0) return 1;
-  final prog = (p['progress'] as Map?) ?? const {};
-  final total = (prog['platesTotal'] as num?) ?? 0, done = (prog['platesDone'] as num?) ?? 0;
-  final ahead = total > 0 ? hours * (total - done).clamp(0, total) / total : hours;
-  return (ahead / 24).ceil();
+  if (hours > 0) {
+    final prog = (p['progress'] as Map?) ?? const {};
+    final total = (prog['platesTotal'] as num?) ?? 0, done = (prog['platesDone'] as num?) ?? 0;
+    return total > 0 ? hours * (total - done).clamp(0, total) / total : hours;
+  }
+  final minutes = ((r['estimate'] as Map?)?['printMinutes'] as num?) ?? 0;
+  if (minutes > 0) return minutes * max(1, (r['qty'] as num?)?.toInt() ?? 1) / 60;
+  return 24;
+}
+
+/// Days of printing still ahead. Same as print_days_left in server/app/jobs.py.
+int printDaysLeft(Map<String, dynamic> r) => (printHoursLeft(r) / 24).ceil();
+
+/// C-2: one X2D for every order. Each request with a deadline and printing still ahead gets
+/// its (start, end), as late as it can: ending 2 days before its deadline and before the next
+/// one starts (latest deadline placed first). A start before today = the printer can't make it.
+/// Same as print_schedule in server/app/jobs.py (same test cases); times are wall-clock days.
+Map<String, ({DateTime start, DateTime end})> printSchedule(Map<String, Map<String, dynamic>> rows) {
+  final queue = <(DateTime, String, double)>[];
+  for (final e in rows.entries) {
+    final due = DateTime.tryParse('${e.value['deadline'] ?? ''}');
+    if (due == null || const {'ready', 'delivered', 'paid', 'declined'}.contains(e.value['status'])) continue;
+    queue.add((DateTime.utc(due.year, due.month, due.day), e.key, printHoursLeft(e.value)));
+  }
+  queue.sort((a, b) => a.$1 != b.$1 ? b.$1.compareTo(a.$1) : b.$2.compareTo(a.$2));
+  final out = <String, ({DateTime start, DateTime end})>{};
+  DateTime? cursor;
+  for (final (due, id, hours) in queue) {
+    var end = due.subtract(const Duration(days: 2));
+    if (cursor != null && cursor.isBefore(end)) end = cursor;
+    cursor = end.subtract(Duration(minutes: (hours * 60).round()));
+    out[id] = (start: cursor, end: end);
+  }
+  return out;
 }
 
 /// The Pi's first reminder (and the app's amber) comes this many days before the deadline.
@@ -190,7 +220,7 @@ Future<void> replacePortalLink(Doc customer) =>
     customer.reference.update({'portalToken': newPortalToken()});
 
 Future<String> addRequest(
-    {required Doc customer, required String title, required int qty, String notes = '', DateTime? deadline}) async {
+    {required Doc customer, required String title, required int qty, String notes = '', DateTime? deadline, String? gift}) async {
   final ref = await requestsRef.add({
     'customerId': customer.id,
     'customerName': customer.data()?['name'] ?? '',
@@ -198,6 +228,7 @@ Future<String> addRequest(
     'qty': qty,
     'notes': notes.trim(),
     if (deadline != null) 'deadline': isoDate(deadline),
+    'gift': ?gift,
     'status': 'draft',
     'latestVersion': 0,
     'createdAt': FieldValue.serverTimestamp(),
@@ -299,6 +330,10 @@ Future<void> addPayment(Doc request, {required int amount, required String metho
 Future<void> setDeadline(Doc request, DateTime? day) => request.reference
     .update({'deadline': day == null ? null : isoDate(day), 'updatedAt': FieldValue.serverTimestamp()});
 
+/// B4: the shop product the request is for (its slug), or none. Gift Factory opens that model.
+Future<void> setGift(Doc request, String? slug) =>
+    request.reference.update({'gift': slug, 'updatedAt': FieldValue.serverTimestamp()});
+
 Future<void> setStatus(Doc request, String status) =>
     request.reference.update({'status': status, 'updatedAt': FieldValue.serverTimestamp()});
 
@@ -344,6 +379,9 @@ Future<String> pairGiftFactory() async => (await server('POST', '/studio/giftfac
 // --- Gift Factory (server/GIFT_FACTORY.md): only the server writes request.production and .guests ---
 
 /// What Gift Factory reported on a request: quote, progress, actualCost (each may be missing).
+/// B10: Gift Factory's live printer state (requests.printer, written by the server).
+const printerStates = {'printing': 'מדפיסה', 'paused': 'בהשהיה', 'failed': 'נכשלה', 'finished': 'הסתיימה'};
+
 Map<String, dynamic> productionOf(Map<String, dynamic> request) =>
     (request['production'] as Map?)?.cast<String, dynamic>() ?? const {};
 

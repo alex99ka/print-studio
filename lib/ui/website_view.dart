@@ -202,6 +202,7 @@ class _WebsiteViewState extends State<WebsiteView> {
             [
               'התקבלה ${ltr(_day(l['created_at'], time: true))}',
               if (l['wedding_date'] != null) 'חתונה ב-${ltr(_day(l['wedding_date']))}',
+              if (l['gift'] != null) 'מוצר: ${_giftNames['${l['gift']}'] ?? l['gift']}${l['qty'] == null ? '' : ' × ${l['qty']}'}',
               if (l['guests'] != null) '${l['guests']} אורחים',
               'נוח לדבר: ${callTimes[l['call_time']] ?? l['call_time']}',
               'שפה: ${siteLangNames[l['lang']] ?? l['lang']}',
@@ -214,7 +215,7 @@ class _WebsiteViewState extends State<WebsiteView> {
             child: TextButton.icon(
               onPressed: () => _requestFrom(l),
               icon: const Icon(Icons.add_box_outlined),
-              label: const Text('פתיחת בקשה'),
+              label: const Text('צור לקוח + בקשה'),
             ),
           ),
         ]),
@@ -231,7 +232,8 @@ class _WebsiteViewState extends State<WebsiteView> {
             : await (await addCustomer(name: '${l['name']}', phone: '${l['phone']}', lang: l['lang'] == 'he' ? 'he' : 'en')).get();
         if (!mounted) return;
         final from = requestFromLead(l, DateTime.now());
-        final id = await newRequest(context, customer: customer, qty: from.qty, notes: from.notes, deadline: from.deadline);
+        final id = await newRequest(context,
+            customer: customer, qty: from.qty, notes: from.notes, deadline: from.deadline, gift: from.gift);
         if (id == null) return;
         await setLeadStatus(l['id'], 'opened');
         if (mounted) setState(() => l['status'] = 'opened');
@@ -598,6 +600,18 @@ class _GiftPageState extends State<GiftPage> {
                 number(_leadDays, 'ימי הכנה'),
                 number(_sort, 'סדר (נמוך קודם)'),
               ]),
+              if (_g['unit_minutes'] case final num minutes) Builder(builder: (context) {
+                // B13: never written by itself; Alex takes the suggestion or not.
+                final want = suggestedLeadDays(int.tryParse(_minQty.text.trim()) ?? 1, minutes);
+                return Row(children: [
+                  Expanded(
+                    child: Text('זמן הדפסה נמדד: ${minutes.toStringAsFixed(1)} דק׳ ליחידה · '
+                        'ימי הכנה מוצעים לכמות המינימלית: $want'),
+                  ),
+                  if ('$want' != _leadDays.text.trim())
+                    TextButton(onPressed: () => setState(() => _leadDays.text = '$want'), child: const Text('להשתמש')),
+                ]);
+              }),
               SwitchListTile(
                 contentPadding: EdgeInsets.zero,
                 title: const Text('מוצג באתר'),

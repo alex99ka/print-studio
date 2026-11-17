@@ -521,6 +521,11 @@ class _RequestDetailState extends State<RequestDetail> {
           ),
         ],
       ]),
+      TextButton.icon(
+        onPressed: () => pickGift(context, request),
+        icon: const Icon(Icons.redeem_outlined),
+        label: Text(r['gift'] == null ? 'מוצר מהאתר (לא חובה)' : 'מוצר: ${r['gift']}'),
+      ),
       if ('${r['notes'] ?? ''}'.isNotEmpty) Text('הערות: ${r['notes']}', style: TextStyle(color: s.muted)),
     ]);
 
@@ -700,10 +705,11 @@ class _RequestDetailState extends State<RequestDetail> {
     final progress = production['progress'] as Map?;
     final actual = production['actualCost'] as Map?;
     final guests = r['guests'] as Map?;
+    final printer = r['printer'] as Map?;
     final approvedQuote = quotes.where((q) => q.id == (r['approvedQuoteId'] ?? r['quoteId'])).firstOrNull;
     final earned = profit(r, approvedQuote?.data());
     final small = TextStyle(color: s.muted, fontSize: 12);
-    final productionCard = gfQuote == null && progress == null && actual == null && guests == null
+    final productionCard = gfQuote == null && progress == null && actual == null && guests == null && printer == null
         ? null
         : Card(
             child: Padding(
@@ -779,11 +785,56 @@ class _RequestDetailState extends State<RequestDetail> {
                       '${progress['finishDate'] == null ? '' : ' · מוכן עד ${isoDay(progress['finishDate'])}'}',
                       style: small),
                 ],
+                if (printer != null) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                      'מדפסת: פלטה ${printer['plate']} מתוך ${printer['plates']} · '
+                      '${printerStates[printer['state']] ?? printer['state']}'
+                      '${printer['state'] == 'printing' ? ' · עוד ${printer['minutesLeft']} דק׳' : ''}'
+                      '${printer['at'] == null ? '' : ' · עודכן ${day(printer['at'])}'}',
+                      style: small),
+                ],
                 if (actual != null) ...[
                   const SizedBox(height: 8),
                   MoneyLine('עלות בפועל', actual['total'] as int),
                   if (earned != null) MoneyLine('רווח (לפני מע״מ)', earned, bold: true),
                 ],
+              ]),
+            ),
+          );
+
+    // B8: what the Flag Maker estimated for its newest version that says.
+    final est = versions.reversed.map((v) => v.data()['estimate'] as Map?).nonNulls.firstOrNull;
+    final estimateCard = est == null
+        ? null
+        : Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Text('הערכה מ-Flag Maker (ליחידה)', style: Theme.of(context).textTheme.titleMedium),
+                Text(
+                    [
+                      if (est['printMinutes'] != null) '${est['printMinutes']} דק׳ הדפסה',
+                      if (est['grams'] != null) '${est['grams']} גרם',
+                    ].join(' · '),
+                    style: small),
+                if (est['costAgorot'] != null) MoneyLine('עלות ליחידה', est['costAgorot'] as int),
+                if (est['suggestedAgorot'] != null) MoneyLine('מחיר מוצע ליחידה', est['suggestedAgorot'] as int, bold: true),
+                if (open && est['suggestedAgorot'] != null)
+                  FilledButton.tonal(
+                    onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => QuoteDialog(
+                            request: request,
+                            current: quote?.data(),
+                            unit: est['suggestedAgorot'] as int,
+                            suggestion: {
+                              'from': 'Flag Maker',
+                              'unitPrice': est['suggestedAgorot'],
+                              if (est['costAgorot'] != null) 'unitCost': est['costAgorot'],
+                            })),
+                    child: const Text('שימוש כהצעת מחיר'),
+                  ),
               ]),
             ),
           );
@@ -832,6 +883,7 @@ class _RequestDetailState extends State<RequestDetail> {
         preview,
         const SizedBox(height: 16),
         if (productionCard != null) ...[productionCard, const SizedBox(height: 16)],
+        if (estimateCard != null) ...[estimateCard, const SizedBox(height: 16)],
         if (box.maxWidth >= 700)
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             SizedBox(width: 320, child: Column(children: [quoteCard, const SizedBox(height: 16), payCard])),

@@ -30,9 +30,14 @@ export, Drive backups, light/dark, RTL.
 - **Customer page**: every request of the customer, what they paid and what is left (in total and per
   order), record a payment, add a request for them. Beside the list on a wide screen.
 - **Deadlines**: a day per request (calendar), shown in the lists (amber from the first reminder, red once
-  passed). The Pi pushes at 09:00 (switch `deadlines`) when printing must start (the printing still ahead by
-  Gift Factory's `printHours` less the plates done, or 1 day without them, plus 2 days), the day before, on
+  passed). The Pi pushes at 09:00 (switch `deadlines`) when printing must start, the day before, on
   the day and the day after if missed (`jobs.deadline_reminders`).
+- **One printer** (C-2): every order with a deadline is laid on the X2D back to back, as late as it can, ending
+  2 days before its deadline and before the next one starts (`print_schedule` in `jobs.py` = `printSchedule`
+  in `studio.dart`). Print time still ahead: Gift Factory's `printHours` less the plates done, else the Flag
+  Maker's `printMinutes` per unit × quantity (B8), else one day. "לוח מדפסת" (ribbon) lists it; the "start
+  printing" push comes on an order's start day, and one push a morning names every order whose start has
+  already passed (the printer can no longer make it).
 - **Gift Factory link** (below): event-gift runs report their quote, progress and real cost here; the client
   sends a guest list through the portal.
 - **Shop website** (below): the "אתר" tab manages the public shop site: its call-back requests, products,
@@ -69,6 +74,20 @@ Pi (`DATA_DIR/files/<version id>/`; Firebase Storage needs Blaze) and are
 zipped to Drive once each by the daily backup. The customer only ever talks to
 the Pi, which writes their comments and approvals with the Admin SDK.
 
+## Flag Maker routes
+
+All with the Flag Maker's `X-Studio-Key` (401 without it); `crm_link.py` and `app/tests/check_crm_link.py` hold
+the older ones. Added in 0.5.0, all optional for the Flag Maker:
+
+- **B8 estimate**: `POST /fm/requests/{rid}/versions` also takes form fields `printMinutes` (whole minutes),
+  `grams` (number), `costAgorot`, `suggestedAgorot` (agorot, whole numbers ≥ 0), all **per unit** and each
+  optional (422 when negative or not a number). Kept on the version as `estimate`; the request shows the newest
+  one and "שימוש כהצעת מחיר" fills the quote form with the suggested price.
+- **B5 printed**: `POST /fm/requests/{rid}/printed` moves אושר / בהדפסה → מוכן with one push; 409 from any other
+  status, 404 unknown request. Answer `{"ok": true, "status": "ready"}`.
+- **B12 problems**: `POST /fm/problem` `{"version", "code", "message"}` → Alex's Telegram, at most 10 an hour
+  (429), same as Gift Factory's (`server/GIFT_FACTORY.md` › C-0 additions).
+
 ## Shop website
 
 The public shop ([`..\website`](../website), Next.js on Vercel) is managed from the **אתר** tab; the code is
@@ -87,7 +106,10 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
   The drawn ones come from the website's `tools/render_gifts.py`:
   `POST /website/gifts/<slug>/renders`, header `X-Studio-Key` (הגדרות › חיבור סקריפט התמונות של האתר),
   multipart fields `still`, `top`, `spin-0` … `spin-6` (JPEG, any subset) and `meta` =
-  `{"size_mm": [x, y, z], "spin": {"cols", "rows", "start": [row, col], "tile"}, "gift": {…}}`. `gift`
+  `{"size_mm": [x, y, z], "spin": {"cols", "rows", "start": [row, col], "tile"}, "gift": {…}, "unit_minutes": 7.5}`.
+  `unit_minutes` (optional, > 0, B13) is one unit's measured print time; it stays on the Pi (not a Supabase
+  column) and the product page suggests `lead_days` from it (`ceil(min_qty × minutes / 1440) + 2`) for Alex to
+  take or leave. `gift`
   (`name`, `text`, `kind`, `min_qty`, `lead_days`, `published`, `feature`, `sort`) is optional and creates the
   product only when the site does not have it yet: what was edited in the CRM is never overwritten.
 - **Wording**: `server/app/static/site_texts.json` is the code's wording per key (`hero.h1`,
@@ -95,10 +117,13 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
   server when `site.ts` changes. An override is a `site_texts` row holding only the languages that differ;
   "איפוס" deletes the row. Dropping a placeholder (`{name}`, `{n}`) warns before saving.
 - **Call-back requests** (`leads`, personal data: signed-in users only): newest first, a status
-  (`new` / `called` / `opened` / `dropped`), and "פתיחת בקשה", which finds or adds the customer by phone and
-  opens a request with the guests, the wedding day and the gifts they liked.
-- **New lead alert**: the site calls `POST /website/lead` (its `LEAD_WEBHOOK_URL`) with the shared key in
-  `x-key` (`LEAD_WEBHOOK_KEY` on both sides, compared in constant time); the studio gets a `client` push
+  (`new` / `called` / `opened` / `dropped`), and "צור לקוח + בקשה", which finds or adds the customer by phone and
+  opens a request with the amount (else the guests), the product, the wedding day and the gifts they liked,
+  then marks the lead `opened`. Since 0.5.0 (B3) a lead may carry `gift` (the product slug the form was sent
+  from, `text`, nullable) and `qty` (`int`, nullable): the website adds both columns to `leads` and sends them;
+  without them nothing changes. The request keeps the slug as `gift` (B4; Alex can also pick it on the request).
+- **New lead alert**: the site calls `POST /website/lead` (its `LEAD_WEBHOOK_URL`) with `{name, guests,
+  wedding_date, gift, qty}` (all optional) and the shared key in `x-key` (`LEAD_WEBHOOK_KEY` on both sides, compared in constant time); the studio gets a `client` push
   that opens the list. The phone number is not in the push.
 - Errors are `W1`–`W6` (`lib/core/errors.dart`), carrying the server's plain words.
 
