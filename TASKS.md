@@ -107,7 +107,7 @@ shows on the portal (and takes a guest list) only after a version is published.
    side by side and the client approves one specific version (with the price). Today only one version is
    published at a time (`publishedVersionId`) and approval takes that one. Touches the portal, `portal_approve`,
    the rules (a list of published versions) and the request page.
-2. **A price fixed by mistake stays hidden.** 17.11: Alex published ₪120 by accident, fixed it to ₪150, and the
+2. ✅ (0.5.0, "תיקון טעות" on a new price hides every earlier price from the client) **A price fixed by mistake stays hidden.** 17.11: Alex published ₪120 by accident, fixed it to ₪150, and the
    client saw the ₪120 (the portal lists earlier quotes as "previousQuotes"). To decide: never show earlier
    prices, or a "תיקון טעות" switch on a new quote that hides the one it replaces (the QuoteDialog line "הלקוח
    יראה ... שהיה מחיר קודם" changes with it).

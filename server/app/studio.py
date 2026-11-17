@@ -494,12 +494,15 @@ def portal_data(token: str, preview: str = "") -> dict:
                                          for k, title in enumerate(vw["tabs"], 1)]} if (vw := v.get("views")) else None,
                 "note": v.get("note", ""), "at": _iso(v.get("publishedAt") or v.get("createdAt")),
             })
+    corrected = {}  # request -> when its newest correction was saved: earlier prices were mistakes
     for qid, q in _mine(cid, "quotes"):
         # The final price only: unit price, discount and VAT amounts stay in the studio.
         quotes[q.get("requestId")].append({
             "id": qid, "note": q.get("note", ""), "at": _iso(q.get("createdAt")),
             "total": quote_total(q), "withVat": int(q.get("vatPercent", 18)) > 0,
         })
+        if q.get("correction") and (at := _iso(q.get("createdAt"))):
+            corrected[q.get("requestId")] = max(at, corrected.get(q.get("requestId"), at))
     for mid, m in _mine(cid, "comments"):
         comments[m.get("requestId")].append({
             "id": mid, "from": m.get("from"), "text": m.get("text", ""), "pin": m.get("pin"),
@@ -520,7 +523,7 @@ def portal_data(token: str, preview: str = "") -> dict:
             "currentVersionId": r.get("publishedVersionId"),
             "versions": sorted(versions[rid], key=lambda v: v["n"] or 0),
             "quote": quote,
-            "previousQuotes": [q for q in qs if q["id"] != r.get("quoteId")],
+            "previousQuotes": [q for q in qs if q["id"] != r.get("quoteId") and (q["at"] or "") >= corrected.get(rid, "")],
             "comments": sorted(comments[rid], key=lambda m: m["at"] or ""),
             "approved": {"versionId": r.get("approvedVersionId"), "at": _iso(r.get("approvedAt"))}
             if r.get("approvedVersionId") else None,

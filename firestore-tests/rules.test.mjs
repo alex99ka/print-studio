@@ -217,3 +217,9 @@ test('payments: the app records and deletes them, positive whole agorot, never e
   await assertFails(getDoc(doc(db(STRANGER), 'payments/p1')));
   await assertSucceeds(deleteDoc(doc(db(ALEX), 'payments/p1')));
 });
+
+test('quotes: a correction is a yes/no flag', async () => {
+  const q = { requestId: 'draft', customerId: 'c1', unit: 15000, qty: 1, vatPercent: 0, note: '' };
+  await assertSucceeds(addDoc(collection(db(ALEX), 'quotes'), { ...q, correction: true }));
+  await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...q, correction: 'yes' }));
+});

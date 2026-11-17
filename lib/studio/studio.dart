@@ -257,7 +257,8 @@ Future<void> addQuote(Doc request,
     required int vatPercent,
     required String note,
     int discount = 0,
-    int? discountPct}) {
+    int? discountPct,
+    bool correction = false}) {
   final q = quotesRef.doc();
   final b = _db.batch()
     ..set(q, {
@@ -269,6 +270,7 @@ Future<void> addQuote(Doc request,
       if (discount > 0) 'discount': discount,
       if (discount > 0 && discountPct != null) 'discountPct': discountPct,
       'note': note.trim(),
+      if (correction) 'correction': true,
       'createdAt': FieldValue.serverTimestamp(),
       'by': FirebaseAuth.instance.currentUser?.uid ?? '',
     })

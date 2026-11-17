@@ -155,6 +155,21 @@ def test_portal_shows_only_published(client, db):
     q = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["quote"]
     assert q["total"] == 38232 and q["withVat"] and not {"unit", "qty", "discount", "discountPct", "vat", "net"} & q.keys()
     assert client.get(f"/p/{TOKEN_B}/data").json()["requests"] == []
+    # A wrong price, then the right one: shown as earlier, unless the new one is a correction.
+    at = lambda day: datetime(2026, 11, day, tzinfo=timezone.utc)  # noqa: E731
+    db.document("quotes/q1").update({"createdAt": at(10)})
+    db.document("quotes/q2").set({"requestId": "r1", "customerId": "c1", "unit": 15000, "qty": 2, "vatPercent": 0, "createdAt": at(11)})
+    db.document("requests/r1").update({"quoteId": "q2"})
+    assert [q["id"] for q in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["previousQuotes"]] == ["q1"]
+    db.document("quotes/q3").set({"requestId": "r1", "customerId": "c1", "unit": 15000, "qty": 2, "vatPercent": 0,
+                                  "createdAt": at(12), "correction": True})
+    db.document("requests/r1").update({"quoteId": "q3"})
+    r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert r["quote"]["id"] == "q3" and r["previousQuotes"] == []
+    db.document("quotes/q4").set({"requestId": "r1", "customerId": "c1", "unit": 16000, "qty": 2, "vatPercent": 0, "createdAt": at(13)})
+    db.document("requests/r1").update({"quoteId": "q4"})  # a real re-quote after it shows the correction only
+    assert [q["id"] for q in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["previousQuotes"]] == ["q3"]
+    db.document("requests/r1").update({"quoteId": "q1"})
     # The client gets the pictures, watermarked (same size, different pixels).
     shown = client.get(f"/p/{TOKEN_A}/f/{vid}/preview.png").content
     assert shown != PNG and Image.open(io.BytesIO(shown)).size == (200, 120)

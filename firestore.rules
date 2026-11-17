@@ -109,7 +109,9 @@ service cloud.firestore {
     match /quotes/{id} {
       allow read: if allowed();
       allow create: if allowed()
-        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'unit', 'qty', 'vatPercent', 'note', 'createdAt', 'by', 'discount', 'discountPct'])
+        && request.resource.data.keys().hasOnly(['requestId', 'customerId', 'unit', 'qty', 'vatPercent', 'note', 'createdAt', 'by', 'discount', 'discountPct', 'correction'])
+        // A correction of a mistake: the client no longer sees any earlier price of the request.
+        && (!('correction' in request.resource.data) || request.resource.data.correction is bool)
         && request.resource.data.unit is int && request.resource.data.unit >= 0
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.vatPercent is int

@@ -227,6 +227,7 @@ class _QuoteDialogState extends State<QuoteDialog> {
   late final _qty = TextEditingController(text: '${widget.qty ?? widget.request.data()?['qty'] ?? 1}');
   late final _note = TextEditingController(text: '${widget.current?['note'] ?? ''}');
   late bool _vat = ((widget.current?['vatPercent'] as int?) ?? 0) > 0;
+  bool _correction = false;
   late bool _pct = widget.current == null || widget.current?['discountPct'] != null;
   late final _discount = TextEditingController(
       text: switch (widget.current) {
@@ -267,11 +268,19 @@ class _QuoteDialogState extends State<QuoteDialog> {
         width: 440,
         child: SingleChildScrollView(
           child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          if (widget.current != null)
-            const Padding(
-              padding: EdgeInsets.only(bottom: 12),
-              child: Text('הלקוח יראה את המחיר החדש, וגם שהיה מחיר קודם.'),
+          if (widget.current != null) ...[
+            Text(_correction
+                ? 'הלקוח יראה רק את המחיר החדש: המחירים הקודמים נעלמים מהדף שלו.'
+                : 'הלקוח יראה את המחיר החדש, וגם שהיה מחיר קודם.'),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('תיקון טעות'),
+              subtitle: const Text('המחיר הקודם היה טעות: לא להראות ללקוח מחירים קודמים'),
+              value: _correction,
+              onChanged: (v) => setState(() => _correction = v),
             ),
+            const SizedBox(height: 4),
+          ],
           if (g != null) ...[
             Text('הצעה מ-${g['from'] ?? 'Gift Factory'}', style: const TextStyle(fontWeight: FontWeight.w500)),
             if (g['breakdown'] != null) ...[
@@ -373,7 +382,13 @@ class _QuoteDialogState extends State<QuoteDialog> {
                   Navigator.pop(context);
                   try {
                     await addQuote(widget.request,
-                        unit: unit, qty: qty, vatPercent: vatPercent, note: _note.text, discount: discount, discountPct: pct);
+                        unit: unit,
+                        qty: qty,
+                        vatPercent: vatPercent,
+                        note: _note.text,
+                        discount: discount,
+                        discountPct: pct,
+                        correction: _correction);
                   } catch (e) {
                     showError(messenger, e, 'שמירת המחיר נכשלה');
                   }
