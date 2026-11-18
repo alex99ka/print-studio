@@ -120,6 +120,7 @@ class _CustomerCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.studio;
     final phone = '${c.data()?['phone'] ?? ''}';
+    final kind = c.data()?['kind']; // older customers have none
     final waiting = requests.where((r) => r['status'] == 'waiting').length;
     final soon = requests.where((r) => (daysLeft(r.data(), today) ?? 1 << 30) <= remindDays(r.data()!)).length;
     return Card(
@@ -131,8 +132,8 @@ class _CustomerCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
-              if (customerKinds.containsKey(c['kind'])) ...[
-                Icon(c['kind'] == 'mic' ? Icons.mic_none : Icons.redeem_outlined, size: 20, color: s.muted),
+              if (customerKinds.containsKey(kind)) ...[
+                Icon(kind == 'mic' ? Icons.mic_none : Icons.redeem_outlined, size: 20, color: s.muted),
                 const SizedBox(width: 8),
               ],
               Expanded(child: Text('${c['name']}', style: Theme.of(context).textTheme.titleMedium)),
@@ -140,7 +141,7 @@ class _CustomerCard extends StatelessWidget {
             ]),
             Text(
               [
-                ?customerKinds[c['kind']],
+                ?customerKinds[kind],
                 if (phone.isNotEmpty) ltr(phone),
                 '${requests.length} בקשות',
                 if (waiting > 0) '$waiting ממתינות לאישור',

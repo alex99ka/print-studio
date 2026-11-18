@@ -8,6 +8,11 @@ the "what's new" text inside the app, so write it for them, in Hebrew.
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-11-18
+
+### תוקן
+- לשונית הלקוחות לא נטענה כשיש לקוח ותיק בלי סוג (מיקרופון/מתנות).
+
 ## [0.5.2] - 2026-11-18
 
 ### שונה
