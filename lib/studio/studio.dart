@@ -237,17 +237,25 @@ Future<String> addRequest(
   return ref.id;
 }
 
-/// The customer sees this version from now on, and the request waits for them.
-Future<void> publish(Doc request, Doc version) {
+/// The customer sees this version from now on, and the request waits for them. [alongside]
+/// keeps the versions already on offer, so the client approves one of them (studio.py offered()).
+Future<void> publish(Doc request, Doc version, {bool alongside = false}) {
   final b = _db.batch()
     ..update(version.reference, {'state': 'published', 'publishedAt': FieldValue.serverTimestamp()})
     ..update(request.reference, {
       'publishedVersionId': version.id,
+      'offeredVersionIds': alongside ? {...offeredVersions(request.data() ?? const {}), version.id}.toList() : [version.id],
       'status': 'waiting',
       'updatedAt': FieldValue.serverTimestamp(),
     });
   return b.commit();
 }
+
+/// The versions the client may approve now (studio.py offered()).
+List<String> offeredVersions(Map<String, dynamic> r) => [
+      ...?(r['offeredVersionIds'] as List?)?.cast<String>(),
+      if (r['offeredVersionIds'] == null && r['publishedVersionId'] != null) r['publishedVersionId'] as String,
+    ];
 
 /// A new quote replaces the current one; quotes are never edited. [discount] in agorot,
 /// [discountPct] only to show Alex how it was given (the client sees neither).

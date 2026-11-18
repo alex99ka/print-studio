@@ -521,6 +521,7 @@ def portal_data(token: str, preview: str = "") -> dict:
             "id": rid, "title": r.get("title", ""), "qty": r.get("qty", 1), "status": r.get("status", "draft"),
             "updated": _iso(r.get("updatedAt")),
             "currentVersionId": r.get("publishedVersionId"),
+            "offered": offered(r),
             "versions": sorted(versions[rid], key=lambda v: v["n"] or 0),
             "quote": quote,
             "previousQuotes": [q for q in qs if q["id"] != r.get("quoteId") and (q["at"] or "") >= corrected.get(rid, "")],
@@ -599,6 +600,12 @@ def portal_comment(token: str, rid: str, body: Comment) -> dict:
     return {"ok": True}
 
 
+def offered(r: dict) -> list[str]:
+    """The versions the client may approve: several when Alex published them side by side
+    (offeredVersionIds), else only the current one; older ones are history."""
+    return r.get("offeredVersionIds") or [v for v in [r.get("publishedVersionId")] if v]
+
+
 class Approval(BaseModel):
     versionId: str = Field(max_length=40)
     quoteId: str = Field(max_length=40)
@@ -606,8 +613,8 @@ class Approval(BaseModel):
 
 @router.post("/p/{token}/requests/{rid}/approve")
 def portal_approve(token: str, rid: str, body: Approval) -> dict:
-    """One step: this version and this price. Both must still be the current
-    ones, so a customer looking at an old page can't approve what changed."""
+    """One step: this version and this price. Both must still be on offer, so a
+    customer looking at an old page can't approve what changed."""
     cid, c = _customer(token)
     _limit(token)
     db = firebase.db()
@@ -620,7 +627,7 @@ def portal_approve(token: str, rid: str, body: Approval) -> dict:
             raise HTTPException(404, "No such request")
         if r.get("status") != "waiting":
             raise HTTPException(409, "Not waiting for approval")
-        if r.get("publishedVersionId") != body.versionId or r.get("quoteId") != body.quoteId:
+        if body.versionId not in offered(r) or r.get("quoteId") != body.quoteId:
             raise HTTPException(409, "The design or the price changed; reload")
         q = db.document(f"quotes/{body.quoteId}").get(transaction=t).to_dict() or {}
         t.update(req, {

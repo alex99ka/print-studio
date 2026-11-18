@@ -218,6 +218,21 @@ def test_approval_is_one_step_and_checks_what_is_current(client, db, pushes):
     assert client.post("/studio/requests/r1/versions", files=files()).status_code == 409
 
 
+def test_client_picks_one_of_the_versions_offered_side_by_side(client, db, pushes):
+    v1, v2, v3 = (client.post("/studio/requests/r1/versions", files=files()).json()["id"] for _ in range(3))
+    for v in (v1, v2, v3):
+        publish(db, v)
+    # v3 alone: v1 and v2 are history, not on offer.
+    assert client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["offered"] == [v3]
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": v1, "quoteId": "q1"}).status_code == 409
+    db.document("requests/r1").update({"offeredVersionIds": [v1, v3]})  # "לצד" in the app
+    assert client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["offered"] == [v1, v3]
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": v2, "quoteId": "q1"}).status_code == 409
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": v1, "quoteId": "q1"}).status_code == 200
+    r = db.document("requests/r1").get().to_dict()
+    assert r["approvedVersionId"] == v1 and db.document(f"versions/{v1}").get().to_dict()["state"] == "approved"
+
+
 def test_client_declines_only_while_waiting(client, db, pushes):
     vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
     assert client.post(f"/p/{TOKEN_A}/requests/r1/decline", json={}).status_code == 409  # still a draft

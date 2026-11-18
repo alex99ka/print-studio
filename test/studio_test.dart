@@ -35,6 +35,12 @@ void main() {
     expect((q[0].net, q[0].received, q[1].received), (15000, 2500, 700));
   });
 
+  test('offered versions match the server (studio.py offered())', () {
+    expect(offeredVersions({}), isEmpty);
+    expect(offeredVersions({'publishedVersionId': 'v2'}), ['v2']);
+    expect(offeredVersions({'publishedVersionId': 'v2', 'offeredVersionIds': ['v1', 'v2']}), ['v1', 'v2']);
+  });
+
   test('shekel formats agorot', () {
     expect(shekel(42480), '₪424.80');
     expect(shekel(5), '₪0.05');

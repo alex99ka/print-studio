@@ -546,6 +546,8 @@ class _RequestDetailState extends State<RequestDetail> {
                   label: Text('v${v['n']}${switch (v['state']) {
                     'draft' => ' · טיוטה',
                     'approved' => ' · אושרה',
+                    _ when r['status'] == 'waiting' && offeredVersions(r).length > 1 =>
+                      offeredVersions(r).contains(v.id) ? ' · לבחירת הלקוח' : '',
                     _ => v.id == r['publishedVersionId'] ? ' · אצל הלקוח' : '',
                   }}'),
                   selected: v.id == version?.id,

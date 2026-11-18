@@ -15,11 +15,12 @@ export, Drive backups, light/dark, RTL.
 - **Requests → versions.** A version is a Flag Maker export: preview PNG, the
   Bambu 3MF, the design recipe, and two GLBs (the print plate, and the flag
   assembled on the microphone). It lands as a **draft**; "פרסם ללקוח" shows it
-  on the portal.
+  on the portal. When one is already waiting, Alex either replaces it or offers the new one beside it
+  (`offeredVersionIds`): the client then picks one of them and approves it.
 - **Portal** (`server/app/static/portal.html`, Hebrew/English): 2D / 3D /
   on-the-mic views, comments **pinned** on the picture or the 3D model, a
   quote before VAT + 18% VAT + total, and **one-step approval** of the current
-  version and price. Approval locks the request (version, price, quantity).
+  version (or one of those offered side by side) and price. Approval locks the request (version, price, quantity).
 - **Statuses**: טיוטה → ממתין לאישור → אושר → בהדפסה → מוכן → נמסר → שולם.
   While waiting, the client may cancel instead: הלקוח ביטל (`declined`).
   Customer comments and approvals push to the app (type `client`).

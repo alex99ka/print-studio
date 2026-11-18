@@ -82,14 +82,17 @@ service cloud.firestore {
       // version, the price and the quantity the customer approved.
       allow update: if allowed()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['title', 'qty', 'notes', 'status',
-             'publishedVersionId', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline', 'gift'])
+             'publishedVersionId', 'offeredVersionIds', 'quoteId', 'needsReply', 'customerName', 'updatedAt', 'deadline', 'gift'])
         && deadlineOk(request.resource.data) && giftOk(request.resource.data)
         // declined is the client's (server); Alex may set it too, and back to reopen.
         && request.resource.data.status in ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid', 'declined']
         && shortText(request.resource.data.title, 200)
         && request.resource.data.qty is int && request.resource.data.qty >= 1
+        // Versions published side by side: the client approves one of them (studio.py offered()).
+        && (!('offeredVersionIds' in request.resource.data)
+            || (request.resource.data.offeredVersionIds is list && request.resource.data.offeredVersionIds.size() <= 10))
         && (resource.data.status in ['draft', 'waiting']
-            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publishedVersionId', 'quoteId', 'qty']));
+            || !request.resource.data.diff(resource.data).affectedKeys().hasAny(['publishedVersionId', 'offeredVersionIds', 'quoteId', 'qty']));
       allow delete: if allowed() && resource.data.status == 'draft';
     }
 

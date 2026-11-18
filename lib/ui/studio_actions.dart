@@ -73,8 +73,28 @@ Future<void> publishVersion(BuildContext context, Selection s) async {
   final v = publishable(s);
   if (v == null) return;
   final messenger = ScaffoldMessenger.of(context);
+  // Already one waiting for the client: replace it, or offer both and let the client pick.
+  final offered = s.r['status'] == 'waiting' ? offeredVersions(s.r) : const <String>[];
+  final names = [for (final o in s.versions) if (offered.contains(o.id)) 'v${o.data()?['n']}'].join(', ');
+  var alongside = false;
+  if (names.isNotEmpty) {
+    final choice = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('לפרסם את גרסה ${v.data()?['n']}'),
+        content: Text('הלקוח רואה עכשיו את $names. להחליף, או להציע לצדה כדי שהלקוח יבחר אחת ויאשר אותה?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('ביטול')),
+          OutlinedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('לצדה, הלקוח בוחר')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, false), child: Text('במקום $names')),
+        ],
+      ),
+    );
+    if (choice == null) return;
+    alongside = choice;
+  }
   try {
-    await publish(s.request, v);
+    await publish(s.request, v, alongside: alongside);
     messenger.showSnackBar(SnackBar(
       // A button no longer keeps it on screen (Flutter's default since 3.29): it closes by itself.
       persist: false,

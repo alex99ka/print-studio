@@ -99,6 +99,8 @@ test("requests: created as drafts, approval fields are the server's", async () =
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, latestVersion: 3 }));
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, qty: 0 }));
   await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'waiting', publishedVersionId: 'v2', quoteId: 'q', needsReply: false }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/draft'), { offeredVersionIds: ['v1', 'v2'] })); // side by side
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { offeredVersionIds: 'v2' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { approvedVersionId: 'v2' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { latestVersion: 9 }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/draft'), { status: 'lost' }));
@@ -128,6 +130,7 @@ test('requests: an approved one keeps its version, price and quantity; moves alo
   await assertSucceeds(updateDoc(doc(db(ALEX), 'requests/done'), { status: 'printing' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { quoteId: 'cheaper' }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { publishedVersionId: 'v9' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { offeredVersionIds: ['v1', 'v9'] }));
   await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { qty: 5 }));
   await assertFails(deleteDoc(doc(db(ALEX), 'requests/done')));
   await assertSucceeds(deleteDoc(doc(db(ALEX), 'requests/draft')));
