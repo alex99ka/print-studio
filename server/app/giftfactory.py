@@ -19,7 +19,7 @@ from typing import Annotated, Literal
 from urllib.parse import quote
 
 import openpyxl
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, Request, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, Header, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, Response
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
@@ -414,16 +414,17 @@ def guest_template() -> bytes:
 
 
 @router.get("/p/{token}/guest-template.xlsx")
-def portal_guest_template(token: str) -> Response:
-    _customer(token)
+def portal_guest_template(token: str, ps: Annotated[str | None, Cookie()] = None) -> Response:
+    _customer(token, ps)
     return Response(guest_template(), media_type=GUEST_TYPES[".xlsx"],
                     headers={"Content-Disposition": 'attachment; filename="guests.xlsx"', "Cache-Control": "no-store"})
 
 
 @router.post("/p/{token}/requests/{rid}/guests")
-def portal_guests(token: str, rid: str, file: Annotated[UploadFile, File()]) -> dict:
+def portal_guests(token: str, rid: str, file: Annotated[UploadFile, File()],
+                  ps: Annotated[str | None, Cookie()] = None) -> dict:
     """Checked before it is kept: a list that fails here never replaces a good one."""
-    cid, c = _customer(token)
+    cid, c = _customer(token, ps)
     _limit(token)
     try:
         ref, r = _ref(rid)

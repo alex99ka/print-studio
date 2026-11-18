@@ -7,7 +7,7 @@ import {
   assertSucceeds,
   initializeTestEnvironment,
 } from '@firebase/rules-unit-testing';
-import { addDoc, collection, deleteDoc, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, deleteField, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 
 let env;
 const ALEX = { uid: 'alex', email: 'alex@example.com', email_verified: true };
@@ -40,7 +40,7 @@ beforeEach(async () => {
       emails: ['alex@example.com', 'alex2@example.com'],
       earlyUsers: ['alex@example.com'],
     });
-    await setDoc(doc(f, 'customers/c1'), { name: 'INTERVIEW', lang: 'he', portalToken: 't'.repeat(22) });
+    await setDoc(doc(f, 'customers/c1'), { name: 'INTERVIEW', lang: 'he', portalToken: 't'.repeat(22), googleUid: 'u1', googleEmail: 'dana@gmail.com' });
     await setDoc(doc(f, 'requests/draft'), { ...request, status: 'draft' });
     await setDoc(doc(f, 'requests/done'), { ...request, status: 'approved', publishedVersionId: 'v1', quoteId: 'q1' });
     await setDoc(doc(f, 'versions/v1'), { requestId: 'done', customerId: 'c1', n: 1, state: 'approved', note: '' });
@@ -93,6 +93,11 @@ test('customers: shape, and a portal token long enough not to guess', async () =
   await assertSucceeds(addDoc(collection(db(ALEX), 'customers'), { ...customer, kind: 'mic' }));
   await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, kind: 'other' }));
   await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { portalToken: 'n'.repeat(22) }));
+  // The gift link's Google account: set by the server, kept or removed by the app, never set or changed by it.
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, googleUid: 'u2' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'customers/c1'), { googleUid: 'u2' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { name: 'renamed' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { googleUid: deleteField(), googleEmail: deleteField() }));
 });
 
 test("requests: created as drafts, approval fields are the server's", async () => {

@@ -299,3 +299,54 @@ def test_portal_shows_payments_and_what_is_left(client, db, pushes):
     assert "payments" not in r and "paid" not in r and "מקדמה" not in json.dumps(r, ensure_ascii=False)  # no history for the client
     client.delete("/studio/requests/r1")
     assert not db.document("payments/p1").get().exists
+
+
+def test_gift_portal_needs_the_google_account_that_signed_in_first(db, monkeypatch):
+    """Alex, 18.11: a gift link opens only after Google sign-in; the first client account owns it."""
+    accounts = {"dana": {"uid": "u-dana", "email": "Dana@gmail.com", "email_verified": True},
+                "ron": {"uid": "u-ron", "email": "ron@gmail.com", "email_verified": True},
+                "alex": {"uid": "u-alex", "email": "alex@example.com", "email_verified": True},
+                "unverified": {"uid": "u-x", "email": "x@x.com", "email_verified": False}}
+
+    def verify(token, app=None):
+        if token not in accounts:
+            raise firebase.auth.InvalidIdTokenError("bad", None)
+        return accounts[token]
+    monkeypatch.setattr(firebase.auth, "verify_id_token", verify)
+    monkeypatch.setattr(firebase, "app", lambda: None)
+    monkeypatch.setattr(firebase, "access", lambda: ({"alex@example.com"}, set()))
+    browser = lambda: TestClient(main.app, base_url="https://testserver")  # noqa: E731 (the cookie is Secure)
+    sign_in = lambda c, who, token=TOKEN_A: c.post(f"/p/{token}/session", json={"idToken": who})  # noqa: E731
+    db.document("customers/c1").update({"kind": "gift"})
+
+    dana = browser()
+    assert dana.get(f"/p/{TOKEN_A}/data").status_code == 401
+    assert dana.get(f"/p/{TOKEN_A}/guest-template.xlsx").status_code == 401
+    assert browser().get(f"/p/{TOKEN_B}/data").status_code == 200  # no kind: the bare link, as before
+    assert sign_in(dana, "nope").status_code == 401
+    assert sign_in(dana, "unverified").status_code == 403
+    assert sign_in(dana, "dana").json() == {"email": "dana@gmail.com", "studio": False}
+    assert db.document("customers/c1").get().to_dict()["googleEmail"] == "dana@gmail.com"
+    assert dana.get(f"/p/{TOKEN_A}/data").status_code == 200
+    # Another account is refused, and Dana's link stays hers.
+    ron = browser()
+    assert sign_in(ron, "ron").status_code == 403
+    assert ron.get(f"/p/{TOKEN_A}/data").status_code == 401
+    assert db.document("customers/c1").get().to_dict()["googleUid"] == "u-dana"
+    # A forged or altered cookie gets nothing; the cookie is for this link only.
+    forged = browser()
+    forged.cookies.set("ps", "u-dana.9999999999.0000")
+    assert forged.get(f"/p/{TOKEN_A}/data").status_code == 401
+    assert studio._session_who(TOKEN_B, dana.cookies.get("ps")) is None
+    # Alex gets in with an allowlisted account without taking the link over.
+    alex = browser()
+    assert sign_in(alex, "alex").json()["studio"] is True
+    assert alex.get(f"/p/{TOKEN_A}/data").status_code == 200
+    assert db.document("customers/c1").get().to_dict()["googleUid"] == "u-dana"
+    # The app releases the account: Dana's cookie stops working and the next account owns the link.
+    db.document("customers/c1").update({"googleUid": gfirestore.DELETE_FIELD, "googleEmail": gfirestore.DELETE_FIELD})
+    assert dana.get(f"/p/{TOKEN_A}/data").status_code == 401
+    assert sign_in(ron, "ron").status_code == 200 and ron.get(f"/p/{TOKEN_A}/data").status_code == 200
+    # A microphone customer keeps the bare link.
+    db.document("customers/c1").update({"kind": "mic"})
+    assert browser().get(f"/p/{TOKEN_A}/data").status_code == 200

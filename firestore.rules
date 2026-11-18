@@ -40,6 +40,10 @@ service cloud.firestore {
     // (server/app/studio.py, Admin SDK), which also writes versions, the
     // customer's comments and the approval. So the app may not.
 
+    function kept(f) {
+      return !(f in request.resource.data) || (resource != null && f in resource.data && resource.data[f] == request.resource.data[f]);
+    }
+
     function shortText(v, max) {
       return v is string && v.size() <= max;
     }
@@ -57,7 +61,10 @@ service cloud.firestore {
     match /customers/{id} {
       allow read, delete: if allowed();
       allow create, update: if allowed()
-        && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'kind', 'portalToken', 'notes', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'kind', 'portalToken', 'notes', 'createdAt',
+             'googleUid', 'googleEmail'])
+        // The Google account that owns a gift link is set by the server only; the app may keep or remove it.
+        && kept('googleUid') && kept('googleEmail')
         && shortText(request.resource.data.name, 200) && request.resource.data.name.size() > 0
         && request.resource.data.lang in ['he', 'en']
         // A microphone-flag customer or a gift customer; older ones have none.

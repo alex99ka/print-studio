@@ -135,7 +135,7 @@ const T = {
     approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
     yes:'כן, מאשר/ת', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
     you:'את/ה', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
-    footer:'הקישור הזה אישי, אין צורך בסיסמה.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
+    footer:'הקישור הזה אישי, אין צורך בסיסמה.', footerGoogle:'הקישור הזה אישי ונפתח רק בחשבון ה-Google שלכם.', signIn:'כדי לראות את ההזמנה, נכנסים עם חשבון Google. בפעם הבאה הקישור ייפתח רק בחשבון הזה.', signInBtn:'כניסה עם Google', otherAccount:'הקישור הזה שייך לחשבון Google אחר. נכנסים עם החשבון שבו נכנסתם בפעם הראשונה, או מבקשים מהסטודיו לשחרר אותו.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
     toPay:'נותר לתשלום', toPayAll:'סה״כ נותר',
     declineBtn:'לא מעוניין/ת בהזמנה', declineTitle:'לבטל את ההזמנה?',
@@ -160,7 +160,7 @@ const T = {
     approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t,vat)=>`Version ${v} for ${t}${vat ? ' incl. VAT' : ''}. This can't be changed afterwards.`,
     yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send',
     you:'You', studioName:'Print Studio', none:'Nothing is waiting for your approval.', noneApproved:'Nothing approved yet.',
-    footer:'This link is personal; no password needed.', gone:'This link is no longer active. Ask the studio for a new one.',
+    footer:'This link is personal; no password needed.', footerGoogle:'This link is personal and opens only in your Google account.', signIn:'To see your order, sign in with Google. From then on this link opens only in that account.', signInBtn:'Sign in with Google', otherAccount:'This link belongs to another Google account. Sign in with the one you used the first time, or ask the studio to release it.', gone:'This link is no longer active. Ask the studio for a new one.',
     failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
     toPay:'Left to pay', toPayAll:'Total left',
     declineBtn:"I don't want this order", declineTitle:'Cancel the order?',
@@ -210,6 +210,7 @@ const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' || s 
 async function load() {
   const r = await fetch(`${base}/data${preview ? '?preview=' + encodeURIComponent(preview) : ''}`, {cache: 'no-store'});
   if (r.status === 404) throw 'gone';
+  if (r.status === 401) throw 'signin';
   if (!r.ok) throw 'failed';
   data = await r.json();
   if (!lang) { try { lang = localStorage.getItem('lang'); } catch {} lang = T[lang] ? lang : (data.customer.lang === 'en' ? 'en' : 'he'); }
@@ -253,7 +254,7 @@ function list() {
     owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
     owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null) : null;
   $('main').replaceChildren(...(due ? [due] : []), seg, ...(cards.length ? cards : [h('p', {class: 'empty'}, tab === 'waiting' ? t().none : t().noneApproved)]),
-    h('p', {class: 'muted', style: 'text-align:center'}, t().footer));
+    h('p', {class: 'muted', style: 'text-align:center'}, data.customer.kind === 'gift' ? t().footerGoogle : t().footer));
 }
 
 function detail(r) {
@@ -440,7 +441,33 @@ function alertBox(text) { const p = h('p', {class: 'error', role: 'alert'}, text
 async function refresh() { try { await load(); } catch (e) { return fail(e); } route(); }
 function fail(e) {
   $('bar').hidden = true;
+  if (e === 'signin') return signInCard();
   $('main').replaceChildren(h('p', {class: 'empty'}, e === 'gone' ? T[lang || 'he'].gone : T[lang || 'he'].failed));
+}
+
+// A gift customer's link opens only in the Google account that signed in on it first (studio.py portal_session).
+function signInCard(error) {
+  const L = T[lang || (/^he/.test(navigator.language) ? 'he' : 'en')];
+  const btn = h('button', {type: 'button', class: 'pick', style: 'align-self:center'}, L.signInBtn);
+  btn.onclick = async () => {
+    btn.disabled = true;
+    try {
+      const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
+      const {getAuth, GoogleAuthProvider, signInWithPopup, signOut} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
+      const auth = getAuth(initializeApp({apiKey: 'AIzaSyDLYcFtRQ7-leIsE0_jYnkdkPpDaEIS8fQ', authDomain: 'print-studio-1786a.firebaseapp.com', projectId: 'print-studio-1786a'}));
+      const cred = await signInWithPopup(auth, new GoogleAuthProvider());
+      const res = await fetch(`${base}/session`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({idToken: await cred.user.getIdToken()})});
+      await signOut(auth);  // the server's cookie is the sign-in from now on
+      if (res.status === 403) return signInCard(L.otherAccount);
+      if (!res.ok) throw new Error(res.status);
+      return refresh();
+    } catch (err) {
+      if (err && err.code === 'auth/popup-closed-by-user') { btn.disabled = false; return; }
+      return signInCard(L.failed);
+    }
+  };
+  $('main').replaceChildren(h('section', {class: 'card', style: 'padding:20px;display:flex;flex-direction:column;gap:14px'},
+    h('p', {style: 'margin:0'}, L.signIn), error ? h('p', {class: 'error', role: 'alert', style: 'margin:0'}, error) : null, btn));
 }
 
 // The views are pictures drawn on a canvas: the 2D image, or a sheet of cols x rows tiles for 3D.

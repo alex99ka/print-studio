@@ -210,6 +210,27 @@ class _CustomerDetailState extends State<CustomerDetail> {
     }
   }
 
+  Future<void> _unbindGoogle(Doc c) async {
+    final yes = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('לשחרר את חשבון ה-Google?'),
+        content: Text('החשבון ${c.data()?['googleEmail']} לא ייכנס יותר. החשבון הבא שייכנס בקישור של ${c['name']} יהיה הבעלים שלו.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ביטול')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('שחרור')),
+        ],
+      ),
+    );
+    if (yes != true || !mounted) return;
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await c.reference.update({'googleUid': FieldValue.delete(), 'googleEmail': FieldValue.delete()});
+    } catch (e) {
+      showError(messenger, e, 'השחרור נכשל');
+    }
+  }
+
   Future<void> _delete(Doc c, int total) async {
     final yes = await showDialog<bool>(
       context: context,
@@ -309,6 +330,20 @@ class _CustomerDetailState extends State<CustomerDetail> {
         [?customerKinds[c.data()?['kind']], if (phone.isNotEmpty) ltr(phone), c.data()?['lang'] == 'en' ? 'פורטל באנגלית' : 'פורטל בעברית'].join(' · '),
         style: TextStyle(color: s.muted),
       ),
+      // A gift link opens only for the Google account that signed in on it first (server: portal_session).
+      if (c.data()?['kind'] == 'gift')
+        Row(children: [
+          Icon(Icons.lock_outline, size: 16, color: s.muted),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+                c.data()?['googleEmail'] == null
+                    ? 'הפורטל ייפתח לחשבון Google הראשון שייכנס בקישור'
+                    : 'הפורטל פתוח רק ל-${ltr('${c.data()?['googleEmail']}')}',
+                style: TextStyle(color: s.muted)),
+          ),
+          if (c.data()?['googleEmail'] != null) TextButton(onPressed: () => _unbindGoogle(c), child: const Text('שחרור')),
+        ]),
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
         FilledButton.tonalIcon(

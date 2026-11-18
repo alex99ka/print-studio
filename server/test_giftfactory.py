@@ -8,6 +8,7 @@ import zipfile
 import openpyxl
 import pytest
 from fastapi import HTTPException
+from google.cloud import firestore as gfirestore
 from PIL import Image
 from pydantic import ValidationError
 
@@ -272,7 +273,7 @@ def test_portal_guest_list(client, db, pushes, tmp_path):
     db.document("customers/c1").update({"kind": "mic"})  # a microphone flag has no guests
     assert guest_upload(client, good).status_code == 409
     assert client.get(f"/p/{TOKEN_A}/data").json()["customer"]["kind"] == "mic"
-    db.document("customers/c1").update({"kind": "gift"})
+    db.document("customers/c1").update({"kind": gfirestore.DELETE_FIELD})  # gift links need sign-in (test_studio)
     assert db.document("requests/r1").get().to_dict()["guests"]["gifts"] == 3
     # Gift Factory and the signed-in app get the file as it came, under its own name.
     key = gf(client)

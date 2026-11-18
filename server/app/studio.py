@@ -14,6 +14,7 @@ Who writes what:
 """
 
 import hashlib
+import hmac
 import json
 import os
 import secrets
@@ -26,7 +27,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
+from fastapi import APIRouter, Cookie, Depends, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from PIL import Image, ImageDraw, ImageFont
 from firebase_admin import firestore
@@ -433,13 +434,79 @@ def _file(vid: str, name: str) -> Path | None:
 # --- the customer portal ------------------------------------------------------------
 
 
-def _customer(token: str) -> tuple[str, dict]:
+def _find(token: str) -> tuple[str, dict]:
     if not 16 <= len(token) <= 64:
         raise HTTPException(404, "Unknown link")
     found = firebase.db().collection("customers").where(filter=FieldFilter("portalToken", "==", token)).limit(1).get()
     if not found:
         raise HTTPException(404, "Unknown link")
     return found[0].id, found[0].to_dict() or {}
+
+
+# A gift customer's link opens only after Google sign-in (Alex, 18.11): the first account to sign in owns
+# the link (googleUid); the browser then holds a signed cookie "ps" for this link's paths. Alex's own
+# allowlisted accounts get in too, as "studio". Microphone customers keep the bare link.
+SESSION_DAYS = 180
+
+
+def _secret() -> bytes:
+    path = _data() / "portal_secret"
+    if not path.is_file():
+        path.write_bytes(secrets.token_bytes(32))
+    return path.read_bytes()
+
+
+def _sign(token: str, who: str, exp: int) -> str:
+    return hmac.new(_secret(), f"{token}|{who}|{exp}".encode(), hashlib.sha256).hexdigest()
+
+
+def _session_who(token: str, ps: str | None) -> str | None:
+    """Who the cookie says signed in on this link (a Google uid or "studio"), if it is valid."""
+    who, _, rest = (ps or "").rpartition(".")
+    who, _, exp = who.rpartition(".")
+    if not exp.isdigit() or int(exp) < time.time():
+        return None
+    return who if hmac.compare_digest(rest, _sign(token, who, int(exp))) else None
+
+
+def _customer(token: str, ps: str | None) -> tuple[str, dict]:
+    cid, c = _find(token)
+    if c.get("kind") == "gift" and (who := _session_who(token, ps)) != "studio" and (not who or who != c.get("googleUid")):
+        raise HTTPException(401, "Sign in with Google")
+    return cid, c
+
+
+class SignIn(BaseModel):
+    idToken: str = Field(min_length=1, max_length=4096)
+
+
+@router.post("/p/{token}/session")
+def portal_session(token: str, body: SignIn, response: Response) -> dict:
+    """A Firebase ID token from the portal's Google sign-in. The first client account to
+    sign in owns a gift link; another account is refused."""
+    cid, c = _find(token)
+    _limit(token)
+    try:
+        user = firebase.auth.verify_id_token(body.idToken, app=firebase.app())
+    except (firebase.auth.InvalidIdTokenError, firebase.auth.ExpiredIdTokenError):
+        raise HTTPException(401, "Invalid or expired token") from None
+    email = (user.get("email") or "").lower()
+    if not user.get("email_verified"):
+        raise HTTPException(403, "Use a Google account with a verified email")
+    if email in firebase.access()[0]:
+        who = "studio"
+    elif not c.get("googleUid"):
+        who = user["uid"]
+        firebase.db().document(f"customers/{cid}").update({"googleUid": who, "googleEmail": email})
+    elif c["googleUid"] == user["uid"]:
+        who = user["uid"]
+    else:
+        raise HTTPException(403, "This link belongs to another Google account")
+    exp = int(time.time()) + SESSION_DAYS * 86400
+    # No Path: the browser keeps it for this link's own paths only.
+    response.set_cookie("ps", f"{who}.{exp}.{_sign(token, who, exp)}", max_age=SESSION_DAYS * 86400,
+                        httponly=True, secure=True, samesite="lax")
+    return {"email": email, "studio": who == "studio"}
 
 
 _posts: dict[str, deque] = defaultdict(deque)
@@ -472,18 +539,21 @@ def portal_page(token: str) -> HTMLResponse:
         headers={
             "Cache-Control": "no-store",
             "X-Frame-Options": "DENY",
-            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            # Google sign-in for gift customers: the Firebase Auth SDK, its popup and its helper frame.
+            "Content-Security-Policy": "default-src 'self'; script-src 'self' 'unsafe-inline' https://www.gstatic.com https://apis.google.com; "
             "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; "
-            "img-src 'self' blob: data:; connect-src 'self' blob: data:",
+            "img-src 'self' blob: data:; connect-src 'self' blob: data: https://identitytoolkit.googleapis.com "
+            "https://securetoken.googleapis.com https://www.googleapis.com; "
+            "frame-src https://print-studio-1786a.firebaseapp.com https://accounts.google.com",
         },
     )
 
 
 @router.get("/p/{token}/data")
-def portal_data(token: str, preview: str = "") -> dict:
+def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie()] = None) -> dict:
     """Everything the customer sees. [preview] is a draft version id: the app
     opens the portal with it so the studio sees a draft as the customer will."""
-    cid, c = _customer(token)
+    cid, c = _customer(token, ps)
     versions, quotes, comments, payments = defaultdict(list), defaultdict(list), defaultdict(list), defaultdict(list)
     for vid, v in _mine(cid, "versions"):
         if v.get("state") in ("published", "approved") or vid == preview:
@@ -544,10 +614,10 @@ def portal_data(token: str, preview: str = "") -> dict:
 
 
 @router.get("/p/{token}/f/{vid}/{name}")
-def portal_file(token: str, vid: str, name: str, preview: str = "") -> FileResponse:
+def portal_file(token: str, vid: str, name: str, preview: str = "", ps: Annotated[str | None, Cookie()] = None) -> FileResponse:
     """Published (or approved) versions only, so a version Alex takes back is gone from saved
     links too; a draft only in the studio's ?preview= of it, like portal_data."""
-    cid, _ = _customer(token)
+    cid, _ = _customer(token, ps)
     path = _file(vid, name) if name in CLIENT_FILES else None
     v = (firebase.db().document(f"versions/{vid}").get().to_dict() or {}) if path else {}
     if v.get("customerId") != cid or (v.get("state") not in ("published", "approved") and vid != preview):
@@ -579,8 +649,8 @@ def _request(cid: str, rid: str) -> tuple[object, dict]:
 
 
 @router.post("/p/{token}/requests/{rid}/comments")
-def portal_comment(token: str, rid: str, body: Comment) -> dict:
-    cid, c = _customer(token)
+def portal_comment(token: str, rid: str, body: Comment, ps: Annotated[str | None, Cookie()] = None) -> dict:
+    cid, c = _customer(token, ps)
     _limit(token)
     ref, r = _request(cid, rid)
     v = firebase.db().document(f"versions/{body.versionId}").get().to_dict() or {}
@@ -612,10 +682,10 @@ class Approval(BaseModel):
 
 
 @router.post("/p/{token}/requests/{rid}/approve")
-def portal_approve(token: str, rid: str, body: Approval) -> dict:
+def portal_approve(token: str, rid: str, body: Approval, ps: Annotated[str | None, Cookie()] = None) -> dict:
     """One step: this version and this price. Both must still be on offer, so a
     customer looking at an old page can't approve what changed."""
-    cid, c = _customer(token)
+    cid, c = _customer(token, ps)
     _limit(token)
     db = firebase.db()
     req = db.document(f"requests/{rid}")
@@ -648,10 +718,10 @@ class Decline(BaseModel):
 
 
 @router.post("/p/{token}/requests/{rid}/decline")
-def portal_decline(token: str, rid: str, body: Decline) -> dict:
+def portal_decline(token: str, rid: str, body: Decline, ps: Annotated[str | None, Cookie()] = None) -> dict:
     """The client doesn't want the order at all (notes go in a comment instead; the
     portal says so before asking). Only while waiting; Alex can reopen it in the app."""
-    cid, c = _customer(token)
+    cid, c = _customer(token, ps)
     _limit(token)
     db = firebase.db()
     req = db.document(f"requests/{rid}")
