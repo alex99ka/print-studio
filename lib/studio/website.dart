@@ -118,7 +118,7 @@ Future<void> uploadPhoto(String slug, String fileName, Uint8List bytes) async {
 
 Future<void> deletePhoto(String slug) => _site('DELETE', '/website/gifts/$slug/photo');
 
-/// A new key for website/tools/render_gifts.py; its previous one stops working.
+/// A new key for the shop pictures sender (Gift Factory › Shop pictures); its previous one stops working.
 Future<String> pairRenderScript() async => (await _site('POST', '/website/render-key'))['key'] as String;
 
 typedef Wording = Map<String, Map<String, String>>;

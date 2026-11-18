@@ -92,8 +92,8 @@ the older ones. Added in 0.5.0, all optional for the Flag Maker:
 ## Cross-repo checks
 
 Both need the repo secret **`CROSS_REPO_TOKEN`**: a fine-grained GitHub token (Settings › Developer settings ›
-Fine-grained tokens), resource owner `alex99ka`, **only** the repos `interview-flag-maker`, `gift-factory-orca`
-(`gift-factory` after its rename) and `gift-factory-website`, permissions **Contents: Read-only** and **Issues: Read
+Fine-grained tokens), resource owner `alex99ka`, **only** the repos `interview-flag-maker`, `gift-factory`
+(the Bambu Gift Factory, `gift-factory-orca` before its rename) and `gift-factory-website`, permissions **Contents: Read-only** and **Issues: Read
 and write** (Metadata: Read-only comes with it), longest expiry. Without it both stay off (a warning, a skipped test).
 
 - **Contract alarm** (C-3, `.github/workflows/contract-alarm.yml`): a push to main that changes the Flag Maker's
@@ -115,11 +115,11 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
 - **Products**: add (hidden until it has a picture), edit, delete. `size_mm` and `spin` are the renderer's
   and `photo` follows `photo.jpg`: none is editable by hand.
 - **Pictures** live on the Pi in `data/gifts/<slug>/` and are public at `/gifts/<slug>/<file>` (the site's
-  `NEXT_PUBLIC_ASSET_BASE`, through the Cloudflare Tunnel): a year's cache with `?v=<time>`, an hour without.
+  `NEXT_PUBLIC_ASSET_BASE`, through the Pi's Funnel until there is a domain): a year's cache with `?v=<time>`, an hour without.
   Only `photo.jpg`, `still.jpg`, `top.jpg`, `spin-0.jpg` … `spin-6.jpg` are ever stored or served: no models.
   `photo.jpg` is uploaded in the app (JPG/PNG/WebP up to 15 MB, saved as a JPEG of at most 2000 px).
-  The drawn ones come from the website's `tools/render_gifts.py`:
-  `POST /website/gifts/<slug>/renders`, header `X-Studio-Key` (הגדרות › חיבור סקריפט התמונות של האתר),
+  The drawn ones come from Gift Factory 1.1.0 › Library › Shop pictures (the website's `tools/render_gifts.py` before it):
+  `POST /website/gifts/<slug>/renders`, header `X-Studio-Key` (הגדרות › חיבור תמונות האתר),
   multipart fields `still`, `top`, `spin-0` … `spin-6` (JPEG, any subset) and `meta` =
   `{"size_mm": [x, y, z], "spin": {"cols", "rows", "start": [row, col], "tile"}, "gift": {…}, "unit_minutes": 7.5}`.
   `unit_minutes` (optional, > 0, B13) is one unit's measured print time; it stays on the Pi (not a Supabase

@@ -5,7 +5,7 @@ The contract is the website's supabase/schema.sql, src/data/site.ts and src/data
 - Supabase holds the tables (gifts, site_texts, leads). Only this server has the service
   role key (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY in the Pi's .env); it talks plain PostgREST.
 - The pictures live here, in DATA_DIR/gifts/<slug>/, and anyone may read them at
-  /gifts/<slug>/<file> (the site's NEXT_PUBLIC_ASSET_BASE, through the Cloudflare Tunnel).
+  /gifts/<slug>/<file> (the site's NEXT_PUBLIC_ASSET_BASE, through the Pi's Tailscale Funnel until there is a domain).
   Pictures only: a name outside PICTURES is never stored or served, so no model file can be.
 - Leads are personal data: signed-in studio users only.
 
@@ -34,11 +34,11 @@ from .studio import STATIC, User, _check, _data, check_key, pair
 
 router = APIRouter()
 SLUG = re.compile(r"[a-z0-9-]{1,60}")  # gifts.slug in schema.sql
-RENDERS = ("still.jpg", "top.jpg", *(f"spin-{i}.jpg" for i in range(7)))  # website/tools/render_gifts.py
+RENDERS = ("still.jpg", "top.jpg", *(f"spin-{i}.jpg" for i in range(7)))  # Gift Factory 1.1.0 › Shop pictures
 PICTURES = {"photo.jpg", *RENDERS}
 MAX_PICTURE = 15 * 1024 * 1024
 PHOTO_SIDE = 2000
-NEW_SPIN = {"cols": 24, "rows": 7, "start": [0, 0], "tile": 320}  # until the renderer sends the real one
+NEW_SPIN = {"cols": 24, "rows": 7, "start": [0, 0], "tile": 640}  # until the renderer sends the real one
 LEAD_STATUSES = ("new", "called", "opened", "dropped")  # leads.status: new / called / request opened / dropped
 DEFAULTS: dict[str, dict[str, str]] = json.loads((STATIC / "site_texts.json").read_text(encoding="utf-8"))  # tool/site_texts.mjs
 
@@ -232,7 +232,7 @@ def picture(slug: str, name: str, v: str = "") -> FileResponse:
         "Cache-Control": "public, max-age=31536000, immutable" if v else "public, max-age=3600"})
 
 
-# --- the drawn pictures, from website/tools/render_gifts.py on the PC ---------------
+# --- the drawn pictures, from Gift Factory › Shop pictures on the PC ---------------
 
 
 @router.post("/website/render-key")

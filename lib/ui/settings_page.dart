@@ -293,16 +293,16 @@ class _SettingsPageState extends State<SettingsPage> {
           ListTile(
             leading: const Icon(Icons.folder_open_outlined),
             title: const Text('איפה Gift Factory במחשב'),
-            subtitle: const Text(r'pythonw.exe ואז app\main.py, ל"פתח ב-Gift Factory"'),
-            onTap: () => giftFactoryCommand(choose: true),
+            subtitle: const Text('bambu-studio.exe של Gift Factory, ל"פתח ב-Gift Factory"'),
+            onTap: () => giftFactoryExe(choose: true),
           ),
 
         _Section('האתר'),
         ListTile(
           leading: const Icon(Icons.link),
-          title: const Text('חיבור סקריפט התמונות של האתר'),
-          subtitle: const Text('מפתח חדש ל-render_gifts.py, ששולח את ציורי המוצרים לשרת. הקודם שלו מפסיק לעבוד'),
-          onTap: () => _pair('סקריפט התמונות', pairRenderScript, 'בסקריפט התמונות של האתר (render_gifts.py)'),
+          title: const Text('חיבור תמונות האתר'),
+          subtitle: const Text('מפתח חדש ל-Gift Factory › Shop pictures, ששולח את ציורי המוצרים לשרת. הקודם שלו מפסיק לעבוד'),
+          onTap: () => _pair('תמונות האתר', pairRenderScript, 'ב-Gift Factory, בעמוד ה-CRM: website pictures key'),
         ),
 
         _Section('עזרה'),

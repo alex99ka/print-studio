@@ -665,7 +665,7 @@ class _GiftPageState extends State<GiftPage> {
                 ]),
                 const SizedBox(height: 24),
                 Text('ציורים', style: head),
-                Text('מצוירים במחשב על ידי סקריפט התמונות של האתר (render_gifts.py) ונשלחים לשרת. לצפייה בלבד.',
+                Text('מצוירים במחשב ב-Gift Factory (Shop pictures) ונשלחים לשרת. לצפייה בלבד.',
                     style: TextStyle(color: s.muted, fontSize: 12)),
                 const SizedBox(height: 8),
                 if (!_images.keys.any((k) => k != 'photo.jpg'))

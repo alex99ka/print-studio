@@ -12,7 +12,7 @@ Improvements to `lib/core/` go back into the starter.
   `server/app/static/portal.html`. Flag Maker side: `C:\claude projects\3d\Flag Maker\app\crm_link.py`
   (follow that repo's AGENTS.md: its releases need its acceptance suite, including
   `app/tests/check_crm_link.py`, the contract with `studio.py`).
-- Gift Factory (`C:\claude projects\3d\3d manager`): `server/app/giftfactory.py` (`/gf/` routes, its own key,
+- Gift Factory (Bambu fork, `C:\claude projects\3d\gift-factory-bambu`, repo `alex99ka/gift-factory`): `server/app/giftfactory.py` (`/gf/` routes, its own key,
   the portal's guest list). Contract v1 is `server/GIFT_FACTORY.md`; Gift Factory's `tests/check_crm_link.py`
   holds it, so a change is `contract: 2` beside v1. Only the server writes `requests.production`/`.guests`.
 - Shop website (`C:\claude projects\3d\website`, never edited from here): `server/app/website.py` (`/website/` routes,

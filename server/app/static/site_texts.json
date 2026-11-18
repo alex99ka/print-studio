@@ -234,6 +234,21 @@
   "en": "Number of guests",
   "ru": "Число гостей"
  },
+ "form.gift": {
+  "he": "על איזו מתנה מדובר",
+  "en": "Which gift is this about",
+  "ru": "О каком подарке речь"
+ },
+ "form.giftNone": {
+  "he": "עוד לא החלטנו",
+  "en": "Not decided yet",
+  "ru": "Ещё не решили"
+ },
+ "form.qty": {
+  "he": "כמה יחידות",
+  "en": "How many",
+  "ru": "Сколько штук"
+ },
  "form.time": {
   "he": "מתי נוח לדבר",
   "en": "Best time to call",
@@ -560,9 +575,9 @@
   "ru": "Что отправляется нам"
  },
  "policy.sections.4.p": {
-  "he": "רק מה שאתם ממלאים בטופס \"חזרו אליי\": שם, טלפון, תאריך החתונה, מספר האורחים, מתי נוח לדבר והמתנות שסימנתם. המידע נשמר במסד נתונים מאובטח ומשמש רק כדי לחזור אליכם.",
-  "en": "Only what you fill in the \"Call me back\" form: name, phone, wedding date, number of guests, best time to call and the gifts you marked. It is stored in a secured database and used only to call you back.",
-  "ru": "Только то, что вы заполнили в форме «Перезвоните мне»: имя, телефон, дата свадьбы, число гостей, удобное время и отмеченные подарки. Данные хранятся в защищённой базе и используются только для обратного звонка."
+  "he": "רק מה שאתם ממלאים בטופס \"חזרו אליי\": שם, טלפון, תאריך החתונה, מספר האורחים, המתנה והכמות שבחרתם, מתי נוח לדבר והמתנות שסימנתם. המידע נשמר במסד נתונים מאובטח ומשמש רק כדי לחזור אליכם.",
+  "en": "Only what you fill in the \"Call me back\" form: name, phone, wedding date, number of guests, the gift and quantity you chose, best time to call and the gifts you marked. It is stored in a secured database and used only to call you back.",
+  "ru": "Только то, что вы заполнили в форме «Перезвоните мне»: имя, телефон, дата свадьбы, число гостей, выбранный подарок и количество, удобное время и отмеченные подарки. Данные хранятся в защищённой базе и используются только для обратного звонка."
  },
  "policy.sections.5.h": {
   "he": "איך משנים או מוחקים",

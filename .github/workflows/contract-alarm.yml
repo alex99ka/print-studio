@@ -42,6 +42,6 @@ jobs:
           }
           if fm; then open alex99ka/interview-flag-maker "the Flag Maker's /fm/ routes" server/app/studio.py; fi
           if changed server/app/giftfactory.py server/GIFT_FACTORY.md; then
-            open alex99ka/gift-factory-orca "Gift Factory's /gf/ routes or contract" "server/app/giftfactory.py server/GIFT_FACTORY.md"
+            open alex99ka/gift-factory "Gift Factory's /gf/ routes or contract" "server/app/giftfactory.py server/GIFT_FACTORY.md"
           fi
           if changed server/app/website.py; then open alex99ka/gift-factory-website "the /website/ routes" server/app/website.py; fi

@@ -74,41 +74,32 @@ Future<bool> openInFlagMaker(String versionId) async {
   return true;
 }
 
-const _giftFactoryKey = 'giftFactoryCommand';
-// The target of the desktop shortcut "Gift Factory" on Alex's PC.
-const _giftFactoryDefault = [
-  r'C:\Users\User\AppData\Local\Programs\Python\Python312\pythonw.exe',
-  r'C:\claude projects\3d\3d manager\app\main.py',
-];
+const _giftFactoryKey = 'giftFactoryExe'; // was 'giftFactoryCommand' (pythonw + main.py of the old Python app)
+// Gift Factory 1.1.0, the Bambu Studio fork, installed on Alex's PC.
+const _giftFactoryDefault = r'C:\claude projects\3d\gift-factory-bambu\build-bambu-clean\dist-stage\bambu-studio.exe';
 
-/// Gift Factory runs from source: pythonw.exe and its app\main.py, asked for
-/// once (only when the defaults aren't there). [choose] asks again.
-Future<List<String>?> giftFactoryCommand({bool choose = false}) async {
+/// Gift Factory's EXE: the installed one, else asked for once. [choose] asks again.
+Future<String?> giftFactoryExe({bool choose = false}) async {
   final prefs = await SharedPreferences.getInstance();
-  var cmd = prefs.getStringList(_giftFactoryKey) ?? _giftFactoryDefault;
-  if (choose || cmd.length != 2 || !cmd.every((p) => File(p).existsSync())) {
-    final python = await openFile(
+  var path = prefs.getString(_giftFactoryKey) ?? _giftFactoryDefault;
+  if (choose || !File(path).existsSync()) {
+    final f = await openFile(
       confirmButtonText: 'בחירה',
-      acceptedTypeGroups: const [XTypeGroup(label: 'pythonw.exe', extensions: ['exe'])],
+      acceptedTypeGroups: const [XTypeGroup(label: 'Gift Factory (bambu-studio.exe)', extensions: ['exe'])],
     );
-    if (python == null) return null;
-    final main = await openFile(
-      confirmButtonText: 'בחירה',
-      acceptedTypeGroups: const [XTypeGroup(label: 'Gift Factory: app\\main.py', extensions: ['py', 'pyw'])],
-    );
-    if (main == null) return null;
-    cmd = [python.path, main.path];
+    if (f == null) return null;
+    path = f.path;
   }
-  await prefs.setStringList(_giftFactoryKey, cmd);
-  return cmd;
+  await prefs.setString(_giftFactoryKey, path);
+  return path;
 }
 
-/// Starts Gift Factory on this request: the job linked to it, or it links the
-/// next model opened. From its root folder, like the desktop shortcut.
+/// Starts Gift Factory on this request: the order linked to it, or it links the
+/// next order made from Prepare. A running Gift Factory takes the id itself (one window).
 Future<bool> openInGiftFactory(String requestId) async {
-  final cmd = await giftFactoryCommand();
-  if (cmd == null) return false;
-  await Process.start(cmd[0], [cmd[1], '--crm-request', requestId],
-      mode: ProcessStartMode.detached, workingDirectory: File(cmd[1]).parent.parent.path);
+  final exe = await giftFactoryExe();
+  if (exe == null) return false;
+  await Process.start(exe, ['--crm-request', requestId],
+      mode: ProcessStartMode.detached, workingDirectory: File(exe).parent.path);
   return true;
 }

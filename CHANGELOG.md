@@ -8,6 +8,14 @@ the "what's new" text inside the app, so write it for them, in Hebrew.
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-11-18
+
+### שונה
+- "פתח ב-Gift Factory" פותח עכשיו את Gift Factory החדש (מבוסס Bambu Studio). הגדרות › "איפה Gift Factory במחשב" מחליף את הקובץ.
+- עמוד הלקוח בצבעים ובגופנים של אתר החנות.
+- תמונות האתר מגיעות מ-Gift Factory (Shop pictures); ההגדרה נקראת עכשיו "חיבור תמונות האתר".
+- נוסחי האתר עודכנו (מתנה וכמות בטופס, פרטיות).
+
 ## [0.5.1] - 2026-11-18
 
 ### חדש

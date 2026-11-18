@@ -1,6 +1,6 @@
 # Gift Factory link
 
-Gift Factory (`C:\claude projects\3d\3d manager`, private repo `alex99ka/gift-factory`) plans and prints
+Gift Factory (the Bambu Studio fork, `C:\claude projects\3d\gift-factory-bambu`, private repo `alex99ka/gift-factory`) plans and prints
 runs of 20–500 event gifts on the Bambu X2D. It talks to this server next to the Flag Maker, with its own key
 and its own `/gf/` routes (`server/app/giftfactory.py`). Its `tests/check_crm_link.py` checks its side against
 the contract below, so **the contract must not drift**: changing a route, a field name, a unit or a meaning is

@@ -1,4 +1,4 @@
-"""Gift Factory (C:\\claude projects\\3d\\3d manager): the second PC app next to the
+"""Gift Factory (the Bambu fork, C:\\claude projects\\3d\\gift-factory-bambu): the second PC app next to the
 Flag Maker, for runs of 20-500 event gifts. Contract v1 is server/GIFT_FACTORY.md;
 Gift Factory's tests/check_crm_link.py holds its side to the same text.
 
