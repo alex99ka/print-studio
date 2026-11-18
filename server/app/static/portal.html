@@ -354,6 +354,7 @@ function detail(r) {
 
 // The client's guest list: the template, an upload, and what the studio got from it.
 function guestCard(r) {
+  if (data.customer.kind === 'mic') return null;  // a microphone flag has no guests
   const canSend = ['draft', 'waiting', 'approved'].includes(r.status) && !preview;
   if (!canSend && !r.guests) return null;
   const result = h('div', {role: 'status', class: 'muted'});

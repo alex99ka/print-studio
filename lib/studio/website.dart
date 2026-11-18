@@ -118,6 +118,9 @@ Future<void> uploadPhoto(String slug, String fileName, Uint8List bytes) async {
 
 Future<void> deletePhoto(String slug) => _site('DELETE', '/website/gifts/$slug/photo');
 
+/// The shop website, live (Vercel until there is a .co.il domain).
+const siteUrl = 'https://website-blue-alpha-78.vercel.app';
+
 /// A new key for the shop pictures sender (Gift Factory › Shop pictures); its previous one stops working.
 Future<String> pairRenderScript() async => (await _site('POST', '/website/render-key'))['key'] as String;
 

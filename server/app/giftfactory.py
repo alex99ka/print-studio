@@ -431,6 +431,8 @@ def portal_guests(token: str, rid: str, file: Annotated[UploadFile, File()]) -> 
         r = {}
     if r.get("customerId") != cid:
         raise HTTPException(404, "No such request")
+    if c.get("kind") == "mic":
+        raise HTTPException(409, "A microphone flag has no guest list")
     if r.get("status", "draft") not in GUESTS_OPEN:
         raise HTTPException(409, "The order is already in production")
     ext = Path(file.filename or "").suffix.lower()

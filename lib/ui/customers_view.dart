@@ -131,6 +131,10 @@ class _CustomerCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Row(children: [
+              if (customerKinds.containsKey(c['kind'])) ...[
+                Icon(c['kind'] == 'mic' ? Icons.mic_none : Icons.redeem_outlined, size: 20, color: s.muted),
+                const SizedBox(width: 8),
+              ],
               Expanded(child: Text('${c['name']}', style: Theme.of(context).textTheme.titleMedium)),
               Icon(Icons.chevron_left, color: s.muted),
             ]),

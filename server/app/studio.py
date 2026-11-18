@@ -540,7 +540,7 @@ def portal_data(token: str, preview: str = "") -> dict:
             if (p := (r.get("production") or {}).get("progress")) and r.get("status") in ("approved", "printing") else None,
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
-    return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he")}, "requests": out}
+    return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he"), "kind": c.get("kind")}, "requests": out}
 
 
 @router.get("/p/{token}/f/{vid}/{name}")

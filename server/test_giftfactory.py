@@ -269,6 +269,10 @@ def test_portal_guest_list(client, db, pushes, tmp_path):
     assert guest_upload(client, b"x", "guests.pdf").status_code == 400
     assert guest_upload(client, filled([("רון", "שניים")])).json()["detail"] == 'Row 3: the amount "שניים" is not a whole number'
     assert guest_upload(client, b"x" * (2 * 1024 * 1024 + 1), "g.csv").status_code == 413
+    db.document("customers/c1").update({"kind": "mic"})  # a microphone flag has no guests
+    assert guest_upload(client, good).status_code == 409
+    assert client.get(f"/p/{TOKEN_A}/data").json()["customer"]["kind"] == "mic"
+    db.document("customers/c1").update({"kind": "gift"})
     assert db.document("requests/r1").get().to_dict()["guests"]["gifts"] == 3
     # Gift Factory and the signed-in app get the file as it came, under its own name.
     key = gf(client)

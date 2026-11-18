@@ -114,6 +114,10 @@ class _WebsiteViewState extends State<WebsiteView> {
               }),
             ),
             IconButton(tooltip: 'רענון', icon: const Icon(Icons.refresh), onPressed: _reload),
+            OutlinedButton.icon(
+                onPressed: () => _try(context, 'האתר לא נפתח', () => launchUrl(Uri.parse(siteUrl), mode: LaunchMode.externalApplication)),
+                icon: const Icon(Icons.open_in_new),
+                label: const Text('פתח את האתר')),
             if (_tab == 1) FilledButton.icon(onPressed: () => _openGift(null), icon: const Icon(Icons.add), label: const Text('מוצר חדש')),
             Text('שינוי מופיע באתר תוך 5 דקות', style: TextStyle(color: context.studio.muted, fontSize: 12)),
           ]),
