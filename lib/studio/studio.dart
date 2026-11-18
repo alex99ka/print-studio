@@ -204,13 +204,32 @@ Uri whatsapp(String phone, String text) {
 String portalMessage(String customerName, String url) =>
     'שלום $customerName, יש עיצוב חדש לאישור בסטודיו הדפסה. אפשר לראות, להעיר ולאשר כאן:\n$url';
 
+/// For someone asking about a microphone flag (WhatsApp: *bold*). Alex's prices, 18.11.2026.
+const micPriceList = '''היי, תודה על ההתעניינות! 🎤
+הנה המחירון לדגלים למיקרופון:
+
+*✨ הזמנה חדשה: עיצוב מאפס והדפסה*
+120–150 ₪
+(לפי מורכבות העיצוב וזמן ההדפסה)
+
+*🔁 הזמנה חוזרת*
+100 ₪
+שינויים קטנים בעיצוב קיים והדפסה, או מעל 5 יחידות באותה הזמנה (אפשר גם עם שינויים קטנים)
+
+אשמח לענות על כל שאלה 😊''';
+
 // --- writes -------------------------------------------------------------------------
 
-Future<DocumentReference<Map<String, dynamic>>> addCustomer({required String name, required String phone, required String lang}) =>
+/// A customer's kind: what they order.
+const customerKinds = {'mic': 'מיקרופון', 'gift': 'מתנות'};
+
+Future<DocumentReference<Map<String, dynamic>>> addCustomer(
+        {required String name, required String phone, required String lang, required String kind}) =>
     customersRef.add({
       'name': name.trim(),
       'phone': phone.trim(),
       'lang': lang,
+      'kind': kind,
       'portalToken': newPortalToken(),
       'createdAt': FieldValue.serverTimestamp(),
     });

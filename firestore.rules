@@ -57,9 +57,11 @@ service cloud.firestore {
     match /customers/{id} {
       allow read, delete: if allowed();
       allow create, update: if allowed()
-        && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'portalToken', 'notes', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'kind', 'portalToken', 'notes', 'createdAt'])
         && shortText(request.resource.data.name, 200) && request.resource.data.name.size() > 0
         && request.resource.data.lang in ['he', 'en']
+        // A microphone-flag customer or a gift customer; older ones have none.
+        && (!('kind' in request.resource.data) || request.resource.data.kind in ['mic', 'gift'])
         // The portal link's secret: long enough not to be guessed.
         && request.resource.data.portalToken is string
         && request.resource.data.portalToken.size() >= 22;

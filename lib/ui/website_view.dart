@@ -229,7 +229,7 @@ class _WebsiteViewState extends State<WebsiteView> {
         final Doc customer = found.docs.isNotEmpty
             ? found.docs.first
             // The portal speaks Hebrew and English only.
-            : await (await addCustomer(name: '${l['name']}', phone: '${l['phone']}', lang: l['lang'] == 'he' ? 'he' : 'en')).get();
+            : await (await addCustomer(name: '${l['name']}', phone: '${l['phone']}', lang: l['lang'] == 'he' ? 'he' : 'en', kind: 'gift')).get();
         if (!mounted) return;
         final from = requestFromLead(l, DateTime.now());
         final id = await newRequest(context,

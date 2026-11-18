@@ -90,6 +90,8 @@ test('customers: shape, and a portal token long enough not to guess', async () =
   await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, lang: 'fr' }));
   await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, name: '' }));
   await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, extra: 1 }));
+  await assertSucceeds(addDoc(collection(db(ALEX), 'customers'), { ...customer, kind: 'mic' }));
+  await assertFails(addDoc(collection(db(ALEX), 'customers'), { ...customer, kind: 'other' }));
   await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { portalToken: 'n'.repeat(22) }));
 });
 

@@ -47,6 +47,7 @@ class Ribbon extends StatelessWidget {
                 _Button(Icons.chat_outlined, 'שליחה בוואטסאפ',
                     customer != null ? () => sendWhatsapp(context, customer) : null),
                 _Button(Icons.link, 'העתקת קישור', customer != null ? () => copyPortalLink(context, customer) : null),
+                _Button(Icons.sell_outlined, 'מחירון מיקרופון', () => sendMicPrices(context, customer)),
               ]),
             ),
             _Group('הדפסה', [

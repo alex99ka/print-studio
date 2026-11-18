@@ -136,6 +136,7 @@ class _CustomerCard extends StatelessWidget {
             ]),
             Text(
               [
+                ?customerKinds[c['kind']],
                 if (phone.isNotEmpty) ltr(phone),
                 '${requests.length} בקשות',
                 if (waiting > 0) '$waiting ממתינות לאישור',
@@ -300,7 +301,7 @@ class _CustomerDetailState extends State<CustomerDetail> {
         IconButton(tooltip: 'מחיקה', icon: const Icon(Icons.delete_outline), onPressed: () => _delete(c, requests.length)),
       ]),
       Text(
-        [if (phone.isNotEmpty) ltr(phone), c.data()?['lang'] == 'en' ? 'פורטל באנגלית' : 'פורטל בעברית'].join(' · '),
+        [?customerKinds[c.data()?['kind']], if (phone.isNotEmpty) ltr(phone), c.data()?['lang'] == 'en' ? 'פורטל באנגלית' : 'פורטל בעברית'].join(' · '),
         style: TextStyle(color: s.muted),
       ),
       const SizedBox(height: 12),
@@ -309,6 +310,9 @@ class _CustomerDetailState extends State<CustomerDetail> {
             onPressed: () => sendWhatsapp(context, c), icon: const Icon(Icons.chat_outlined), label: const Text('וואטסאפ')),
         OutlinedButton.icon(
             onPressed: () => copyPortalLink(context, c), icon: const Icon(Icons.link), label: const Text('העתקת קישור')),
+        if (c.data()?['kind'] != 'gift')
+          OutlinedButton.icon(
+            onPressed: () => sendMicPrices(context, c), icon: const Icon(Icons.sell_outlined), label: const Text('מחירון מיקרופון')),
         OutlinedButton.icon(
           onPressed: () => launchUrl(Uri.parse(portalUrl('${c['portalToken']}')), mode: LaunchMode.externalApplication),
           icon: const Icon(Icons.open_in_browser),

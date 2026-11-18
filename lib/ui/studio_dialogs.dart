@@ -143,6 +143,7 @@ class _CustomerDialogState extends State<CustomerDialog> {
   late final _name = TextEditingController(text: '${widget.customer?.data()?['name'] ?? ''}');
   late final _phone = TextEditingController(text: '${widget.customer?.data()?['phone'] ?? ''}');
   late String _lang = '${widget.customer?.data()?['lang'] ?? 'he'}';
+  late String _kind = '${widget.customer?.data()?['kind'] ?? 'mic'}';
 
   @override
   void dispose() {
@@ -157,9 +158,9 @@ class _CustomerDialogState extends State<CustomerDialog> {
     try {
       final c = widget.customer;
       if (c == null) {
-        await addCustomer(name: _name.text, phone: _phone.text, lang: _lang);
+        await addCustomer(name: _name.text, phone: _phone.text, lang: _lang, kind: _kind);
       } else {
-        await c.reference.update({'name': _name.text.trim(), 'phone': _phone.text.trim(), 'lang': _lang});
+        await c.reference.update({'name': _name.text.trim(), 'phone': _phone.text.trim(), 'lang': _lang, 'kind': _kind});
       }
     } catch (e) {
       showError(messenger, e, 'שמירת הלקוח נכשלה');
@@ -186,6 +187,15 @@ class _CustomerDialogState extends State<CustomerDialog> {
               decoration: const InputDecoration(labelText: 'טלפון (לוואטסאפ)'),
             ),
             const SizedBox(height: 16),
+            SegmentedButton<String>(
+              segments: [
+                for (final k in customerKinds.entries)
+                  ButtonSegment(value: k.key, label: Text(k.value), icon: Icon(k.key == 'mic' ? Icons.mic_none : Icons.redeem_outlined)),
+              ],
+              selected: {_kind},
+              onSelectionChanged: (v) => setState(() => _kind = v.first),
+            ),
+            const SizedBox(height: 12),
             SegmentedButton<String>(
               segments: const [
                 ButtonSegment(value: 'he', label: Text('פורטל בעברית')),

@@ -109,6 +109,21 @@ Future<void> publishVersion(BuildContext context, Selection s) async {
   }
 }
 
+/// The microphone price list: to this customer on WhatsApp, else copied for any chat.
+Future<void> sendMicPrices(BuildContext context, Doc? customer) async {
+  if (customer == null) {
+    await Clipboard.setData(const ClipboardData(text: micPriceList));
+    if (context.mounted) say(context, 'המחירון הועתק: אפשר להדביק בכל צ׳אט');
+    return;
+  }
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await _open(whatsapp('${customer.data()?['phone'] ?? ''}', micPriceList));
+  } catch (e) {
+    showError(messenger, e, 'וואטסאפ לא נפתח');
+  }
+}
+
 Future<void> sendWhatsapp(BuildContext context, Doc customer) async {
   final c = customer.data() ?? const {};
   final messenger = ScaffoldMessenger.of(context);

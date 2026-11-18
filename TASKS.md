@@ -103,7 +103,7 @@ shows on the portal (and takes a guest list) only after a version is published.
 
 ## Next (Alex asked 17.11.2026, not built)
 
-1. ✅ (built 18.11, not released yet: "לצדה, הלקוח בוחר" when publishing; one price for all of them) **Several versions, the client picks one.** Publish more than one version at once; the portal shows them
+1. ✅ (0.5.1, 18.11: "לצדה, הלקוח בוחר" when publishing; one price for all of them) **Several versions, the client picks one.** Publish more than one version at once; the portal shows them
    side by side and the client approves one specific version (with the price). Today only one version is
    published at a time (`publishedVersionId`) and approval takes that one. Touches the portal, `portal_approve`,
    the rules (a list of published versions) and the request page.
