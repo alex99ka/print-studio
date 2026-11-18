@@ -115,5 +115,5 @@ shows on the portal (and takes a guest list) only after a version is published.
 ## After the MVP (not built, to decide)
 
 - Image attachment on a portal comment (the design had a button; not built).
-- Client sign-in with Google (instead of link only).
+- ✅ (0.5.4) Gift customers sign in with Google on their link (the first account owns it; "שחרור" in the app). Microphone customers keep the link only.
 - Reopening an approved request. (Search shipped in 0.1.7.)
