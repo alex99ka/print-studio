@@ -314,10 +314,40 @@
   "en": "We will call you soon. The gifts you marked are saved with the request.",
   "ru": "Мы скоро перезвоним. Отмеченные подарки сохранены в заявке."
  },
- "form.error": {
-  "he": "השליחה לא הצליחה. בדקו את השם והטלפון ונסו שוב.",
-  "en": "Sending did not work. Check the name and phone number and try again.",
-  "ru": "Отправить не получилось. Проверьте имя и телефон и попробуйте ещё раз."
+ "form.failTitle": {
+  "he": "הפרטים לא נשלחו.",
+  "en": "Your details were not sent.",
+  "ru": "Заявка не отправлена."
+ },
+ "form.errors.N1": {
+  "he": "אין חיבור לאינטרנט. בדקו את החיבור ונסו שוב.",
+  "en": "There is no internet connection. Check it and try again.",
+  "ru": "Нет подключения к интернету. Проверьте его и попробуйте ещё раз."
+ },
+ "form.errors.W1": {
+  "he": "חלק מהפרטים לא התקבלו. בדקו את השם, הטלפון והאישור ונסו שוב.",
+  "en": "Some details were not accepted. Check the name, phone number and the consent box, then try again.",
+  "ru": "Часть данных не принята. Проверьте имя, телефон и согласие и попробуйте ещё раз."
+ },
+ "form.errors.W2": {
+  "he": "נשלחו מכאן הרבה פניות בזמן קצר. נסו שוב בעוד 10 דקות.",
+  "en": "Many requests were sent from here in a short time. Try again in 10 minutes.",
+  "ru": "Отсюда отправлено много заявок за короткое время. Попробуйте через 10 минут."
+ },
+ "form.errors.D1": {
+  "he": "תקלה אצלנו בשמירת הפנייה. נסו שוב בעוד כמה דקות.",
+  "en": "We could not save your request on our side. Try again in a few minutes.",
+  "ru": "Не удалось сохранить заявку на нашей стороне. Попробуйте через несколько минут."
+ },
+ "form.errors.D2": {
+  "he": "הטופס עוד לא מחובר אצלנו. נסו שוב מאוחר יותר.",
+  "en": "The form is not connected on our side yet. Try again later.",
+  "ru": "Форма у нас ещё не подключена. Попробуйте позже."
+ },
+ "form.errors.X1": {
+  "he": "משהו השתבש. נסו שוב בעוד כמה דקות.",
+  "en": "Something went wrong. Try again in a few minutes.",
+  "ru": "Что-то пошло не так. Попробуйте через несколько минут."
  },
  "gifts.title": {
   "he": "כל המתנות",
