@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/errors.dart';
 import '../studio/studio.dart';
+import 'logo_photos.dart';
 import 'requests_view.dart';
 import 'skeleton.dart';
 import 'studio_actions.dart';
@@ -360,6 +361,8 @@ class _CustomerDetailState extends State<CustomerDetail> {
         ),
         TextButton(onPressed: () => _replaceLink(c), child: const Text('החלפת קישור')),
       ]),
+      const SizedBox(height: 16),
+      LogoPhotos(key: ValueKey(c.id), customerId: c.id),
       const SizedBox(height: 16),
       Wrap(spacing: 12, runSpacing: 12, children: [
         stat('הזמנות שאושרו', b.billed),

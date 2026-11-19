@@ -15,6 +15,7 @@ Who writes what:
 
 import hashlib
 import hmac
+import io
 import json
 import os
 import secrets
@@ -23,13 +24,13 @@ import tempfile
 import time
 import zipfile
 from collections import defaultdict, deque
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Cookie, Depends, File, Form, Header, HTTPException, Response, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
-from PIL import Image, ImageDraw, ImageFont
+from PIL import Image, ImageDraw, ImageFont, ImageOps
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from pydantic import BaseModel, Field
@@ -294,6 +295,7 @@ def delete_customer(cid: str, _: User) -> dict:
     for d in db.collection("requests").where(filter=FieldFilter("customerId", "==", cid)).stream():
         _delete_request(db, d.id)
     db.document(f"customers/{cid}").delete()
+    shutil.rmtree(_data() / "logos" / cid, ignore_errors=True)
     return {"ok": True}
 
 
@@ -429,6 +431,121 @@ def _file(vid: str, name: str) -> Path | None:
         return None
     path = _data() / "files" / vid / name
     return path if path.is_file() else None
+
+
+# --- C-6: logo photos on a customer (design sources: kept as sent, never shown to the client) ---
+
+LOGO_TYPES = {"JPEG": ("jpg", "image/jpeg"), "PNG": ("png", "image/png"), "WEBP": ("webp", "image/webp")}
+LOGO_MEDIA = dict(LOGO_TYPES.values())
+MAX_LOGO = 25 * 1024 * 1024
+MAX_LOGOS = 30  # per customer
+
+
+def _logo_dir(cid: str) -> Path:
+    if not cid.isalnum():
+        raise HTTPException(404, "No such customer")
+    return _data() / "logos" / cid
+
+
+def _logos(cid: str) -> list[dict]:
+    d = _logo_dir(cid)
+    files = sorted(f for f in d.iterdir() if f.suffix[1:] in LOGO_MEDIA) if d.is_dir() else []
+    return [{"id": f.stem, "type": LOGO_MEDIA[f.suffix[1:]], "size": f.stat().st_size,
+             "uploaded": datetime.fromtimestamp(int(f.stem[:13]) / 1000, timezone.utc).isoformat()} for f in files]
+
+
+def _logo(cid: str, lid: str) -> Path:
+    if lid.isalnum():
+        for f in _logo_dir(cid).glob(f"{lid}.*"):
+            if f.suffix[1:] in LOGO_MEDIA:
+                return f
+    raise HTTPException(404, "No such photo")
+
+
+def _need_customer(cid: str) -> None:
+    snap = firebase.db().document(f"customers/{cid}").get() if cid.isalnum() else None
+    if not snap or not snap.exists:
+        raise HTTPException(404, "No such customer")
+
+
+@router.post("/studio/customers/{cid}/logos")
+def add_logos(cid: str, _: User, photos: Annotated[list[UploadFile], File()]) -> dict:
+    """Several photos at once (phone camera, gallery or PC); each is checked to be a picture."""
+    _need_customer(cid)
+    d = _logo_dir(cid)
+    if len(_logos(cid)) + len(photos) > MAX_LOGOS:
+        raise HTTPException(413, f"At most {MAX_LOGOS} photos per customer")
+    d.mkdir(parents=True, exist_ok=True)
+    added = []
+    try:
+        for f in photos:
+            body = f.file.read(MAX_LOGO + 1)
+            if len(body) > MAX_LOGO:
+                raise HTTPException(413, f"{f.filename} is over 25 MB")
+            try:
+                with Image.open(io.BytesIO(body)) as im:
+                    fmt = im.format
+                    im.verify()
+            except (ValueError, OSError, SyntaxError):
+                fmt = None
+            if fmt not in LOGO_TYPES:
+                raise HTTPException(422, f"{f.filename} is not a JPEG, PNG or WebP picture")
+            # The id starts with the upload time in ms (the list reads it back), then a random part.
+            lid = f"{int(time.time() * 1000)}{secrets.token_hex(3)}"
+            (d / f"{lid}.{LOGO_TYPES[fmt][0]}").write_bytes(body)
+            added.append(lid)
+    except BaseException:
+        for lid in added:
+            _logo(cid, lid).unlink(missing_ok=True)
+        raise
+    return {"added": added}
+
+
+@router.get("/studio/customers/{cid}/logos")
+def list_logos(cid: str, _: User) -> list[dict]:
+    return _logos(cid)
+
+
+@router.get("/studio/customers/{cid}/logos/{lid}")
+def get_logo(cid: str, lid: str, _: User, thumb: int = 0) -> Response:
+    """The original, or with ?thumb=<px> a small upright JPEG for the app's thumbnails."""
+    path = _logo(cid, lid)
+    if not thumb:
+        return FileResponse(path, media_type=LOGO_MEDIA[path.suffix[1:]])
+    # shortcut: drawn on every request, no cache; fine for a few photos per customer, cache if it gets slow.
+    with Image.open(path) as im:
+        img = ImageOps.exif_transpose(im).convert("RGB")
+    img.thumbnail((min(max(thumb, 64), 800),) * 2)
+    out = io.BytesIO()
+    img.save(out, "JPEG", quality=80)
+    return Response(out.getvalue(), media_type="image/jpeg")
+
+
+@router.delete("/studio/customers/{cid}/logos/{lid}")
+def delete_logo(cid: str, lid: str, _: User) -> dict:
+    _logo(cid, lid).unlink()
+    return {"ok": True}
+
+
+@router.get("/fm/logos")
+def fm_logos(_: FlagMaker) -> list[dict]:
+    """Every customer with logo photos, also those with no request yet; newest upload first."""
+    root = _data() / "logos"
+    out = []
+    for d in (sorted(p for p in root.iterdir() if p.is_dir()) if root.is_dir() else []):
+        photos = _logos(d.name)
+        snap = firebase.db().document(f"customers/{d.name}").get()
+        if photos and snap.exists:
+            c = snap.to_dict() or {}
+            out.append({"customerId": d.name, "name": c.get("name", ""), "kind": c.get("kind"), "count": len(photos),
+                        "updated": max(p["uploaded"] for p in photos), "photos": photos})
+    return sorted(out, key=lambda c: c["updated"], reverse=True)
+
+
+@router.get("/fm/customers/{cid}/logos/{lid}")
+def fm_logo(cid: str, lid: str, _: FlagMaker) -> FileResponse:
+    path = _logo(cid, lid)
+    return FileResponse(path, media_type=LOGO_MEDIA[path.suffix[1:]])
 
 
 # --- the customer portal ------------------------------------------------------------

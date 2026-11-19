@@ -393,6 +393,27 @@ Future<int> uploadVersion(String requestId, List<XFile> files, {String note = ''
   return (jsonDecode(res.body) as Map<String, dynamic>)['n'] as int;
 }
 
+/// C-6: a customer's logo photos, kept on the Pi as sent (design sources; the client never sees them).
+Future<List<Map<String, dynamic>>> logoPhotos(String customerId) async =>
+    (jsonDecode(utf8.decode(await _download('/studio/customers/$customerId/logos'))) as List).cast<Map<String, dynamic>>();
+
+/// The original, or with [thumb] a small upright JPEG of about that many pixels.
+Future<Uint8List> logoPhoto(String customerId, String id, {int? thumb}) =>
+    _download('/studio/customers/$customerId/logos/$id${thumb == null ? '' : '?thumb=$thumb'}');
+
+Future<void> addLogoPhotos(String customerId, List<XFile> photos) async {
+  final req = http.MultipartRequest('POST', Uri.parse('${AppConfig.serverUrl}/studio/customers/$customerId/logos'));
+  final token = await FirebaseAuth.instance.currentUser?.getIdToken();
+  if (token != null) req.headers['Authorization'] = 'Bearer $token';
+  for (final f in photos) {
+    req.files.add(http.MultipartFile.fromBytes('photos', await f.readAsBytes(), filename: f.name));
+  }
+  final res = await http.Response.fromStream(await req.send().timeout(const Duration(minutes: 5)));
+  if (res.statusCode >= 400) throw ServerException(res.statusCode, res.body);
+}
+
+Future<void> deleteLogoPhoto(String customerId, String id) => server('DELETE', '/studio/customers/$customerId/logos/$id');
+
 /// Deleted on the server with its versions, files, quotes and comments. Not undoable.
 Future<void> deleteRequest(String id) => server('DELETE', '/studio/requests/$id');
 

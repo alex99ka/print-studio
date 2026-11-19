@@ -89,6 +89,15 @@ the older ones. Added in 0.5.0, all optional for the Flag Maker:
 - **B12 problems**: `POST /fm/problem` `{"version", "code", "message"}` → Alex's Telegram, at most 10 an hour
   (429), same as Gift Factory's (`server/GIFT_FACTORY.md` › C-0 additions).
 
+Added in 0.5.5 (C-6, for the flag-creation skill F-7):
+
+- **Logo photos**: `GET /fm/logos` → every customer with logo photos, also those with no request yet, newest
+  upload first: `[{"customerId", "name", "kind" ("mic"/"gift"/null), "count", "updated", "photos": [{"id",
+  "type" (image/jpeg, image/png or image/webp), "size" (bytes), "uploaded"}]}]`; times ISO UTC.
+  `GET /fm/customers/{cid}/logos/{id}` → that photo, the original exactly as uploaded (404 unknown).
+  Photos are added in the app (customer page, or the new-customer dialog): JPEG/PNG/WebP, 25 MB each, 30 per
+  customer, stored on the Pi in `DATA_DIR/logos/<customerId>/`, in the Drive backup, deleted with the customer.
+
 ## Cross-repo checks
 
 Both need the repo secret **`CROSS_REPO_TOKEN`**: a fine-grained GitHub token (Settings › Developer settings ›

@@ -350,3 +350,36 @@ def test_gift_portal_needs_the_google_account_that_signed_in_first(db, monkeypat
     # A microphone customer keeps the bare link.
     db.document("customers/c1").update({"kind": "mic"})
     assert browser().get(f"/p/{TOKEN_A}/data").status_code == 200
+
+
+def test_logo_photos_on_a_customer(client, db, tmp_path):
+    jpg, webp = picture("JPEG", (900, 600)), picture("WEBP", (300, 300))
+    added = client.post("/studio/customers/c2/logos", files=[("photos", ("a.jpg", jpg, "image/jpeg")),
+                                                             ("photos", ("b.webp", webp, "image/webp"))]).json()["added"]
+    listed = client.get("/studio/customers/c2/logos").json()
+    assert [p["id"] for p in listed] == added and [p["type"] for p in listed] == ["image/jpeg", "image/webp"]
+    assert client.get(f"/studio/customers/c2/logos/{added[0]}").content == jpg  # the original, as sent
+    small = Image.open(io.BytesIO(client.get(f"/studio/customers/c2/logos/{added[0]}?thumb=200").content))
+    assert small.size == (200, 133)
+    # Not a picture, a missing customer, too many: nothing is kept.
+    bad = client.post("/studio/customers/c2/logos", files=[("photos", ("x.jpg", jpg, "image/jpeg")), ("photos", ("y.jpg", b"<html>", "image/jpeg"))])
+    assert bad.status_code == 422 and len(client.get("/studio/customers/c2/logos").json()) == 2
+    assert client.post("/studio/customers/nope/logos", files=[("photos", ("a.jpg", jpg, "image/jpeg"))]).status_code == 404
+    assert client.post("/studio/customers/c2/logos", files=[("photos", ("a.jpg", jpg, "image/jpeg"))] * 29).status_code == 413
+    assert client.get("/studio/customers/c2/logos/..%2Fx").status_code == 404
+    assert client.delete(f"/studio/customers/c2/logos/{added[1]}").json() == {"ok": True}
+    assert [p["id"] for p in client.get("/studio/customers/c2/logos").json()] == added[:1]
+    # The Flag Maker lists customers with photos (c2 has no request) and fetches the original with its key.
+    assert client.get("/fm/logos").status_code == 401
+    key = paired(client)
+    [c] = client.get("/fm/logos", headers=key).json()
+    assert (c["customerId"], c["name"], c["count"], c["updated"]) == ("c2", "Other", 1, listed[0]["uploaded"])
+    assert client.get(f"/fm/customers/c2/logos/{added[0]}", headers=key).content == jpg
+    assert client.get("/fm/customers/c2/logos/nope", headers=key).status_code == 404
+    # Deleting the customer takes the photos.
+    client.delete("/studio/customers/c2")
+    assert not (tmp_path / "logos" / "c2").exists() and client.get("/fm/logos", headers=key).json() == []
+
+
+def test_logo_photos_need_sign_in(db):
+    assert TestClient(main.app).get("/studio/customers/c1/logos").status_code == 401

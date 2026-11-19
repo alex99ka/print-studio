@@ -38,7 +38,7 @@ without these the app connects to nothing.
    - Git Bash, in `C:\claude projects\3d\CRM`: `python server/tools/drive_token.py <desktop client id> <desktop client secret>`;
      it prints three `DRIVE_*` lines.
    - Paste them into the Pi's `~/docker/print-studio/.env`, then `docker compose up -d` there.
-8. Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
+8. ✅ (19.11: the Flag Maker's live check passed with its saved key) Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
    address and key in Flag Maker › Send to CRM.
 9. ✅ 15.11 Released as **0.4.0** (0.3.5 was never tagged): discounts, price-only portal, reports, and the
    "אתר" tab. Rules and the Pi server deployed the same day.
@@ -111,6 +111,9 @@ shows on the portal (and takes a guest list) only after a version is published.
    client saw the ₪120 (the portal lists earlier quotes as "previousQuotes"). To decide: never show earlier
    prices, or a "תיקון טעות" switch on a new quote that hides the one it replaces (the QuoteDialog line "הלקוח
    יראה ... שהיה מחיר קודם" changes with it).
+
+3. ✅ (0.5.5, 19.11, C-6) **Logo photos on a customer**: camera/gallery/PC, thumbnails on the customer page and in
+   the new-customer dialog; `/fm/logos` for the Flag Maker (README › Flag Maker routes).
 
 ## After the MVP (not built, to decide)
 

@@ -84,7 +84,7 @@ def files(s: AuthorizedSession, parent: str) -> int:
     """The design files and the clients' guest lists live only on the Pi (an SD
     card): each version's folder goes to Drive once, zipped, into "<backup
     folder>/files", never pruned; a guest list again each time the client sends a
-    new one (its name carries the file's time), and Gift Factory's daily zips. Returns how many went up."""
+    new one (its name carries the file's time), a customer's logo photos likewise, and Gift Factory's daily zips. Returns how many went up."""
     data = Path(os.environ.get("DATA_DIR", "."))
     done_file = data / "files_backed_up.json"
     done = set(json.loads(done_file.read_text())) if done_file.exists() else set()
@@ -93,6 +93,8 @@ def files(s: AuthorizedSession, parent: str) -> int:
 
     todo = [(d, d.name) for d in dirs(data / "files")] + [
         (d, f"guests-{d.name}-{max(int(f.stat().st_mtime) for f in fs)}") for d in dirs(data / "guests") if (fs := list(d.iterdir()))]
+    # C-6 logo photos: a customer's folder again whenever a photo is added or deleted (the folder's time changes).
+    todo += [(d, f"logos-{d.name}-{int(d.stat().st_mtime)}") for d in dirs(data / "logos") if any(d.iterdir())]
     # Gift Factory's daily zips (giftfactory.put_backup), each as it is; a day's zip sent again goes up again.
     gf = data / "gf_backups"
     todo += [(z, f"{z.stem}-{int(z.stat().st_mtime)}") for z in sorted(gf.glob("giftfactory-*.zip"))] if gf.exists() else []
