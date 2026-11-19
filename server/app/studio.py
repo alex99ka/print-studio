@@ -491,7 +491,7 @@ def _add_photos(folder: str, oid: str, photos: list[UploadFile]) -> dict:
     if len(_logos(oid, folder)) + len(photos) > MAX_LOGOS:
         raise HTTPException(413, f"At most {MAX_LOGOS} photos")
     d.mkdir(parents=True, exist_ok=True)
-    added = []
+    added, ms = [], 0
     try:
         for f in photos:
             body = f.file.read(MAX_LOGO + 1)
@@ -505,8 +505,10 @@ def _add_photos(folder: str, oid: str, photos: list[UploadFile]) -> dict:
                 fmt = None
             if fmt not in LOGO_TYPES:
                 raise HTTPException(422, f"{f.filename} is not a JPEG, PNG or WebP picture")
-            # The id starts with the upload time in ms (the list reads it back), then a random part.
-            lid = f"{int(time.time() * 1000)}{secrets.token_hex(3)}"
+            # The id starts with the upload time in ms (the list reads it back), then a random part;
+            # one ms later than the previous photo of this upload, so they list in the order sent.
+            ms = max(int(time.time() * 1000), ms + 1)
+            lid = f"{ms}{secrets.token_hex(3)}"
             (d / f"{lid}.{LOGO_TYPES[fmt][0]}").write_bytes(body)
             added.append(lid)
     except BaseException:
