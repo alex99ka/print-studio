@@ -9,6 +9,7 @@ import '../core/home_widgets.dart';
 import '../core/server.dart';
 import '../core/tour.dart';
 import '../studio/studio.dart';
+import 'logo_photos.dart';
 import 'ribbon.dart';
 import 'skeleton.dart';
 import 'studio_actions.dart';
@@ -487,14 +488,25 @@ class _RequestDetailState extends State<RequestDetail> {
       });
     }
 
+    final payments = [...paymentDocs]..sort((a, b) => _at(a['at']).compareTo(_at(b['at'])));
+    final paid = payments.fold(0, (a, p) => a + (p['amount'] as int));
+
     final header = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
         Expanded(child: Text('${r['title']}', style: Theme.of(context).textTheme.titleLarge)),
         PopupMenuButton<String>(
           tooltip: 'שינוי סטטוס',
-          onSelected: (st) => setStatus(request, st).catchError((Object e) {
-            if (mounted) showError(ScaffoldMessenger.of(context), e, 'שינוי הסטטוס נכשל');
-          }),
+          onSelected: (st) {
+            // שולם with money still owed: ask how it was paid and log it, so the balance follows.
+            final due = st == 'paid' && quote != null ? leftToPay(quoteMoney(quote.data()).total, paid) : 0;
+            if (due > 0) {
+              showDialog<void>(context: context, builder: (_) => PaymentDialog(request: request, left: due, markPaid: true));
+              return;
+            }
+            setStatus(request, st).catchError((Object e) {
+              if (mounted) showError(ScaffoldMessenger.of(context), e, 'שינוי הסטטוס נכשל');
+            });
+          },
           itemBuilder: (_) => [for (final st in statuses) PopupMenuItem(value: st, child: Text(statusLabels[st]!))],
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             StatusChip('${r['status']}'),
@@ -673,8 +685,6 @@ class _RequestDetailState extends State<RequestDetail> {
       ),
     );
 
-    final payments = [...paymentDocs]..sort((a, b) => _at(a['at']).compareTo(_at(b['at'])));
-    final paid = payments.fold(0, (a, p) => a + (p['amount'] as int));
     final owed = money_ != null && owes('${r['status']}');
     final left = owed ? leftToPay(money_.total, paid) : 0;
     final payCard = Card(
@@ -884,6 +894,16 @@ class _RequestDetailState extends State<RequestDetail> {
         const SizedBox(height: 16),
         preview,
         const SizedBox(height: 16),
+        // The printed product as it came out (camera, gallery / Google Photos, or a file on the PC); studio only.
+        if (const {'printing', 'ready', 'delivered', 'paid'}.contains(r['status'])) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: LogoPhotos(key: ValueKey('p${request.id}'), base: productPhotosOf(request.id), title: 'תמונות המוצר'),
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         if (productionCard != null) ...[productionCard, const SizedBox(height: 16)],
         if (estimateCard != null) ...[estimateCard, const SizedBox(height: 16)],
         if (box.maxWidth >= 700)

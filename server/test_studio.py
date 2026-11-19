@@ -352,6 +352,18 @@ def test_gift_portal_needs_the_google_account_that_signed_in_first(db, monkeypat
     assert browser().get(f"/p/{TOKEN_A}/data").status_code == 200
 
 
+def test_product_photos_on_a_request(client, db):
+    """A photo of the printed product, on the request (studio only; deleted with the request)."""
+    jpg = picture("JPEG", (400, 300))
+    [pid] = client.post("/studio/requests/r1/photos", files=[("photos", ("p.jpg", jpg, "image/jpeg"))]).json()["added"]
+    assert [p["id"] for p in client.get("/studio/requests/r1/photos").json()] == [pid]
+    assert client.get(f"/studio/requests/r1/photos/{pid}").content == jpg
+    assert client.post("/studio/requests/nope/photos", files=[("photos", ("p.jpg", jpg, "image/jpeg"))]).status_code == 404
+    assert client.get("/studio/customers/c1/logos").json() == []  # its own folder, not the customer's logos
+    client.delete("/studio/requests/r1")
+    assert client.get("/studio/requests/r1/photos").json() == []
+
+
 def test_logo_photos_on_a_customer(client, db, tmp_path):
     jpg, webp = picture("JPEG", (900, 600)), picture("WEBP", (300, 300))
     added = client.post("/studio/customers/c2/logos", files=[("photos", ("a.jpg", jpg, "image/jpeg")),

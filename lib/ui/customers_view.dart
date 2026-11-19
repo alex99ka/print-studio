@@ -362,7 +362,7 @@ class _CustomerDetailState extends State<CustomerDetail> {
         TextButton(onPressed: () => _replaceLink(c), child: const Text('החלפת קישור')),
       ]),
       const SizedBox(height: 16),
-      LogoPhotos(key: ValueKey(c.id), customerId: c.id),
+      LogoPhotos(key: ValueKey(c.id), base: logosOf(c.id)),
       const SizedBox(height: 16),
       Wrap(spacing: 12, runSpacing: 12, children: [
         stat('הזמנות שאושרו', b.billed),

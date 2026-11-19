@@ -97,6 +97,8 @@ Added in 0.5.5 (C-6, for the flag-creation skill F-7):
   `GET /fm/customers/{cid}/logos/{id}` → that photo, the original exactly as uploaded (404 unknown).
   Photos are added in the app (customer page, or the new-customer dialog): JPEG/PNG/WebP, 25 MB each, 30 per
   customer, stored on the Pi in `DATA_DIR/logos/<customerId>/`, in the Drive backup, deleted with the customer.
+  A request's product photos use the same routes under `/studio/requests/{rid}/photos` (signed-in only, never on the
+  portal), stored in `DATA_DIR/photos/<requestId>/`, in the Drive backup, deleted with the request.
 
 ## Cross-repo checks
 

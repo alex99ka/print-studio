@@ -94,7 +94,8 @@ def files(s: AuthorizedSession, parent: str) -> int:
     todo = [(d, d.name) for d in dirs(data / "files")] + [
         (d, f"guests-{d.name}-{max(int(f.stat().st_mtime) for f in fs)}") for d in dirs(data / "guests") if (fs := list(d.iterdir()))]
     # C-6 logo photos: a customer's folder again whenever a photo is added or deleted (the folder's time changes).
-    todo += [(d, f"logos-{d.name}-{int(d.stat().st_mtime)}") for d in dirs(data / "logos") if any(d.iterdir())]
+    # and a request's product photos the same way.
+    todo += [(d, f"{k}-{d.name}-{int(d.stat().st_mtime)}") for k in ("logos", "photos") for d in dirs(data / k) if any(d.iterdir())]
     # Gift Factory's daily zips (giftfactory.put_backup), each as it is; a day's zip sent again goes up again.
     gf = data / "gf_backups"
     todo += [(z, f"{z.stem}-{int(z.stat().st_mtime)}") for z in sorted(gf.glob("giftfactory-*.zip"))] if gf.exists() else []

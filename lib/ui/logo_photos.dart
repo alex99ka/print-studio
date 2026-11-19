@@ -32,28 +32,30 @@ List<Widget> logoPickButtons(void Function(List<XFile>) picked) => [
       ),
     ];
 
-/// C-6: a customer's logo photos as thumbnails; add, open, delete. Nothing else: the design is made at the PC.
+/// Photos as thumbnails; add, open, delete. A customer's logos (C-6: the design is made later at the PC)
+/// or a request's printed product.
 class LogoPhotos extends StatefulWidget {
-  const LogoPhotos({super.key, required this.customerId});
-  final String customerId;
+  const LogoPhotos({super.key, required this.base, this.title = 'תמונות לוגו'});
+  final String base; // logosOf / productPhotosOf
+  final String title;
 
   @override
   State<LogoPhotos> createState() => _LogoPhotosState();
 }
 
 class _LogoPhotosState extends State<LogoPhotos> {
-  late Future<List<Map<String, dynamic>>> _list = logoPhotos(widget.customerId);
+  late Future<List<Map<String, dynamic>>> _list = photosAt(widget.base);
   final _thumbs = <String, Future<Uint8List>>{};
   bool _busy = false;
 
-  void _reload() => setState(() => _list = logoPhotos(widget.customerId));
+  void _reload() => setState(() => _list = photosAt(widget.base));
 
   Future<void> _add(List<XFile> photos) async {
     if (photos.isEmpty) return;
     final messenger = ScaffoldMessenger.of(context);
     setState(() => _busy = true);
     try {
-      await addLogoPhotos(widget.customerId, photos);
+      await addPhotos(widget.base, photos);
     } catch (e) {
       showError(messenger, e, 'העלאת התמונות נכשלה');
     }
@@ -75,7 +77,7 @@ class _LogoPhotosState extends State<LogoPhotos> {
     );
     if (yes != true) return;
     try {
-      await deleteLogoPhoto(widget.customerId, id);
+      await deletePhotoAt(widget.base, id);
     } catch (e) {
       showError(messenger, e, 'מחיקת התמונה נכשלה');
     }
@@ -86,7 +88,7 @@ class _LogoPhotosState extends State<LogoPhotos> {
         context: context,
         builder: (context) => Dialog(
           child: FutureBuilder<Uint8List>(
-            future: logoPhoto(widget.customerId, id),
+            future: photoAt(widget.base, id),
             builder: (context, s) => s.hasError
                 ? Padding(padding: const EdgeInsets.all(24), child: Text(errorText(s.error!, 'טעינת התמונה נכשלה')))
                 : !s.hasData
@@ -106,7 +108,7 @@ class _LogoPhotosState extends State<LogoPhotos> {
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(6),
                 child: FutureBuilder<Uint8List>(
-                  future: _thumbs[id] ??= logoPhoto(widget.customerId, id, thumb: 200),
+                  future: _thumbs[id] ??= photoAt(widget.base, id, thumb: 200),
                   builder: (context, s) => s.hasData
                       ? Image.memory(s.data!, fit: BoxFit.cover)
                       : ColoredBox(
@@ -137,7 +139,7 @@ class _LogoPhotosState extends State<LogoPhotos> {
           final photos = s.data ?? const [];
           return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Wrap(spacing: 8, runSpacing: 8, crossAxisAlignment: WrapCrossAlignment.center, children: [
-              Text('תמונות לוגו${photos.isEmpty ? '' : ' (${photos.length})'}', style: Theme.of(context).textTheme.titleMedium),
+              Text('${widget.title}${photos.isEmpty ? '' : ' (${photos.length})'}', style: Theme.of(context).textTheme.titleMedium),
               ...logoPickButtons(_add),
             ]),
             const SizedBox(height: 8),

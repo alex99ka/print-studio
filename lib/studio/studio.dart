@@ -344,16 +344,26 @@ Future<void> reply(Doc request, Doc version, String text) {
 }
 
 /// Money received for a request; [at] is the day it came in. Never edited: deleted and entered again.
-Future<void> addPayment(Doc request, {required int amount, required String method, required DateTime at, String note = ''}) =>
-    paymentsRef.add({
-      'requestId': request.id,
-      'customerId': request.data()?['customerId'],
-      'amount': amount,
-      'method': method,
-      'note': note.trim(),
-      'at': Timestamp.fromDate(at),
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+/// [markPaid] also sets the status to שולם, in the same write, so the two never disagree.
+Future<void> addPayment(Doc request,
+        {required int amount, required String method, required DateTime at, String note = '', bool markPaid = false}) =>
+    (_db.batch()
+          ..set(paymentsRef.doc(), {
+            'requestId': request.id,
+            'customerId': request.data()?['customerId'],
+            'amount': amount,
+            'method': method,
+            'note': note.trim(),
+            'at': Timestamp.fromDate(at),
+            'createdAt': FieldValue.serverTimestamp(),
+          })
+          ..update(request.reference,
+              {if (markPaid) 'status': 'paid', 'updatedAt': FieldValue.serverTimestamp()}))
+        .commit();
+
+/// A payment that clears what a delivered request still owed moves it to שולם by itself.
+bool settles({required String status, required int left, required int amount}) =>
+    status == 'delivered' && left > 0 && amount >= left;
 
 /// [day] null clears it.
 Future<void> setDeadline(Doc request, DateTime? day) => request.reference
@@ -393,16 +403,19 @@ Future<int> uploadVersion(String requestId, List<XFile> files, {String note = ''
   return (jsonDecode(res.body) as Map<String, dynamic>)['n'] as int;
 }
 
-/// C-6: a customer's logo photos, kept on the Pi as sent (design sources; the client never sees them).
-Future<List<Map<String, dynamic>>> logoPhotos(String customerId) async =>
-    (jsonDecode(utf8.decode(await _download('/studio/customers/$customerId/logos'))) as List).cast<Map<String, dynamic>>();
+/// Photos kept on the Pi as sent, the client never sees them: a customer's logos (C-6, design sources)
+/// and a request's printed product. [base] is one of these two.
+String logosOf(String customerId) => '/studio/customers/$customerId/logos';
+String productPhotosOf(String requestId) => '/studio/requests/$requestId/photos';
+
+Future<List<Map<String, dynamic>>> photosAt(String base) async =>
+    (jsonDecode(utf8.decode(await _download(base))) as List).cast<Map<String, dynamic>>();
 
 /// The original, or with [thumb] a small upright JPEG of about that many pixels.
-Future<Uint8List> logoPhoto(String customerId, String id, {int? thumb}) =>
-    _download('/studio/customers/$customerId/logos/$id${thumb == null ? '' : '?thumb=$thumb'}');
+Future<Uint8List> photoAt(String base, String id, {int? thumb}) => _download('$base/$id${thumb == null ? '' : '?thumb=$thumb'}');
 
-Future<void> addLogoPhotos(String customerId, List<XFile> photos) async {
-  final req = http.MultipartRequest('POST', Uri.parse('${AppConfig.serverUrl}/studio/customers/$customerId/logos'));
+Future<void> addPhotos(String base, List<XFile> photos) async {
+  final req = http.MultipartRequest('POST', Uri.parse('${AppConfig.serverUrl}$base'));
   final token = await FirebaseAuth.instance.currentUser?.getIdToken();
   if (token != null) req.headers['Authorization'] = 'Bearer $token';
   for (final f in photos) {
@@ -412,7 +425,7 @@ Future<void> addLogoPhotos(String customerId, List<XFile> photos) async {
   if (res.statusCode >= 400) throw ServerException(res.statusCode, res.body);
 }
 
-Future<void> deleteLogoPhoto(String customerId, String id) => server('DELETE', '/studio/customers/$customerId/logos/$id');
+Future<void> deletePhotoAt(String base, String id) => server('DELETE', '$base/$id');
 
 /// Deleted on the server with its versions, files, quotes and comments. Not undoable.
 Future<void> deleteRequest(String id) => server('DELETE', '/studio/requests/$id');

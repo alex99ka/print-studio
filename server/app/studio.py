@@ -275,6 +275,7 @@ def _delete_request(db, rid: str) -> None:
     for vid in vids:
         shutil.rmtree(_data() / "files" / vid, ignore_errors=True)
     shutil.rmtree(_data() / "guests" / rid, ignore_errors=True)
+    shutil.rmtree(_data() / "photos" / rid, ignore_errors=True)
 
 
 @router.delete("/studio/requests/{rid}")
@@ -441,40 +442,43 @@ MAX_LOGO = 25 * 1024 * 1024
 MAX_LOGOS = 30  # per customer
 
 
-def _logo_dir(cid: str) -> Path:
+# Folders on the Pi: "logos" (C-6, per customer) and "photos" (per request: the printed product, studio only).
+OWNERS = {"logos": "customers", "photos": "requests"}
+
+
+def _logo_dir(cid: str, folder: str = "logos") -> Path:
     if not cid.isalnum():
-        raise HTTPException(404, "No such customer")
-    return _data() / "logos" / cid
+        raise HTTPException(404, "Not found")
+    return _data() / folder / cid
 
 
-def _logos(cid: str) -> list[dict]:
-    d = _logo_dir(cid)
+def _logos(cid: str, folder: str = "logos") -> list[dict]:
+    d = _logo_dir(cid, folder)
     files = sorted(f for f in d.iterdir() if f.suffix[1:] in LOGO_MEDIA) if d.is_dir() else []
     return [{"id": f.stem, "type": LOGO_MEDIA[f.suffix[1:]], "size": f.stat().st_size,
              "uploaded": datetime.fromtimestamp(int(f.stem[:13]) / 1000, timezone.utc).isoformat()} for f in files]
 
 
-def _logo(cid: str, lid: str) -> Path:
+def _logo(cid: str, lid: str, folder: str = "logos") -> Path:
     if lid.isalnum():
-        for f in _logo_dir(cid).glob(f"{lid}.*"):
+        for f in _logo_dir(cid, folder).glob(f"{lid}.*"):
             if f.suffix[1:] in LOGO_MEDIA:
                 return f
     raise HTTPException(404, "No such photo")
 
 
-def _need_customer(cid: str) -> None:
-    snap = firebase.db().document(f"customers/{cid}").get() if cid.isalnum() else None
+def _need(folder: str, oid: str) -> None:
+    snap = firebase.db().document(f"{OWNERS[folder]}/{oid}").get() if oid.isalnum() else None
     if not snap or not snap.exists:
-        raise HTTPException(404, "No such customer")
+        raise HTTPException(404, "Not found")
 
 
-@router.post("/studio/customers/{cid}/logos")
-def add_logos(cid: str, _: User, photos: Annotated[list[UploadFile], File()]) -> dict:
+def _add_photos(folder: str, oid: str, photos: list[UploadFile]) -> dict:
     """Several photos at once (phone camera, gallery or PC); each is checked to be a picture."""
-    _need_customer(cid)
-    d = _logo_dir(cid)
-    if len(_logos(cid)) + len(photos) > MAX_LOGOS:
-        raise HTTPException(413, f"At most {MAX_LOGOS} photos per customer")
+    _need(folder, oid)
+    d = _logo_dir(oid, folder)
+    if len(_logos(oid, folder)) + len(photos) > MAX_LOGOS:
+        raise HTTPException(413, f"At most {MAX_LOGOS} photos")
     d.mkdir(parents=True, exist_ok=True)
     added = []
     try:
@@ -496,20 +500,14 @@ def add_logos(cid: str, _: User, photos: Annotated[list[UploadFile], File()]) ->
             added.append(lid)
     except BaseException:
         for lid in added:
-            _logo(cid, lid).unlink(missing_ok=True)
+            _logo(oid, lid, folder).unlink(missing_ok=True)
         raise
     return {"added": added}
 
 
-@router.get("/studio/customers/{cid}/logos")
-def list_logos(cid: str, _: User) -> list[dict]:
-    return _logos(cid)
-
-
-@router.get("/studio/customers/{cid}/logos/{lid}")
-def get_logo(cid: str, lid: str, _: User, thumb: int = 0) -> Response:
+def _get_photo(folder: str, oid: str, lid: str, thumb: int) -> Response:
     """The original, or with ?thumb=<px> a small upright JPEG for the app's thumbnails."""
-    path = _logo(cid, lid)
+    path = _logo(oid, lid, folder)
     if not thumb:
         return FileResponse(path, media_type=LOGO_MEDIA[path.suffix[1:]])
     # shortcut: drawn on every request, no cache; fine for a few photos per customer, cache if it gets slow.
@@ -521,10 +519,26 @@ def get_logo(cid: str, lid: str, _: User, thumb: int = 0) -> Response:
     return Response(out.getvalue(), media_type="image/jpeg")
 
 
-@router.delete("/studio/customers/{cid}/logos/{lid}")
-def delete_logo(cid: str, lid: str, _: User) -> dict:
-    _logo(cid, lid).unlink()
-    return {"ok": True}
+# Same routes for a customer's logos and a request's product photos: /studio/{customers|requests}/{id}/{logos|photos}.
+for _folder, _col in OWNERS.items():
+    def _routes(folder: str = _folder, col: str = _col) -> None:
+        @router.post(f"/studio/{col}/{{oid}}/{folder}")
+        def add(oid: str, _: User, photos: Annotated[list[UploadFile], File()]) -> dict:
+            return _add_photos(folder, oid, photos)
+
+        @router.get(f"/studio/{col}/{{oid}}/{folder}")
+        def listed(oid: str, _: User) -> list[dict]:
+            return _logos(oid, folder)
+
+        @router.get(f"/studio/{col}/{{oid}}/{folder}/{{lid}}")
+        def get(oid: str, lid: str, _: User, thumb: int = 0) -> Response:
+            return _get_photo(folder, oid, lid, thumb)
+
+        @router.delete(f"/studio/{col}/{{oid}}/{folder}/{{lid}}")
+        def delete(oid: str, lid: str, _: User) -> dict:
+            _logo(oid, lid, folder).unlink()
+            return {"ok": True}
+    _routes()
 
 
 @router.get("/fm/logos")

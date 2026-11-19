@@ -163,7 +163,7 @@ class _CustomerDialogState extends State<CustomerDialog> {
       if (c == null) {
         final ref = await addCustomer(name: _name.text, phone: _phone.text, lang: _lang, kind: _kind);
         if (_photos.isNotEmpty) {
-          await addLogoPhotos(ref.id, _photos);
+          await addPhotos(logosOf(ref.id), _photos);
           messenger.showSnackBar(SnackBar(content: Text('${_photos.length} תמונות לוגו נשמרו')));
         }
       } else {
@@ -447,9 +447,12 @@ class MoneyLine extends StatelessWidget {
 
 /// Money received for a request: the amount (what is left, to start with), how, and which day.
 class PaymentDialog extends StatefulWidget {
-  const PaymentDialog({super.key, required this.request, required this.left});
+  const PaymentDialog({super.key, required this.request, required this.left, this.markPaid = false});
   final Doc request;
   final int left;
+
+  /// Opened by changing the status to שולם: saving logs the payment and sets the status together.
+  final bool markPaid;
 
   @override
   State<PaymentDialog> createState() => _PaymentDialogState();
@@ -474,7 +477,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final amount = parseShekel(_amount.text);
     final ok = amount != null && amount > 0;
     return AlertDialog(
-      title: const Text('רישום תשלום'),
+      title: Text(widget.markPaid ? 'איך שולם?' : 'רישום תשלום'),
       content: SizedBox(
         width: 420,
         child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -518,7 +521,13 @@ class _PaymentDialogState extends State<PaymentDialog> {
                   final messenger = ScaffoldMessenger.of(context);
                   Navigator.pop(context);
                   try {
-                    await addPayment(widget.request, amount: amount, method: _method, at: _at, note: _note.text);
+                    await addPayment(widget.request,
+                        amount: amount,
+                        method: _method,
+                        at: _at,
+                        note: _note.text,
+                        markPaid: widget.markPaid ||
+                            settles(status: '${widget.request.data()?['status']}', left: widget.left, amount: amount));
                   } catch (e) {
                     showError(messenger, e, 'רישום התשלום נכשל');
                   }

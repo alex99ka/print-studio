@@ -96,6 +96,11 @@ void main() {
     expect(leftToPay(42480, 10000), 32480);
     expect(leftToPay(42480, 42480), 0);
     expect(leftToPay(42480, 50000), 0); // overpaid
+    // A payment clearing a delivered request's balance marks it paid; a part payment or an earlier status does not.
+    expect(settles(status: 'delivered', left: 32480, amount: 32480), isTrue);
+    expect(settles(status: 'delivered', left: 32480, amount: 10000), isFalse);
+    expect(settles(status: 'approved', left: 32480, amount: 32480), isFalse);
+    expect(settles(status: 'delivered', left: 0, amount: 100), isFalse);
   });
 
   test('real profit: the approved price before VAT minus Gift Factory\'s actual cost', () {
