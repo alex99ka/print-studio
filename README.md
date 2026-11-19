@@ -147,7 +147,8 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
   server when `site.ts` changes. An override is a `site_texts` row holding only the languages that differ;
   "איפוס" deletes the row. Dropping a placeholder (`{name}`, `{n}`) warns before saving.
 - **Call-back requests** (`leads`, personal data: signed-in users only): newest first, a status
-  (`new` / `called` / `opened` / `dropped`), and "צור לקוח + בקשה", which finds or adds the customer by phone and
+  (`new` / `called` / `opened` / `dropped`), delete by holding the card (right-click on the PC; asks first;
+  `DELETE /website/leads/<id>`, 0.6.1), and "צור לקוח + בקשה", which finds or adds the customer by phone and
   opens a request with the amount (else the guests), the product, the wedding day and the gifts they liked,
   then marks the lead `opened`. Since 0.5.0 (B3) a lead may carry `gift` (the product slug the form was sent
   from, `text`, nullable) and `qty` (`int`, nullable): the website adds both columns to `leads` and sends them;

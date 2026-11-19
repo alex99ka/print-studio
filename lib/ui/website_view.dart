@@ -173,7 +173,11 @@ class _WebsiteViewState extends State<WebsiteView> {
     final phone = '${l['phone']}';
     final liked = [for (final g in l['gifts'] as List? ?? const []) _giftNames['$g'] ?? '$g'];
     final isNew = l['status'] == 'new';
-    return Card(
+    // Hold the card (right-click on the PC) to delete it.
+    return GestureDetector(
+      onLongPress: () => _deleteLead(l),
+      onSecondaryTap: () => _deleteLead(l),
+      child: Card(
       color: isNew ? s.accentSoft : null,
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -224,7 +228,15 @@ class _WebsiteViewState extends State<WebsiteView> {
           ),
         ]),
       ),
+    ),
     );
+  }
+
+  Future<void> _deleteLead(Map<String, dynamic> l) async {
+    if (!await _confirm(context, 'למחוק את הפנייה של ${l['name']}?', 'הפנייה תימחק לגמרי ולא תחזור.', 'מחיקה')) return;
+    if (mounted && await _try(context, 'המחיקה נכשלה', () => deleteLead(l['id']))) {
+      setState(() => _leads = siteLeads());
+    }
   }
 
   /// The lead becomes a customer (found by phone, else added) and a request with what the lead said.

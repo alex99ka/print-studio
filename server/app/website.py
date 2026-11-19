@@ -383,6 +383,14 @@ def lead_status(lid: int, body: LeadStatus, _: User) -> dict:
     return {"ok": True}
 
 
+@router.delete("/website/leads/{lid}")
+def delete_lead(lid: int, _: User) -> dict:
+    """Gone for good (personal data): the app asks first."""
+    if not _sb("DELETE", f"leads?id=eq.{lid}"):
+        raise HTTPException(404, "הפנייה כבר לא קיימת")
+    return {"ok": True}
+
+
 class Lead(BaseModel):
     """What the site sends after it saved the lead; only what the alert shows is read."""
 

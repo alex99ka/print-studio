@@ -299,6 +299,13 @@ def test_leads_are_listed_and_their_status_set(client, sb):
     assert sb.tables["leads"][7] == {"id": 7, "name": "דנה", "phone": "052-1234567", "status": "dropped"}
 
 
+def test_a_lead_is_deleted(client, sb):
+    sb.tables["leads"][7] = {"id": 7, "name": "דנה", "phone": "052-1234567", "status": "new"}
+    assert client.delete("/website/leads/7").status_code == 200 and sb.tables["leads"] == {}
+    assert client.delete("/website/leads/7").status_code == 404
+    assert client.delete("/website/leads/x").status_code == 422
+
+
 def test_a_new_lead_alerts_the_studio_only_with_the_shared_key(sb, monkeypatch):
     sent = []
     monkeypatch.setattr(jobs, "users", lambda: [("u", {})])

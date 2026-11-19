@@ -8,6 +8,11 @@ the "what's new" text inside the app, so write it for them, in Hebrew.
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-11-19
+
+### Added
+- מחיקת פנייה מהאתר: לוחצים לחיצה ארוכה על הפנייה (במחשב: לחיצה ימנית), מאשרים, והיא נמחקת.
+
 ## [0.6.0] - 2026-11-19
 
 ### Added

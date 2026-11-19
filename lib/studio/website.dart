@@ -144,4 +144,6 @@ Future<void> resetText(String key) => _site('DELETE', '/website/texts/$key');
 
 Future<List<Map<String, dynamic>>> siteLeads() async => _rows((await _site('GET', '/website/leads'))['leads']);
 
+Future<void> deleteLead(Object id) => _site('DELETE', '/website/leads/$id');
+
 Future<void> setLeadStatus(Object id, String status) => _site('POST', '/website/leads/$id/status', {'status': status});
