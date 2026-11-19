@@ -31,8 +31,8 @@ without these the app connects to nothing.
    from Git Bash on the PC:
    - key straight onto the Pi: `gcloud iam service-accounts keys create - --iam-account=print-studio-server@print-studio-1786a.iam.gserviceaccount.com | ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "umask 077; cat > ~/docker/print-studio/data/service-account.json"`
    - publish: `ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "docker exec tailscale tailscale funnel --bg --https=8443 --set-path /print-studio http://127.0.0.1:8010"`
-   - optional: Telegram lines (`TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`) in its `.env`.
-7a. **H1 backups** (Drive API enabled by Claude 26.10). Left for you:
+   - ✅ (19.11) Telegram lines in its `.env`, copied from `~/todo-notifier/.env` (the shared bot); a test message arrived.
+7a. **H1 backups** (Drive API enabled by Claude 26.10; still not done 19.11, steps with links were given that day). Left for you:
    - Google Cloud › OAuth consent screen: publishing status **In production** (in
      Testing the Drive token dies after 7 days).
    - Git Bash, in `C:\claude projects\3d\CRM`: `python server/tools/drive_token.py <desktop client id> <desktop client secret>`;
