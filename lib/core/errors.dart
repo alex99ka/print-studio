@@ -14,9 +14,9 @@ import 'app_info.dart';
 /// Letters: N connection · A account · G Google sign-in · D data (Firestore)
 /// · U updates · S the home server · P the device · F design files and the
 /// studio's tools · W the shop website · X unexpected.
-/// A new app adds its own letters (Y for an invoicing API, C for AI…) and a
-/// line per code in test/errors_test.dart. Never bare numbers: they read as
-/// HTTP statuses.
+/// Codes are `CRM-<letter><n>`, the operation's standard (root ERRORS.md,
+/// whose CRM block lists each one; test/core_test.dart checks it). Never bare
+/// numbers: they read as HTTP statuses.
 class AppError implements Exception {
   const AppError(this.code, this.why, this.todo);
 
@@ -30,77 +30,77 @@ class AppError implements Exception {
 
 abstract final class Errors {
   static const noConnection = AppError(
-      'N1', 'אין חיבור לאינטרנט', 'בודקים את החיבור ומנסים שוב');
+      'CRM-N1', 'אין חיבור לאינטרנט', 'בודקים את החיבור ומנסים שוב');
   static const tooSlow = AppError(
-      'N2', 'השרת לא ענה בזמן', 'מנסים שוב בעוד רגע. אם זה חוזר, החיבור איטי');
+      'CRM-N2', 'השרת לא ענה בזמן', 'מנסים שוב בעוד רגע. אם זה חוזר, החיבור איטי');
 
-  static const notAllowed = AppError('A1', 'החשבון הזה לא מורשה באפליקציה',
+  static const notAllowed = AppError('CRM-A1', 'החשבון הזה לא מורשה באפליקציה',
       'נכנסים עם חשבון מורשה, או מבקשים מהמנהל להוסיף אותו');
-  static const signedOut = AppError('A2', 'הכניסה פגה',
+  static const signedOut = AppError('CRM-A2', 'הכניסה פגה',
       'נכנסים שוב. הנתונים במקומם');
   static const accountDisabled =
-      AppError('A3', 'החשבון הושבת', 'צריך להפעיל אותו מחדש ב-Firebase');
+      AppError('CRM-A3', 'החשבון הושבת', 'צריך להפעיל אותו מחדש ב-Firebase');
   static const tooManyTries =
-      AppError('A4', 'יותר מדי ניסיונות כניסה', 'מחכים כמה דקות ומנסים שוב');
+      AppError('CRM-A4', 'יותר מדי ניסיונות כניסה', 'מחכים כמה דקות ומנסים שוב');
 
   static const googleCancelled =
-      AppError('G1', 'הכניסה עם Google בוטלה', 'לוחצים שוב על "כניסה עם Google"');
-  static const googleNotSetUp = AppError('G2', 'הכניסה עם Google לא מוגדרת בגרסה הזו',
+      AppError('CRM-G1', 'הכניסה עם Google בוטלה', 'לוחצים שוב על "כניסה עם Google"');
+  static const googleNotSetUp = AppError('CRM-G2', 'הכניסה עם Google לא מוגדרת בגרסה הזו',
       'צריך לבנות את האפליקציה עם מזהה הלקוח של Google. שולחים את הקוד');
   static const googleFailed =
-      AppError('G3', 'Google החזיר שגיאה', 'מנסים שוב. אם זה חוזר, שולחים את הקוד');
+      AppError('CRM-G3', 'Google החזיר שגיאה', 'מנסים שוב. אם זה חוזר, שולחים את הקוד');
 
-  static const noPermission = AppError('D1', 'אין הרשאה לנתונים',
+  static const noPermission = AppError('CRM-D1', 'אין הרשאה לנתונים',
       'יוצאים ונכנסים שוב. אם זה חוזר, כללי ההרשאה ב-Firebase דורשים בדיקה');
-  static const dataUnavailable = AppError('D2', 'מסד הנתונים לא זמין כרגע',
+  static const dataUnavailable = AppError('CRM-D2', 'מסד הנתונים לא זמין כרגע',
       'מנסים שוב בעוד כמה דקות. השינויים נשמרים במכשיר עד אז');
-  static const quotaExceeded = AppError('D3', 'נגמרה המכסה היומית החינמית',
+  static const quotaExceeded = AppError('CRM-D3', 'נגמרה המכסה היומית החינמית',
       'זה מתאפס בחצות (שעון ארה"ב). עד אז אפשר רק לקרוא מהמכשיר');
 
-  static const updateCheckFailed = AppError('U1', 'לא הצלחתי לבדוק עדכונים',
+  static const updateCheckFailed = AppError('CRM-U1', 'לא הצלחתי לבדוק עדכונים',
       'בודקים את החיבור ומנסים שוב מההגדרות');
-  static const updateCorrupt = AppError('U2', 'קובץ העדכון שהורד לא תקין',
+  static const updateCorrupt = AppError('CRM-U2', 'קובץ העדכון שהורד לא תקין',
       'מנסים שוב. קובץ שלא תואם למה שפורסם לא מותקן');
-  static const updateNotAllowed = AppError('U3', 'אנדרואיד לא מרשה להתקין עדכונים',
+  static const updateNotAllowed = AppError('CRM-U3', 'אנדרואיד לא מרשה להתקין עדכונים',
       'מאשרים "התקנה מהאפליקציה הזו" במסך שנפתח, וחוזרים');
-  static const updateTooOld = AppError('U4', 'הגרסה הזו ישנה מדי',
+  static const updateTooOld = AppError('CRM-U4', 'הגרסה הזו ישנה מדי',
       'מעדכנים כדי להמשיך. הנתונים נשמרים');
 
-  static const serverDown = AppError('S1', 'השרת בבית לא עונה',
+  static const serverDown = AppError('CRM-S1', 'השרת בבית לא עונה',
       'מנסים שוב בעוד כמה דקות. אם זה נמשך, צריך לבדוק שהשרת דלוק');
   static const serverBug =
-      AppError('S2', 'תקלה בשרת', 'מנסים שוב. אם זה חוזר, שולחים את הקוד');
+      AppError('CRM-S2', 'תקלה בשרת', 'מנסים שוב. אם זה חוזר, שולחים את הקוד');
 
-  static const noBiometrics = AppError('P1', 'אין טביעת אצבע מוגדרת בטלפון',
+  static const noBiometrics = AppError('CRM-P1', 'אין טביעת אצבע מוגדרת בטלפון',
       'מגדירים טביעת אצבע בהגדרות הטלפון וחוזרים');
-  static const notificationsBlocked = AppError('P2', 'ההתראות חסומות',
+  static const notificationsBlocked = AppError('CRM-P2', 'ההתראות חסומות',
       'מאשרים התראות לאפליקציה בהגדרות המכשיר');
-  static const notificationsNeedHomeScreen = AppError('P3',
+  static const notificationsNeedHomeScreen = AppError('CRM-P3',
       'באייפד התראות עובדות רק מהאפליקציה שבמסך הבית',
       'בספארי: שיתוף › הוספה למסך הבית, ופותחים משם');
 
-  static const noServer = AppError('F1', 'בגרסה הזו אין כתובת לשרת הקבצים',
+  static const noServer = AppError('CRM-F1', 'בגרסה הזו אין כתובת לשרת הקבצים',
       'צריך לבנות את האפליקציה עם SERVER_URL. שולחים את הקוד');
-  static const requestLocked = AppError('F2', 'הבקשה כבר אושרה ונעולה',
+  static const requestLocked = AppError('CRM-F2', 'הבקשה כבר אושרה ונעולה',
       'שינוי אחרי אישור הוא בקשה חדשה');
-  static const badFile = AppError('F3', 'הקובץ לא תקין או גדול מ-60MB',
+  static const badFile = AppError('CRM-F3', 'הקובץ לא תקין או גדול מ-60MB',
       'מייצאים שוב מה-Flag Maker ומעלים את הקבצים מהייצוא');
-  static const slicerFailed = AppError('F4', 'Bambu Studio לא נפתח',
+  static const slicerFailed = AppError('CRM-F4', 'Bambu Studio לא נפתח',
       'בודקים ש-Bambu Studio מותקן ושקבצי 3MF נפתחים בו בלחיצה כפולה');
-  static const noPreview = AppError('F5', 'לא נבחרה תמונת PNG',
+  static const noPreview = AppError('CRM-F5', 'לא נבחרה תמונת PNG',
       'בוחרים את כל קבצי הייצוא, כולל ה-PNG');
 
   // The shop website (lib/studio/website.dart picks them from the server's answer).
-  static const siteInvalid = AppError('W1', 'האתר לא קיבל את הנתונים', 'מתקנים את השדה ושומרים שוב');
-  static const siteSlugTaken = AppError('W2', 'כבר יש באתר מוצר עם המזהה הזה',
+  static const siteInvalid = AppError('CRM-W1', 'האתר לא קיבל את הנתונים', 'מתקנים את השדה ושומרים שוב');
+  static const siteSlugTaken = AppError('CRM-W2', 'כבר יש באתר מוצר עם המזהה הזה',
       'בוחרים מזהה אחר, או עורכים את המוצר הקיים');
-  static const sitePicture = AppError('W3', 'הקובץ אינו תמונה (JPG, PNG, WebP) או שהוא גדול מ-15MB',
+  static const sitePicture = AppError('CRM-W3', 'הקובץ אינו תמונה (JPG, PNG, WebP) או שהוא גדול מ-15MB',
       'בוחרים תמונה אחרת');
-  static const siteNotSetUp = AppError('W4', 'השרת בבית עוד לא מחובר ל-Supabase של האתר',
+  static const siteNotSetUp = AppError('CRM-W4', 'השרת בבית עוד לא מחובר ל-Supabase של האתר',
       'מוסיפים SUPABASE_URL ו-SUPABASE_SERVICE_ROLE_KEY ל-.env של השרת ומפעילים אותו מחדש');
-  static const siteRefused = AppError('W5', 'Supabase לא ביצע את הפעולה',
+  static const siteRefused = AppError('CRM-W5', 'Supabase לא ביצע את הפעולה',
       'מנסים שוב. אם זה חוזר, שולחים את הקוד');
-  static const siteGone = AppError('W6', 'הרשומה כבר לא קיימת באתר', 'מרעננים את הרשימה');
+  static const siteGone = AppError('CRM-W6', 'הרשומה כבר לא קיימת באתר', 'מרעננים את הרשימה');
 
   /// Every code, for the test that keeps them unique.
   static const all = <AppError>[
@@ -151,13 +151,13 @@ AppError classify(Object e) => switch (e) {
 AppError _unexpected(Object e) {
   final detail = '$e';
   return AppError(
-    'X1',
+    'CRM-X1',
     'תקלה לא צפויה (${detail.length > 100 ? '${detail.substring(0, 100)}…' : detail})',
     'מנסים שוב. אם זה חוזר, שולחים דיווח מההגדרות',
   );
 }
 
-/// "[failed]: why. What to do. (קוד G1)", for a SnackBar or under a field.
+/// "[failed]: why. What to do. (קוד CRM-G1)", for a SnackBar or under a field.
 String errorText(Object e, [String? failed]) {
   final error = classify(e);
   return '${failed == null ? '' : '$failed: '}${error.why}. ${error.todo}. '

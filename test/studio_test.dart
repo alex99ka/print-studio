@@ -72,6 +72,11 @@ void main() {
     expect(whatsapp('', 'x').path, '/');
   });
 
+  test('the "ready" message names the customer, the order and the link, in the portal language', () {
+    expect(readyMessage('דנה', 'דגל מיקרופון', 'https://x/p/t'), 'שלום דנה, ההזמנה שלך מוכנה: דגל מיקרופון 🎉\nכל הפרטים כאן:\nhttps://x/p/t');
+    expect(readyMessage('Dana', 'Mic flag', 'https://x/p/t', lang: 'en'), startsWith('Hi Dana, your order is ready: Mic flag'));
+  });
+
   test('picked files map to the upload fields the Pi expects', () {
     expect(uploadField('flag_v557.PNG'), 'preview');
     expect(uploadField('flag.3mf'), 'model');

@@ -86,8 +86,9 @@ the older ones. Added in 0.5.0, all optional for the Flag Maker:
   one and "שימוש כהצעת מחיר" fills the quote form with the suggested price.
 - **B5 printed**: `POST /fm/requests/{rid}/printed` moves אושר / בהדפסה → מוכן with one push; 409 from any other
   status, 404 unknown request. Answer `{"ok": true, "status": "ready"}`.
-- **B12 problems**: `POST /fm/problem` `{"version", "code", "message"}` → Alex's Telegram, at most 10 an hour
-  (429), same as Gift Factory's (`server/GIFT_FACTORY.md` › C-0 additions).
+- **B12 problems**: `POST /fm/problem` `{"version", "code", "message"}`, from 0.6.0 also optional `title` (≤ 200,
+  what failed) and `todo` (≤ 500, what to do) → Alex's Telegram as `🐞 <code> Flag Maker <version>: <title>. <message>.
+  To do: <todo>.` (root `ERRORS.md`), at most 10 an hour (429), same as Gift Factory's (`server/GIFT_FACTORY.md` › C-0 additions).
 
 Added in 0.5.5 (C-6, for the flag-creation skill F-7):
 
@@ -135,7 +136,10 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
   `{"size_mm": [x, y, z], "spin": {"cols", "rows", "start": [row, col], "tile"}, "gift": {…}, "unit_minutes": 7.5}`.
   `unit_minutes` (optional, > 0, B13) is one unit's measured print time; it stays on the Pi (not a Supabase
   column) and the product page suggests `lead_days` from it (`ceil(min_qty × minutes / 1440) + 2`) for Alex to
-  take or leave. `gift`
+  take or leave. `nameOn` (optional, 0.6.0, C-10) = `{"still": {"x", "y", "w", "angle"}, "spin": {…}}`: where `{name}`
+  lands on `still.jpg` and on the spin's start view, centre `x`, `y` and width `w` as fractions 0–1 of the picture,
+  `angle` in degrees (default 0); either may be left out. It is stored as the `gifts.name_on` jsonb column (the
+  website multiplies by 100 for its `NameSpot`); a render without it leaves the stored one as it was. `gift`
   (`name`, `text`, `kind`, `min_qty`, `lead_days`, `published`, `feature`, `sort`) is optional and creates the
   product only when the site does not have it yet: what was edited in the CRM is never overwritten.
 - **Wording**: `server/app/static/site_texts.json` is the code's wording per key (`hero.h1`,
@@ -239,6 +243,10 @@ GitHub Releases ◄── release.yml (tag)        Pi: server/ (Docker, Tailscal
 - **Service accounts** get one job each: the server's (*Cloud Datastore User* +
   *Firebase Cloud Messaging API Admin*), Hosting deploys (*Firebase Hosting
   Admin*). The Drive backup token has only `drive.file`.
+- **`GET /health`** (no sign-in, no secrets): `ok`, `last_backup` (ISO time of the last good Drive backup), `backup`,
+  `telegram` (configured or not), and from 0.6.0 `version` (the server's release) and `gf_backup` (ISO UTC time of
+  Gift Factory's newest daily zip on the Pi, `null` when none). The root `check.py` reads it every morning. The
+  restore check (COMMANDS.md) proves the backup opens; Telegram reminds on the 1st of each month.
 - **Signing**: the keystore is decoded only on a runner that runs no project
   code, then deleted. A lost key means every user must uninstall to update.
 - **Updates** install only if the SHA-256 matches the release and, on

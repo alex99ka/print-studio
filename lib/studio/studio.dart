@@ -204,6 +204,11 @@ Uri whatsapp(String phone, String text) {
 String portalMessage(String customerName, String url) =>
     'שלום $customerName, יש עיצוב חדש לאישור בסטודיו הדפסה. אפשר לראות, להעיר ולאשר כאן:\n$url';
 
+/// C-8: the order is ready (מוכן). In the customer's portal language; Alex taps send.
+String readyMessage(String customerName, String what, String url, {String lang = 'he'}) => lang == 'en'
+    ? 'Hi $customerName, your order is ready: $what 🎉\nAll the details are here:\n$url'
+    : 'שלום $customerName, ההזמנה שלך מוכנה: $what 🎉\nכל הפרטים כאן:\n$url';
+
 /// For someone asking about a microphone flag (WhatsApp: *bold*). Alex's prices, 18.11.2026.
 const micPriceList = '''היי, תודה על ההתעניינות! 🎤
 הנה המחירון לדגלים למיקרופון:

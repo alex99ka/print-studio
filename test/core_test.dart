@@ -16,19 +16,29 @@ void main() {
       final codes = Errors.all.map((e) => e.code).toList();
       expect(codes.toSet().length, codes.length);
       for (final c in codes) {
-        expect(c, matches(RegExp(r'^[A-Z][0-9]+$')), reason: c);
+        expect(c, matches(RegExp(r'^CRM-[A-Z][0-9]+$')), reason: c);
+      }
+    });
+
+    test("every code is in the CRM block of the operation's ERRORS.md", () {
+      // shortcut: the file is in the parent repo, so CI (CRM repo only) skips this; it runs on Alex's PC.
+      final file = File('../ERRORS.md');
+      if (!file.existsSync()) return markTestSkipped('../ERRORS.md not here');
+      final block = file.readAsStringSync().split('### CRM')[1].split('\n### ')[0];
+      for (final c in [...Errors.all.map((e) => e.code), 'CRM-X1', 'CRM-X2', 'CRM-X3']) {
+        expect(block, contains('| $c |'), reason: c);
       }
     });
 
     test('text says what failed, why, what to do, and the code', () {
       expect(errorText(Errors.noConnection, 'השמירה נכשלה'),
-          'השמירה נכשלה: אין חיבור לאינטרנט. בודקים את החיבור ומנסים שוב. (קוד N1)');
+          'השמירה נכשלה: אין חיבור לאינטרנט. בודקים את החיבור ומנסים שוב. (קוד CRM-N1)');
     });
 
     test('server statuses map to codes', () {
-      expect(classify(const ServerException(503, '')).code, 'S1');
-      expect(classify(const ServerException(403, '')).code, 'A1');
-      expect(classify(Exception('boom')).code, 'X1');
+      expect(classify(const ServerException(503, '')).code, 'CRM-S1');
+      expect(classify(const ServerException(403, '')).code, 'CRM-A1');
+      expect(classify(Exception('boom')).code, 'CRM-X1');
     });
   });
 

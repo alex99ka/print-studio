@@ -1,6 +1,7 @@
 """giftfactory.py: Gift Factory's routes (contract v1, GIFT_FACTORY.md) and the portal's guest list.
 The parser, template and contract shapes run anywhere; the routes need the Firestore emulator (test_studio.py)."""
 
+from datetime import datetime, timezone
 import io
 import json
 import zipfile
@@ -389,6 +390,7 @@ def test_backups_one_a_day_newest_30(client, tmp_path):
     assert len(kept) == 30 and kept[-1] == r.json()["file"] and "giftfactory-2026-10-02.zip" not in kept
     with zipfile.ZipFile(folder / kept[-1]) as z:
         assert z.read("spools.json") == b"again"
+    assert client.get("/health").json()["gf_backup"][:10] == datetime.now(timezone.utc).date().isoformat()  # C-7
 
 
 def test_problem_reports_go_to_telegram_10_an_hour(client, monkeypatch):

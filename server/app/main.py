@@ -15,6 +15,7 @@ from . import backup, firebase, giftfactory, jobs, studio, telegram, website
 
 logging.basicConfig(level=logging.INFO)
 APP = os.environ.get("APP_NAME") or "האפליקציה"
+VERSION = "0.6.0"  # the release this server ships with; test_api checks it against pubspec.yaml
 
 
 @asynccontextmanager
@@ -61,6 +62,8 @@ def health() -> dict:
         "last_backup": backup.last(),
         "backup": backup.configured(),
         "telegram": telegram.configured(),
+        "version": VERSION,
+        "gf_backup": giftfactory.newest_backup(),
     }
 
 

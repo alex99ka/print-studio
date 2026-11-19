@@ -199,6 +199,16 @@ async def every_day(job, hour: int, name: str = "הגיבוי היומי") -> No
 def daily_backup() -> None:
     if backup.configured():
         backup.run()
+    restore_reminder()
+
+
+def restore_reminder(today: date | None = None) -> bool:
+    """On the 1st of each month, Telegram reminds to run the restore check (C-7)."""
+    if (today or datetime.now(ISRAEL).date()).day != 1:
+        return False
+    telegram.send("🗄️ בדיקת שחזור חודשית: ב-Claude Code בתיקיית ה-CRM מבקשים \"הרץ את בדיקת השחזור\" "
+                  "(server/tools/restore_check.py)")
+    return True
 
 
 # Days before the deadline that remind besides the "start printing" one; -1 = it passed

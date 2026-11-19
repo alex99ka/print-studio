@@ -253,6 +253,23 @@ class Spin(BaseModel):
 
 
 Mm = Annotated[float, Field(gt=0, le=2000)]
+Frac = Annotated[float, Field(ge=0, le=1)]
+
+
+class Spot(BaseModel):
+    """Where `{name}` lands on a picture, in fractions of it: centre x, y and the width the name may fill (C-10)."""
+
+    model_config = ConfigDict(extra="forbid")
+    x: Frac
+    y: Frac
+    w: Annotated[float, Field(gt=0, le=1)]
+    angle: float = Field(default=0, ge=-180, le=180)
+
+
+class NameOn(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    still: Spot | None = None
+    spin: Spot | None = None  # the spin's start view
 
 
 class Meta(BaseModel):
@@ -264,6 +281,7 @@ class Meta(BaseModel):
     spin: Spin
     gift: Gift | None = None
     unit_minutes: float | None = Field(default=None, gt=0, le=10000)  # B13: one unit's print time, measured
+    nameOn: NameOn | None = None  # noqa: N815 - the contract's spelling; Supabase column name_on
 
 
 async def render_form(request: Request) -> dict:
@@ -289,6 +307,8 @@ def put_renders(slug: str, _: Annotated[None, Depends(render_script)], form: Ann
             (tmp / name).write_bytes(_read(f, name))
             _check(tmp / name)  # a real JPEG, whatever it was called
         row = {"size_mm": list(meta.size_mm), "spin": meta.spin.model_dump(), "updated_at": _now()}
+        if meta.nameOn:  # left as it was when the renderer doesn't send it (older Gift Factory)
+            row["name_on"] = meta.nameOn.model_dump(exclude_none=True)
         created = False
         if not _sb("PATCH", f"gifts?slug=eq.{slug}", row):
             if not meta.gift:

@@ -503,8 +503,19 @@ class _RequestDetailState extends State<RequestDetail> {
               showDialog<void>(context: context, builder: (_) => PaymentDialog(request: request, left: due, markPaid: true));
               return;
             }
-            setStatus(request, st).catchError((Object e) {
-              if (mounted) showError(ScaffoldMessenger.of(context), e, 'שינוי הסטטוס נכשל');
+            final messenger = ScaffoldMessenger.of(context);
+            setStatus(request, st).then((_) {
+              // C-8: offer the client's "ready" message; nothing is sent by itself.
+              if (st == 'ready' && customer != null && mounted) {
+                messenger.showSnackBar(SnackBar(
+                  persist: false,
+                  duration: const Duration(seconds: 8),
+                  content: const Text('הבקשה מוכנה'),
+                  action: SnackBarAction(label: 'הודעה ללקוח', onPressed: () => sendReady(context, sel)),
+                ));
+              }
+            }, onError: (Object e) {
+              if (mounted) showError(messenger, e, 'שינוי הסטטוס נכשל');
             });
           },
           itemBuilder: (_) => [for (final st in statuses) PopupMenuItem(value: st, child: Text(statusLabels[st]!))],
@@ -516,6 +527,13 @@ class _RequestDetailState extends State<RequestDetail> {
       ]),
       Text('${r['customerName'] ?? ''} · ${r['qty'] ?? 1} יחידות', style: TextStyle(color: s.muted)),
       Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
+        // C-8: by hand or by B5 (Gift Factory / Flag Maker), a ready request offers the client's message.
+        if (r['status'] == 'ready' && customer != null)
+          FilledButton.tonalIcon(
+            onPressed: () => sendReady(context, sel),
+            icon: const Icon(Icons.chat_outlined),
+            label: const Text('הודעת "מוכן" ללקוח'),
+          ),
         TextButton.icon(
           onPressed: () => pickDeadline(context, request),
           icon: const Icon(Icons.event_outlined),

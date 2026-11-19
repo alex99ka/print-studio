@@ -28,8 +28,38 @@ def client(tmp_path, monkeypatch):
 def test_health_has_no_secrets(client):
     r = client.get("/health")
     assert r.status_code == 200
-    assert set(r.json()) == {"ok", "last_backup", "backup", "telegram"}
+    assert set(r.json()) == {"ok", "last_backup", "backup", "telegram", "version", "gf_backup"}
+    assert r.json()["gf_backup"] is None  # no Gift Factory zip yet
     assert r.headers["X-Content-Type-Options"] == "nosniff"
+
+
+def test_health_version_is_the_release():
+    from pathlib import Path
+
+    pubspec = Path(__file__).parent.parent / "pubspec.yaml"
+    if pubspec.exists():  # not on the Pi (only server/ is deployed)
+        assert f"version: {main.VERSION}+" in pubspec.read_text()
+
+
+def test_restore_reminder_on_the_first_only(sent):
+    from datetime import date
+
+    assert not jobs.restore_reminder(date(2026, 12, 2)) and sent == []
+    assert jobs.restore_reminder(date(2026, 12, 1)) and "restore_check.py" in sent[0]
+
+
+def test_restore_check_takes_only_the_drive_lines_of_the_env(monkeypatch):
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, str(Path(__file__).parent / "tools"))
+    import restore_check
+
+    for k in ("DRIVE_CLIENT_ID", "APP_NAME", "TELEGRAM_BOT_TOKEN"):
+        monkeypatch.delenv(k, raising=False)
+    restore_check.env_from('DRIVE_CLIENT_ID="abc"\nAPP_NAME=סטודיו\nTELEGRAM_BOT_TOKEN=secret\n# x')
+    assert os.environ["DRIVE_CLIENT_ID"] == "abc" and os.environ["APP_NAME"] == "סטודיו"
+    assert "TELEGRAM_BOT_TOKEN" not in os.environ
 
 
 def test_report_needs_a_token(client):

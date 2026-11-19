@@ -27,10 +27,10 @@ Future<void> main() async {
   // Errors nobody caught are kept for the problem report in Settings.
   FlutterError.onError = (details) {
     FlutterError.presentError(details);
-    recordError('X2', details.exception, details.stack);
+    recordError('CRM-X2', details.exception, details.stack);
   };
   PlatformDispatcher.instance.onError = (error, stack) {
-    recordError('X2', error, stack);
+    recordError('CRM-X2', error, stack);
     return true;
   };
   if (kReleaseMode) {
@@ -70,7 +70,7 @@ Future<void> main() async {
       FirebaseMessaging.onBackgroundMessage(pushInBackground);
     }
   } catch (e, stack) {
-    recordError('X3', e, stack);
+    recordError('CRM-X3', e, stack);
     runApp(App(home: _StartupError(e)));
     return;
   }

@@ -401,6 +401,17 @@ class Problem(BaseModel):
     version: str = Field(default="", max_length=50)
     code: str = Field(default="", max_length=50)
     message: str = Field(min_length=1, max_length=2000)
+    title: str = Field(default="", max_length=200)  # what failed (ERRORS.md, CRM 0.6.0)
+    todo: str = Field(default="", max_length=500)  # what to do
+
+
+def problem_line(app: str, body: Problem) -> str:
+    """`<code> <app> <version>: <title>. <message>. To do: <todo>` (root ERRORS.md); empty parts left out."""
+    head = " ".join(p for p in (body.code or "no code", app, body.version) if p)
+    parts = [p.strip().rstrip(".") for p in (body.title, body.message) if p.strip()]
+    if body.todo.strip():
+        parts.append("To do: " + body.todo.strip().rstrip("."))
+    return f"🐞 {head}: " + ". ".join(parts) + "."
 
 
 def problem(app: str, body: Problem) -> dict:

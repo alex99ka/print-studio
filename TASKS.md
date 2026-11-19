@@ -32,12 +32,10 @@ without these the app connects to nothing.
    - key straight onto the Pi: `gcloud iam service-accounts keys create - --iam-account=print-studio-server@print-studio-1786a.iam.gserviceaccount.com | ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "umask 077; cat > ~/docker/print-studio/data/service-account.json"`
    - publish: `ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "docker exec tailscale tailscale funnel --bg --https=8443 --set-path /print-studio http://127.0.0.1:8010"`
    - ✅ (19.11) Telegram lines in its `.env`, copied from `~/todo-notifier/.env` (the shared bot); a test message arrived.
-7a. **H1 backups** (Drive API enabled by Claude 26.10; still not done 19.11, steps with links were given that day). Left for you:
-   - Google Cloud › OAuth consent screen: publishing status **In production** (in
-     Testing the Drive token dies after 7 days).
-   - Git Bash, in `C:\claude projects\3d\CRM`: `python server/tools/drive_token.py <desktop client id> <desktop client secret>`;
-     it prints three `DRIVE_*` lines.
-   - Paste them into the Pi's `~/docker/print-studio/.env`, then `docker compose up -d` there.
+7a. ✅ **H1 backups** (stale until 19.11: the Drive backup has run every night since late October, 24 days kept on 19.11).
+   0.6.0 (C-7): `/health` gives `version` and `gf_backup`; `server/tools/restore_check.py` downloads and opens the
+   newest backup (first run 19.11: 5 customers, 12 requests, 18 versions, 9 payments; the GF zip of 18.11 opens with
+   83 files; no logo photos exist yet). Telegram reminds on the 1st of each month to run it (COMMANDS.md).
 8. ✅ (19.11: the Flag Maker's live check passed with its saved key) Once the server is up: CRM › Settings › "חיבור ה-Flag Maker", then paste the
    address and key in Flag Maker › Send to CRM.
 9. ✅ 15.11 Released as **0.4.0** (0.3.5 was never tagged): discounts, price-only portal, reports, and the

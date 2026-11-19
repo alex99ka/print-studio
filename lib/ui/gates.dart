@@ -98,7 +98,7 @@ class _NoAccessScreen extends StatelessWidget {
               const Icon(Icons.lock_outline, size: 48),
               const SizedBox(height: 16),
               Text('לחשבון ${FirebaseAuth.instance.currentUser?.email ?? ''} '
-                  'אין גישה לאפליקציה הזו (קוד A1).',
+                  'אין גישה לאפליקציה הזו (קוד CRM-A1).',
                   textAlign: TextAlign.center),
               const SizedBox(height: 8),
               const Text('אם זו טעות, מבקשים מהמנהל להוסיף את החשבון.',
@@ -133,7 +133,7 @@ class UpdateRequiredScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.system_update, size: 48),
                 const SizedBox(height: 16),
-                Text('צריך לעדכן כדי להמשיך (קוד U4)',
+                Text('צריך לעדכן כדי להמשיך (קוד CRM-U4)',
                     style: Theme.of(context).textTheme.titleLarge),
                 const SizedBox(height: 8),
                 Text(message.isEmpty

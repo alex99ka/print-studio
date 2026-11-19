@@ -63,17 +63,17 @@ void main() {
 
   test('the server\'s answers become website codes, with its words', () {
     String code(int status, [String body = '{"detail":"x"}']) => siteError(ServerException(status, body)).code;
-    expect(code(422), 'W1');
-    expect(code(409), 'W2');
-    expect(code(413), 'W3');
-    expect(code(415), 'W3');
-    expect(code(503), 'W4');
-    expect(code(502), 'W5');
-    expect(code(404), 'W6');
+    expect(code(422), 'CRM-W1');
+    expect(code(409), 'CRM-W2');
+    expect(code(413), 'CRM-W3');
+    expect(code(415), 'CRM-W3');
+    expect(code(503), 'CRM-W4');
+    expect(code(502), 'CRM-W5');
+    expect(code(404), 'CRM-W6');
     // Not our server's JSON: the Pi or the tunnel is down, the usual codes.
-    expect(code(503, '<html>'), 'S1');
-    expect(code(502, ''), 'S1');
-    expect(code(403), 'A1');
+    expect(code(503, '<html>'), 'CRM-S1');
+    expect(code(502, ''), 'CRM-S1');
+    expect(code(403), 'CRM-A1');
     expect(siteError(const ServerException(422, '{"detail":"למוצר עוד אין תמונה"}')).why, contains('למוצר עוד אין תמונה'));
     expect(
         siteError(const ServerException(422, '{"detail":[{"loc":["body","name","ru"],"msg":"Field required"}]}')).why,
@@ -87,7 +87,7 @@ void main() {
     await t.pumpWidget(app(const Scaffold(body: WebsiteView())));
     await t.pump();
     expect(find.text('פניות'), findsOneWidget);
-    expect(find.textContaining('קוד F1'), findsOneWidget);
+    expect(find.textContaining('קוד CRM-F1'), findsOneWidget);
     expect(find.text('ניסיון נוסף'), findsOneWidget);
   });
 

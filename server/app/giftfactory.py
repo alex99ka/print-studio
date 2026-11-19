@@ -289,6 +289,12 @@ def gf_backups() -> Path:
     return _data() / "gf_backups"
 
 
+def newest_backup() -> str | None:
+    """ISO UTC time of Gift Factory's newest daily zip on the Pi, for /health (C-7)."""
+    zips = list(gf_backups().glob("giftfactory-*.zip"))
+    return datetime.fromtimestamp(max(z.stat().st_mtime for z in zips), timezone.utc).isoformat() if zips else None
+
+
 @router.post("/gf/backup")
 def put_backup(_: GiftFactory, file: Annotated[UploadFile, File()]) -> dict:
     """One zip a day (a second one that day replaces it), the newest 30 kept; the 03:00

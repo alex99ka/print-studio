@@ -351,6 +351,19 @@ def test_measured_print_minutes_are_kept_on_the_pi(client, sb, key, tmp_path):
     assert "unit_minutes" not in sb.tables["gifts"]["cart-coin"]  # not a Supabase column
 
 
+def test_the_name_spot_goes_to_supabase(client, sb, key):
+    add(client)
+    post = lambda meta: client.post("/website/gifts/cart-coin/renders", headers=key,  # noqa: E731
+                                    data={"meta": json.dumps(meta)}, files=renders("still"))
+    assert post(META).status_code == 200 and "name_on" not in sb.tables["gifts"]["cart-coin"]
+    for bad in ({"still": {"x": 1.2, "y": 0.5, "w": 0.3}}, {"still": {"x": 0.5, "y": 0.5, "w": 0}}, {"top": {}}):
+        assert post({**META, "nameOn": bad}).status_code == 422
+    spot = {"still": {"x": 0.3, "y": 0.47, "w": 0.38}, "spin": {"x": 0.5, "y": 0.5, "w": 0.4, "angle": 30}}
+    assert post({**META, "nameOn": spot}).status_code == 200
+    assert sb.tables["gifts"]["cart-coin"]["name_on"] == {"still": {**spot["still"], "angle": 0}, "spin": spot["spin"]}
+    assert post(META).status_code == 200 and "name_on" in sb.tables["gifts"]["cart-coin"]  # kept
+
+
 def test_a_lead_with_a_gift_and_amount(sb, monkeypatch):
     sent = []
     monkeypatch.setattr(jobs, "users", lambda: [("u", {})])

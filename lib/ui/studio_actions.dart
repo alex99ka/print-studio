@@ -134,6 +134,18 @@ Future<void> sendWhatsapp(BuildContext context, Doc customer) async {
   }
 }
 
+/// C-8: "it's ready" with the portal link, opened in WhatsApp (the phone's app, WhatsApp Web on the PC).
+Future<void> sendReady(BuildContext context, Selection s) async {
+  final c = s.customer?.data() ?? const {};
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await _open(whatsapp('${c['phone'] ?? ''}',
+        readyMessage('${c['name'] ?? ''}', s.title, portalUrl(s.token), lang: '${c['lang'] ?? 'he'}')));
+  } catch (e) {
+    showError(messenger, e, 'וואטסאפ לא נפתח');
+  }
+}
+
 Future<void> copyPortalLink(BuildContext context, Doc customer) async {
   await Clipboard.setData(ClipboardData(text: portalUrl('${customer.data()?['portalToken']}')));
   if (context.mounted) say(context, 'הקישור של ${customer.data()?['name']} הועתק');

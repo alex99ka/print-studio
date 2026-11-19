@@ -11,6 +11,7 @@ Run from the repo root unless noted. Flutter: `/c/src/flutter/bin/flutter` (not 
 | `cd server && npx -y firebase-tools@15.15.0 emulators:exec --only firestore --project demo-print-studio --config ../firebase.json ".venv\Scripts\pytest.exe -q"` | All server tests, studio included, against the emulator. Kill the java on :8080 afterwards. |
 | `node tool/site_texts.mjs` | Rereads the website's `src/data/site.ts` into `server/app/static/site_texts.json` (the "אתר" tab's default wording). After the website's texts change; then deploy the server. |
 | `git archive HEAD:server \| ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "tar -x -C ~/docker/print-studio"` then on the Pi `docker compose up -d --build` | Deploys the server (README › The home server). |
+| `ssh -i ~/.ssh/pi5 alex99ka@pi5-home-server "cat ~/docker/print-studio/.env" \| server/.venv/Scripts/python server/tools/restore_check.py` | Monthly restore check (C-7, Telegram reminds on the 1st): downloads the newest Drive backup, a logo zip and a Gift Factory zip into `%TEMP%estore-check-<day>`, opens them, prints the counts; `!!` lines and exit 1 when something is wrong. |
 | `firebase.cmd deploy --only firestore:rules --project <id>` | Deploys the rules. Before the release that needs them. |
 | `git tag X.Y.Z && git push --atomic origin main X.Y.Z` | Releases: the latest release and the live web, straight away. |
 | `MSYS_NO_PATHCONV=1 iscc /Q /DAppVersion=X.Y.Z installer/app.iss` | Builds the Windows installer locally (Git Bash mangles `/Q` without the prefix). |
