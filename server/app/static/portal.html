@@ -103,15 +103,27 @@ dialog .row{justify-content:flex-end;margin-top:16px}
 .quiet{border:0;background:none;padding:0;min-height:44px;align-self:flex-start;color:var(--danger);text-decoration:underline;font-size:14px}
 #decline textarea{width:100%;min-height:72px;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:transparent;resize:vertical}
 #decline .row{flex-wrap:wrap}
-.hello{margin:4px 0 0;font-size:24px}
-.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{padding:10px 12px;display:flex;flex-direction:column;gap:2px}.stat b{font-size:18px}
-.filters{padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:end}
-.filters input,.filters select{border:1px solid var(--line);border-radius:10px;min-height:40px;padding:0 10px;background:transparent;font:inherit;color:inherit}
-.filters .q{flex:1 1 100%}.filters label{display:flex;flex-direction:column;gap:2px;flex:1 1 130px}.filters select{flex:1 1 130px}.filters .ghost{min-height:40px}
+.hello{margin:6px 0 0;font-size:28px;display:flex;flex-direction:column;line-height:1.25}.hello .muted{font-family:var(--brand-text);font-size:14px;font-weight:400}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.stat{padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.stat b{font-size:22px;font-family:var(--brand-display)}.stat .muted{font-size:13px}
+.seg.four{display:grid;grid-template-columns:repeat(4,1fr)}.seg.four button{padding:0 4px;font-size:13px}
+@media (max-width:420px){.seg.four{grid-template-columns:repeat(2,1fr)}}
+.filters{padding:12px;display:flex;flex-direction:column;gap:10px}
+.filters input,.filters select{width:100%;border:1px solid var(--line);border-radius:10px;min-height:44px;padding:0 12px;background:var(--surface);font:inherit;font-size:16px;color:inherit}
+.search{position:relative}.search svg{position:absolute;inset-inline-start:12px;top:13px;color:var(--muted)}.search input{padding-inline-start:38px}
+.two,.dates{display:grid;grid-template-columns:1fr 1fr;gap:10px}.field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted)}
+.filters .link{align-self:flex-start;min-height:32px}
+.welcome{padding:28px 22px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
+.welcome h1{margin:0;font-size:24px}.welcome p{margin:0;max-width:440px}
+.mark{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.consent{display:flex;gap:10px;align-items:flex-start;text-align:start;background:var(--sunk);border-radius:12px;padding:12px 14px;cursor:pointer;max-width:440px}
+.consent input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent);flex:none}.consent span{display:flex;flex-direction:column;gap:2px}
+.google{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 22px;border:1px solid var(--line);border-radius:12px;
+background:#fff;font-weight:500;font-size:15px;box-shadow:0 1px 2px rgb(0 0 0 / .06);width:100%;max-width:440px}
+.google:disabled{opacity:.6;cursor:default}
 .results{display:flex;flex-direction:column;gap:14px}
 .pill{border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-size:13px;color:var(--accent);text-decoration:none}
 .link{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;font-size:13px}
-.consent{background:var(--sunk);border-radius:12px;padding:12px 14px}.consent p{margin:4px 0 0}
 .sk{background:var(--sunk);border-radius:14px;height:96px;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
@@ -141,13 +153,13 @@ const T = {
     drag:'גררו ימינה ושמאלה לסיבוב', dragAll:'גררו לצדדים כדי לסובב, למעלה ולמטה כדי לראות מלמעלה ומלמטה', pin:'הערה על הדגם', pinHint:'לוחצים, ואז מקישים על המקום בדגם', pinTap:'הקישו על המקום בדגם',
     pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', total:'סה״כ לתשלום',
     noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a})`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
-    approve:'מאשר/ת עיצוב ומחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
-    yes:'כן, מאשר/ת', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
-    you:'את/ה', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
+    approve:'אישור העיצוב והמחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
+    yes:'כן, לאשר', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
+    you:'אתם', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', footerGoogle:'הקישור הזה אישי ונפתח רק בחשבון ה-Google שלכם.', signIn:'כדי לראות את ההזמנה, נכנסים עם חשבון Google. בפעם הבאה הקישור ייפתח רק בחשבון הזה.', signInBtn:'כניסה עם Google', otherAccount:'הקישור הזה שייך לחשבון Google אחר. נכנסים עם החשבון שבו נכנסתם בפעם הראשונה, או מבקשים מהסטודיו לשחרר אותו.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
     toPay:'נותר לתשלום', toPayAll:'סה״כ נותר',
-    declineBtn:'לא מעוניין/ת בהזמנה', declineTitle:'לבטל את ההזמנה?',
+    declineBtn:'לא מעוניינים בהזמנה', declineTitle:'לבטל את ההזמנה?',
     declineText:'יש הערות או שינויים שתרצו לפני האישור? אין צורך לבטל: כתבו הערה (אפשר גם להצמיד אותה לנקודה בדגם), והסטודיו ישלח גרסה מתוקנת. ביטול מתאים רק אם אתם לא רוצים את ההזמנה בכלל: הסטודיו יפסיק לעבוד עליה.',
     declineWhy:'למה? (לא חובה)', declineNo:'חזרה, אכתוב הערה', declineYes:'כן, לבטל את ההזמנה',
     declinedAt:d=>`ביטלת את ההזמנה ב-${d}. שינית את דעתך? כתבו לסטודיו כאן למטה.`,
@@ -161,15 +173,16 @@ const T = {
     noNames:'לא נמצאו שמות בקובץ.', tooBig:'הקובץ גדול מ-2MB.', tooManyRows:'יותר מ-5000 שורות.',
     badFile:'לא הצלחנו לקרוא את הקובץ. שמרו אותו כ-xlsx או כ-csv ונסו שוב.', guestsLocked:'ההזמנה כבר בהדפסה. לשינוי ברשימה פנו לסטודיו.',
     st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם', declined:'בוטל'},
-    hello:n=>`שלום ${n}`, area:'האזור האישי שלך', active:'בעבודה', history:'היסטוריה', bills:'קבלות ותשלומים',
-    statOrders:'פרויקטים', statWaiting:'ממתינים לאישור', search:'חיפוש לפי שם הפרויקט', from:'מתאריך', to:'עד תאריך',
-    newest:'מהחדש לישן', oldest:'מהישן לחדש', clear:'ניקוי', noMatch:'אין תוצאות לסינון הזה.', noBills:'עוד אין דרישות תשלום או קבלות.',
-    bill:n=>`דרישת תשלום ${n}`, items:n=>`${n} פריטים`, billOpen:'ממתינה לתשלום', billPaid:'שולמה', viewBill:'לדרישה',
-    receipt:n=>`קבלה ${n}`, viewReceipt:'לקבלה', signOut:'יציאה מהחשבון', signedInAs:e=>`מחובר/ת כ-${e}`,
-    invited:n=>`שלום ${n}! הוזמנת לאזור האישי שלך בסטודיו: כל הפרויקטים, העיצובים, הקבלות ודרישות התשלום במקום אחד. נרשמים פעם אחת עם חשבון Google, ומאז הקישור נפתח רק בחשבון הזה.`,
-    welcomeBack:n=>`שלום ${n}, נכנסים עם חשבון Google כדי לפתוח את האזור האישי.`, signUpBtn:'הרשמה עם Google',
-    cookieTitle:'עוגיות', cookieText:'כדי שלא תצטרכו להתחבר בכל פעם, נשמרת בדפדפן הזה עוגייה אחת שמזהה את הכניסה שלכם ל-180 יום. היא משמשת רק לכניסה לאזור האישי: בלי פרסום, בלי מעקב ובלי שיתוף עם אחרים. חלון הכניסה של Google שומר מידע משלו בזמן הכניסה בלבד. אפשר לצאת מהחשבון בכל רגע, והעוגייה נמחקת.',
-    remember:'מסכים/ה, להישאר מחובר/ת', visitOnly:'כניסה לביקור הזה בלבד', visitNote:'בביקור בלבד: העוגייה נמחקת כשסוגרים את הדפדפן (או אחרי 12 שעות), ובפעם הבאה מתחברים שוב.'},
+    hello:n=>`שלום ${n}`, area:'האזור האישי', active:'בעבודה', history:'הסתיימו', bills:'קבלות',
+    statOrders:'פרויקטים', statWaiting:'ממתינים לאישור', statDue:'לתשלום', search:'חיפוש פרויקט', from:'מתאריך', to:'עד תאריך',
+    period:'תקופה', order:'סדר', periods:{all:'כל הזמן', 30:'30 הימים האחרונים', 90:'3 החודשים האחרונים', year:'השנה', last:'שנה שעברה', custom:'טווח תאריכים…'},
+    newest:'חדשים קודם', oldest:'ישנים קודם', clear:'ניקוי הסינון', noMatch:'לא נמצאו פרויקטים שמתאימים לסינון.', noBills:'עדיין אין דרישות תשלום או קבלות.',
+    bill:n=>`דרישת תשלום מס׳ ${n}`, items:n=>n === 1 ? 'פריט אחד' : `${n} פריטים`, billOpen:'ממתינה לתשלום', billPaid:'שולמה', viewBill:'צפייה בדרישה',
+    receipt:n=>`קבלה מס׳ ${n}`, viewReceipt:'צפייה בקבלה', signOut:'יציאה מהחשבון', signedInAs:'מחוברים בתור',
+    invitedTitle:'הוזמנתם לאזור האישי', invited:n=>`שלום ${n}, כל הפרויקטים, העיצובים, דרישות התשלום והקבלות שלכם מחכים כאן במקום אחד. נרשמים פעם אחת עם חשבון Google, ומאז הקישור נפתח רק בחשבון הזה.`,
+    welcomeTitle:'כניסה לאזור האישי', welcomeBack:n=>`שלום ${n}, נכנסים עם חשבון Google כדי לראות את הפרויקטים והקבלות.`,
+    signUpBtn:'הרשמה עם Google', remember:'להישאר מחוברים במכשיר הזה',
+    cookieText:'בחרתם להישאר מחוברים? נשמור בדפדפן הזה עוגייה אחת שמזהה אתכם עד 180 יום. בלי פרסום, בלי מעקב ובלי שיתוף עם אחרים. בלי הסימון, העוגייה נמחקת כשסוגרים את הדפדפן. אפשר לצאת מהחשבון בכל רגע.'},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', choice:'to choose', pickOne:'There are several versions to choose from: pick one and approve it.', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
     drag:'Drag left and right to turn', dragAll:'Drag sideways to turn, up and down to look from above and below', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
@@ -195,20 +208,21 @@ const T = {
     noNames:'No names found in the file.', tooBig:'The file is over 2 MB.', tooManyRows:'Over 5000 rows.',
     badFile:"We couldn't read the file. Save it as .xlsx or .csv and try again.", guestsLocked:'The order is already printing. Ask the studio to change the list.',
     st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid', declined:'Cancelled'},
-    hello:n=>`Hi ${n}`, area:'Your personal area', active:'In progress', history:'History', bills:'Receipts & payments',
+    hello:n=>`Hi ${n}`, area:'Your personal area', active:'In progress', history:'Finished', bills:'Receipts',
     statOrders:'Projects', statWaiting:'Awaiting approval', search:'Search by project name', from:'From', to:'To',
     newest:'Newest first', oldest:'Oldest first', clear:'Clear', noMatch:'Nothing matches this filter.', noBills:'No payment requests or receipts yet.',
     bill:n=>`Payment request ${n}`, items:n=>`${n} items`, billOpen:'Awaiting payment', billPaid:'Paid', viewBill:'View request',
-    receipt:n=>`Receipt ${n}`, viewReceipt:'View receipt', signOut:'Sign out', signedInAs:e=>`Signed in as ${e}`,
-    invited:n=>`Hi ${n}! You're invited to your personal area at the studio: every project, design, receipt and payment request in one place. Sign up once with Google; from then on the link opens only in that account.`,
+    receipt:n=>`Receipt ${n}`, viewReceipt:'View receipt', signOut:'Sign out', signedInAs:'Signed in as',
+    invited:n=>`Hi ${n}, every project, design, payment request and receipt of yours is waiting here in one place. Sign up once with Google; from then on the link opens only in that account.`,
     welcomeBack:n=>`Hi ${n}, sign in with Google to open your personal area.`, signUpBtn:'Sign up with Google',
-    cookieTitle:'Cookies', cookieText:"So you don't have to sign in every time, this browser keeps one cookie that remembers your sign-in for 180 days. It is used only to open your personal area: no ads, no tracking, never shared. Google's sign-in window keeps its own data only while you sign in. You can sign out at any time, which deletes the cookie.",
-    remember:'I agree, keep me signed in', visitOnly:'Sign in for this visit only', visitNote:'This visit only: the cookie is deleted when you close the browser (or after 12 hours), and you sign in again next time.'},
+    cookieText:"Ticked: this browser keeps one cookie that recognises you for up to 180 days. No ads, no tracking, never shared. Unticked: the cookie is deleted when you close the browser. You can sign out at any time.",
+    remember:'Keep me signed in on this device', invitedTitle:"You're invited to your personal area", welcomeTitle:'Sign in to your personal area',
+    statDue:'To pay', period:'Period', order:'Order', periods:{all:'All time', 30:'Last 30 days', 90:'Last 3 months', year:'This year', last:'Last year', custom:'Date range…'}},
 };
 const base = location.pathname.replace(/\/$/, '');
 const preview = new URLSearchParams(location.search).get('preview') || '';
 const $ = id => document.getElementById(id);
-let filt = {q: '', from: '', to: '', sort: 'new'};
+let filt = {q: '', period: 'all', from: '', to: '', sort: 'new'};
 let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null, focus = null, sent = {};
 const t = () => T[lang];
 
@@ -233,23 +247,36 @@ const has = (v, name) => v.files.includes(name);
 const icon = markup => { const tpl = document.createElement('template'); tpl.innerHTML = markup; return tpl.content.firstChild; };
 const PIN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>';
 const CHEVRON = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;color:var(--muted)"><path d="m15 18-6-6 6-6"/></svg>';
+const GOOGLE = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.8c4.3-4 6.9-9.9 6.9-17.2z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-2.9-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
+const LOCK = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+const GIFT = '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="8" width="18" height="4" rx="1"/><path d="M12 8v13M5 12v9h14v-9M7.5 8a2.5 2.5 0 0 1 0-5C10 3 12 8 12 8s2-5 4.5-5a2.5 2.5 0 0 1 0 5"/></svg>';
+const SEARCH = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>';
 const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' || s === 'declined' ? 'chip' : 'chip done');
 
 async function load() {
   const r = await fetch(`${base}/data${preview ? '?preview=' + encodeURIComponent(preview) : ''}`, {cache: 'no-store'});
   if (r.status === 404) throw 'gone';
-  if (r.status === 401) { const j = await r.json().catch(() => ({})); throw {signin: (j && j.detail) || {}}; }
+  if (r.status === 401) { const j = await r.json().catch(() => ({})); throw {signin: (j && typeof j.detail === 'object' && j.detail) || {}}; }
   if (!r.ok) throw 'failed';
   data = await r.json();
-  if (!lang) { try { lang = localStorage.getItem('lang'); } catch {} lang = T[lang] ? lang : (data.customer.lang === 'en' ? 'en' : 'he'); }
+  pickLang(data.customer.lang);
+}
+// The visitor's own choice first, then the customer's language, then the browser's.
+function pickLang(customerLang) {
+  if (lang) return;
+  try { lang = localStorage.getItem('lang'); } catch {}
+  if (!T[lang]) lang = customerLang === 'en' ? 'en' : customerLang === 'he' ? 'he' : (/^he/.test(navigator.language) ? 'he' : 'en');
+}
+function chrome() {
+  document.documentElement.lang = lang; document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
+  document.title = t().studio; $('lang').textContent = lang === 'he' ? 'EN' : 'עב';
+  $('lang').setAttribute('aria-label', lang === 'he' ? 'Switch to English' : 'לעבור לעברית');
 }
 
 function route() {
   const rid = new URLSearchParams(location.hash.slice(1)).get('r');
   const req = data && data.requests.find(r => r.id === rid);
-  document.documentElement.lang = lang; document.documentElement.dir = lang === 'he' ? 'rtl' : 'ltr';
-  document.title = t().studio; $('lang').textContent = lang === 'he' ? 'EN' : 'עב';
-  $('lang').setAttribute('aria-label', lang === 'he' ? 'Switch to English' : 'לעבור לעברית');
+  chrome();
   if (viewer) { viewer.dispose(); viewer = null; }
   picking = false; draftPin = null;
   req ? detail(req) : list();
@@ -286,20 +313,36 @@ const dayYear = iso => iso ? new Date(iso).toLocaleDateString('he-IL', {day: '2-
 // The local day of an ISO time, YYYY-MM-DD, to compare with the date inputs.
 const localDay = iso => { if (!iso) return ''; const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
-const matches = (title, iso) => { const d = localDay(iso);
-  return (!filt.q || (title || '').toLowerCase().includes(filt.q.toLowerCase())) && (!filt.from || d >= filt.from) && (!filt.to || d <= filt.to); };
+// The period menu as a date range: [from, to] as YYYY-MM-DD, empty = open.
+function range() {
+  const d = new Date(), iso = x => localDay(x.toISOString()), y = d.getFullYear();
+  switch (filt.period) {
+    case '30': case '90': return [iso(new Date(d - Number(filt.period) * 864e5)), ''];
+    case 'year': return [`${y}-01-01`, ''];
+    case 'last': return [`${y - 1}-01-01`, `${y - 1}-12-31`];
+    case 'custom': return [filt.from, filt.to];
+    default: return ['', ''];
+  }
+}
+const matches = (title, iso) => { const d = localDay(iso), [from, to] = range();
+  return (!filt.q || (title || '').toLowerCase().includes(filt.q.toLowerCase())) && (!from || d >= from) && (!to || d <= to); };
 
-// A regular customer's filters: a name search, a date range (the day the project began) and the order.
+// A regular customer's filters: search, a period (or a date range), and the order.
 function filters(draw) {
-  const inp = (key, attrs) => h('input', {...attrs, value: filt[key], oninput: e => { filt[key] = e.target.value; draw(); }});
-  const sort = h('select', {'aria-label': t().newest, onchange: e => { filt.sort = e.target.value; draw(); }},
-    h('option', {value: 'new', selected: filt.sort === 'new'}, t().newest), h('option', {value: 'old', selected: filt.sort === 'old'}, t().oldest));
+  const field = (label, input) => h('label', {class: 'field'}, h('span', {}, label), input);
+  const select = (key, options, onchange) => h('select', {onchange: e => { filt[key] = e.target.value; onchange(); }},
+    Object.entries(options).map(([v, text]) => h('option', {value: v, selected: filt[key] === v}, text)));
+  const date = key => h('input', {type: 'date', value: filt[key], lang, oninput: e => { filt[key] = e.target.value; draw(); }});
+  const dates = h('div', {class: 'dates', hidden: filt.period !== 'custom'}, field(t().from, date('from')), field(t().to, date('to')));
+  const search = h('input', {type: 'search', placeholder: t().search, 'aria-label': t().search, value: filt.q,
+    oninput: e => { filt.q = e.target.value; draw(); }});
   return h('div', {class: 'filters card'},
-    inp('q', {type: 'search', placeholder: t().search, 'aria-label': t().search, class: 'q'}),
-    h('label', {}, h('span', {class: 'muted'}, t().from), inp('from', {type: 'date'})),
-    h('label', {}, h('span', {class: 'muted'}, t().to), inp('to', {type: 'date'})),
-    sort,
-    h('button', {type: 'button', class: 'ghost', onclick: () => { filt = {q: '', from: '', to: '', sort: 'new'}; route(); }}, t().clear));
+    h('div', {class: 'search'}, icon(SEARCH), search),
+    h('div', {class: 'two'},
+      field(t().period, select('period', t().periods, () => { dates.hidden = filt.period !== 'custom'; draw(); })),
+      field(t().order, select('sort', {new: t().newest, old: t().oldest}, draw))),
+    dates,
+    h('button', {type: 'button', class: 'link', onclick: () => { filt = {q: '', period: 'all', from: '', to: '', sort: 'new'}; route(); }}, t().clear));
 }
 
 function list() {
@@ -318,7 +361,7 @@ function list() {
   ];
   if (!tabs.some(x => x[0] === tab)) tab = 'waiting';
   if (!sel.tabChosen && !tabs.find(x => x[0] === tab)[2].length) tab = (tabs.find(x => x[2].length) || tabs[0])[0];
-  const seg = h('div', {class: 'seg' + (ret ? ' plates' : ''), role: 'tablist'}, tabs.map(([k, label, items]) =>
+  const seg = h('div', {class: 'seg' + (ret ? ' four' : ''), role: 'tablist'}, tabs.map(([k, label, items]) =>
     h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; sel.tabChosen = true; route(); }}, `${label} · ${items.length}`)));
   const results = h('div', {class: 'results'});
   // Redraws only the results, so typing in the search keeps its focus.
@@ -337,12 +380,12 @@ function list() {
     owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
     owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null) : null;
   const stat = (label, value) => h('div', {class: 'card stat'}, h('span', {class: 'muted'}, label), h('b', {}, value));
-  const head = ret ? [h('h1', {class: 'hello'}, t().hello(c.name.split(' ')[0])),
+  const head = ret ? [h('h1', {class: 'hello'}, t().hello(c.name.split(' ')[0]), h('span', {class: 'muted'}, t().area)),
     h('div', {class: 'stats'}, stat(t().statOrders, String(reqs.length)), stat(t().statWaiting, String(tabs[0][2].length)),
-      stat(t().toPayAll, ltr(shekel(owed))))] : [];
+      stat(t().statDue, ltr(shekel(owed))))] : [];
   const foot = [h('p', {class: 'muted', style: 'text-align:center'}, c.signedIn ? t().footerGoogle : t().footer)];
   if (c.signedIn) foot.push(h('p', {class: 'muted', style: 'text-align:center'},
-    c.email ? ltr(t().signedInAs(c.email)) : null, c.email ? ' · ' : null,
+    c.email ? `${t().signedInAs} ` : null, c.email ? ltr(c.email) : null, c.email ? ' · ' : null,
     h('button', {type: 'button', class: 'link', onclick: async () => { await fetch(`${base}/logout`, {method: 'POST'}); signInCard.who = {}; refresh(); }}, t().signOut)));
   $('main').replaceChildren(...head, ...(due ? [due] : []), seg, ...(ret ? [filters(draw)] : []), results, ...foot);
 }
@@ -538,33 +581,40 @@ function fail(e) {
 // A gift customer's link opens only in the Google account that signed in on it first (studio.py portal_session).
 function signInCard(error, who = signInCard.who || {}) {
   signInCard.who = who;
-  const L = T[lang || (/^he/.test(navigator.language) ? 'he' : 'en')];
-  const text = who.invited && who.name ? L.invited(who.name) : who.returning && who.name ? L.welcomeBack(who.name) : L.signIn;
-  // The consent is the choice of button: keep me signed in (a 180-day cookie) or this visit only (a session cookie).
-  const btn = h('button', {type: 'button', class: 'pick', style: 'align-self:center'}, `${who.invited ? L.signUpBtn : L.signInBtn} · ${L.remember}`);
-  const once = h('button', {type: 'button', class: 'ghost', style: 'align-self:center'}, L.visitOnly);
-  const go = remember => async () => {
-    btn.disabled = once.disabled = true;
+  pickLang(who.lang);
+  chrome();
+  $('back').hidden = true; $('bar').hidden = true;
+  const L = t();
+  $('title').textContent = L.studio; $('subtitle').textContent = L.area;
+  const text = who.invited && who.name ? L.invited(who.name) : who.name ? L.welcomeBack(who.name) : L.signIn;
+  const keep = h('input', {type: 'checkbox', id: 'keep'});
+  const btn = h('button', {type: 'button', class: 'google'}, icon(GOOGLE), who.invited ? L.signUpBtn : L.signInBtn);
+  btn.onclick = async () => {
+    btn.disabled = true;
     try {
       const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
       const {getAuth, GoogleAuthProvider, signInWithPopup, signOut} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
       const auth = getAuth(initializeApp({apiKey: 'AIzaSyDLYcFtRQ7-leIsE0_jYnkdkPpDaEIS8fQ', authDomain: 'print-studio-1786a.firebaseapp.com', projectId: 'print-studio-1786a'}));
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
-      const res = await fetch(`${base}/session`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({idToken: await cred.user.getIdToken(), remember})});
+      // The consent: ticked = stay signed in (a 180-day cookie), else a cookie for this browser session only.
+      const res = await fetch(`${base}/session`, {method: 'POST', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({idToken: await cred.user.getIdToken(), remember: keep.checked})});
       await signOut(auth);  // the server's cookie is the sign-in from now on
       if (res.status === 403) return signInCard(L.otherAccount);
       if (!res.ok) throw new Error(res.status);
       return refresh();
     } catch (err) {
-      if (err && err.code === 'auth/popup-closed-by-user') { btn.disabled = once.disabled = false; return; }
+      if (err && err.code === 'auth/popup-closed-by-user') { btn.disabled = false; return; }
       return signInCard(L.failed);
     }
   };
-  btn.onclick = go(true); once.onclick = go(false);
-  $('main').replaceChildren(h('section', {class: 'card', style: 'padding:20px;display:flex;flex-direction:column;gap:14px'},
-    who.invited ? h('h2', {}, L.area) : null, h('p', {style: 'margin:0'}, text), error ? h('p', {class: 'error', role: 'alert', style: 'margin:0'}, error) : null,
-    h('div', {class: 'consent', role: 'group', 'aria-labelledby': 'cookieTitle'}, h('b', {id: 'cookieTitle'}, L.cookieTitle), h('p', {class: 'muted'}, L.cookieText)),
-    btn, once, h('p', {class: 'muted', style: 'margin:0;text-align:center'}, L.visitNote)));
+  $('main').replaceChildren(h('section', {class: 'card welcome'},
+    h('div', {class: 'mark', 'aria-hidden': 'true'}, icon(who.invited ? GIFT : LOCK)),
+    h('h1', {}, who.invited ? L.invitedTitle : L.welcomeTitle),
+    h('p', {}, text),
+    error ? h('p', {class: 'error', role: 'alert'}, error) : null,
+    h('label', {class: 'consent', for: 'keep'}, keep, h('span', {}, h('b', {}, L.remember), h('span', {class: 'muted'}, L.cookieText))),
+    btn));
 }
 
 // The views are pictures drawn on a canvas: the 2D image, or a sheet of cols x rows tiles for 3D.
@@ -624,7 +674,7 @@ function showPictures(stage, url, sheet, markers, onPick) {
 }
 
 $('back').onclick = () => { location.hash = ''; };
-$('lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; try { localStorage.setItem('lang', lang); } catch {} route(); };
+$('lang').onclick = () => { lang = lang === 'he' ? 'en' : 'he'; try { localStorage.setItem('lang', lang); } catch {} data ? route() : signInCard(); };
 addEventListener('hashchange', route);
 load().then(route, fail);
 </script>

@@ -460,7 +460,7 @@ def test_regular_customer_area_needs_google_and_lists_bills(db, monkeypatch):
                                  "deletedAt": datetime(2026, 1, 1, tzinfo=timezone.utc)})
     browser = TestClient(main.app, base_url="https://testserver")
     r = browser.get(f"/p/{TOKEN_A}/data")
-    assert r.status_code == 401 and r.json()["detail"] == {"signIn": True, "name": "לינוי", "invited": True, "returning": True}
+    assert r.status_code == 401 and r.json()["detail"] == {"signIn": True, "name": "לינוי", "invited": True, "returning": True, "lang": "he"}
     assert browser.post(f"/p/{TOKEN_A}/session", json={"idToken": "x"}).status_code == 200
     data = browser.get(f"/p/{TOKEN_A}/data").json()
     assert data["customer"]["returning"] and data["customer"]["email"] == "l@gmail.com"

@@ -625,7 +625,8 @@ def _customer(token: str, ps: str | None) -> tuple[str, dict]:
     if signs_in(c) and (who := _session_who(token, ps)) != "studio" and (not who or who != c.get("googleUid")):
         # The sign-in screen greets them by first name, and as invited while no account owns the link yet.
         raise HTTPException(401, {"signIn": True, "name": (c.get("name") or "").split(" ")[0],
-                                  "invited": not c.get("googleUid"), "returning": c.get("returning") is True})
+                                  "invited": not c.get("googleUid"), "returning": c.get("returning") is True,
+                                  "lang": c.get("lang", "he")})
     return cid, c
 
 
