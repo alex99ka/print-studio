@@ -567,9 +567,10 @@ String billMessage(Map<String, dynamic> b, String url, {String? payUrl}) {
 }
 
 /// Makes the customer's bill now (or returns the open one if nothing changed); null when nothing is owed.
-Future<Map<String, dynamic>?> billNow(String customerId) async {
+/// [requestIds]: a bill for exactly these orders, paid ones too, for a receipt on a payment made before bills.
+Future<Map<String, dynamic>?> billNow(String customerId, {List<String>? requestIds}) async {
   try {
-    return await server('POST', '/studio/customers/$customerId/bill');
+    return await server('POST', '/studio/customers/$customerId/bill', requestIds == null ? null : {'requestIds': requestIds});
   } on ServerException catch (e) {
     if (e.status == 409) return null;
     rethrow;

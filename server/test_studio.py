@@ -64,6 +64,9 @@ def test_bill_lines_finished_orders_less_paid():
     assert [x["requestId"] for x in lines] == ["r2", "r1"]  # oldest first
     assert lines[1] == {"requestId": "r1", "title": "דגל", "qty": 2, "net": 20000, "vat": 3600, "total": 23600, "paid": 5000, "due": 18600}
     assert lines[0]["due"] == 20000
+    # A receipt for a past payment: exactly the chosen requests, paid in full ones too.
+    past = billing.bill_lines(reqs, {"q1": q}, {"r4": 23600}, only={"r4", "r3"})
+    assert [(x["requestId"], x["due"]) for x in past] == [("r3", 23600), ("r4", 0)]
 
 
 def test_bill_page_shows_only_switched_on_ways_and_escapes():
@@ -445,6 +448,11 @@ def test_bill_made_once_replaced_when_owed_changes_and_trash_empties(client, db,
     assert client.get(f"/b/{first['token']}").status_code == 404
     billing.daily(datetime(2026, 12, 2).date())
     assert not db.document(f"bills/{first['id']}").get().exists
+    # A receipt for a payment made before bills: a bill for the chosen orders, open bills untouched.
+    past = client.post("/studio/customers/c1/bill", json={"requestIds": ["r1"]}).json()
+    b = db.document(f"bills/{past['id']}").get().to_dict()
+    assert b["past"] is True and b["lines"][0]["total"] == 20000 and b["state"] == "open"
+    assert client.post("/studio/customers/c1/bill", json={"requestIds": ["nope"]}).status_code == 400
 
 
 def test_regular_customer_area_needs_google_and_lists_bills(db, monkeypatch):

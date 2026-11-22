@@ -18,6 +18,7 @@ from datetime import date, datetime, timedelta, timezone
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 from firebase_admin import firestore
+from pydantic import BaseModel, Field
 from google.cloud.firestore_v1 import FieldFilter
 
 from . import firebase, jobs, studio
@@ -31,24 +32,28 @@ def settings() -> dict:
     return firebase.db().document("config/billing").get().to_dict() or {}
 
 
-def bill_lines(requests: list[tuple[str, dict]], quotes: dict[str, dict], paid: dict[str, int]) -> list[dict]:
-    """What each finished request still owes on its approved quote, oldest request first."""
+def bill_lines(requests: list[tuple[str, dict]], quotes: dict[str, dict], paid: dict[str, int],
+               only: set[str] | None = None) -> list[dict]:
+    """What each finished request still owes on its approved quote, oldest request first.
+    [only]: exactly these requests, whatever their status, paid ones too (a receipt for a past payment)."""
     lines = []
     for rid, r in sorted(requests, key=lambda x: str(x[1].get("createdAt") or "")):
         q = quotes.get(r.get("approvedQuoteId") or r.get("quoteId") or "")
-        if r.get("status") not in BILLED or not q:
+        if not q or (r.get("status") not in BILLED if only is None else rid not in only):
             continue
         m = studio.money(int(q.get("unit", 0)), int(q.get("qty", 1)), int(q.get("vatPercent", 18)), int(q.get("discount", 0)))
         due = max(m["total"] - paid.get(rid, 0), 0)
-        if due:
+        if due or only is not None:
             lines.append({"requestId": rid, "title": r.get("title", ""), "qty": m["qty"], "net": m["net"], "vat": m["vat"],
                           "total": m["total"], "paid": m["total"] - due, "due": due})
     return lines
 
 
-def make_bill(cid: str) -> tuple[str, dict, bool] | None:
+def make_bill(cid: str, only: set[str] | None = None) -> tuple[str, dict, bool] | None:
     """The customer's open bill, made again only if what they owe changed (the old one is then
-    "replaced"). Returns (id, bill, new), or None when nothing is owed."""
+    "replaced"). Returns (id, bill, new), or None when nothing is owed.
+    [only]: a bill for these requests, for a receipt on a payment made before bills; the app marks
+    it paid right away (payBill logs only what is still owed) and the open bill is left alone."""
     db = firebase.db()
     c = db.document(f"customers/{cid}").get().to_dict()
     if c is None:
@@ -56,8 +61,11 @@ def make_bill(cid: str) -> tuple[str, dict, bool] | None:
     paid: dict[str, int] = defaultdict(int)
     for _, p in studio._mine(cid, "payments"):
         paid[p.get("requestId")] += int(p.get("amount", 0))
-    lines = bill_lines(studio._mine(cid, "requests"), dict(studio._mine(cid, "quotes")), paid)
-    open_ = [(bid, b) for bid, b in studio._mine(cid, "bills") if b.get("state") == "open" and not b.get("deletedAt")]
+    lines = bill_lines(studio._mine(cid, "requests"), dict(studio._mine(cid, "quotes")), paid, only)
+    if only is not None and {x["requestId"] for x in lines} != only:
+        raise HTTPException(400, "Only this customer's orders with a price")
+    open_ = [] if only is not None else [
+        (bid, b) for bid, b in studio._mine(cid, "bills") if b.get("state") == "open" and not b.get("deletedAt")]
     for bid, b in open_:
         if b.get("lines") == lines:
             return bid, b, False
@@ -69,7 +77,7 @@ def make_bill(cid: str) -> tuple[str, dict, bool] | None:
         "customerId": cid, "customerName": c.get("name", ""), "phone": c.get("phone", ""), "lang": c.get("lang", "he"),
         "token": secrets.token_urlsafe(16), "period": f"{now:%Y-%m}", "lines": lines,
         **{k: sum(line[k] for line in lines) for k in ("net", "vat", "total", "paid", "due")},
-        "state": "open", "createdAt": firestore.SERVER_TIMESTAMP,
+        "state": "open", "createdAt": firestore.SERVER_TIMESTAMP, **({"past": True} if only is not None else {}),
     }
 
     @firestore.transactional
@@ -85,9 +93,13 @@ def make_bill(cid: str) -> tuple[str, dict, bool] | None:
     return ref.id, bill, True
 
 
+class Past(BaseModel):
+    requestIds: list[str] = Field(min_length=1, max_length=50)
+
+
 @router.post("/studio/customers/{cid}/bill")
-def bill_now(cid: str, _: studio.User) -> dict:
-    made = make_bill(cid)
+def bill_now(cid: str, _: studio.User, past: Past | None = None) -> dict:
+    made = make_bill(cid, set(past.requestIds) if past else None)
     if made is None:
         raise HTTPException(409, "Nothing to bill")
     bid, b, new = made

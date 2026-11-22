@@ -279,7 +279,10 @@ class ReceiptDialog extends StatefulWidget {
 class _ReceiptDialogState extends State<ReceiptDialog> {
   late final _text = TextEditingController(text: widget.text);
   final _open = billsRef.where('state', isEqualTo: 'open').snapshots();
-  String? _billId;
+  static const _past = '_past'; // a payment made before bills: Alex picks the customer and the orders
+  final _customers = customersRef.snapshots();
+  String? _billId, _customerId;
+  final _chosen = <String>{};
   bool _picked = false;
   String _method = 'transfer';
   DateTime _at = DateTime.now();
@@ -310,7 +313,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           final names = {for (final b in bills.values) b.id: '${b['customerName']}'};
           _billId = matchCustomer(r.to, names);
         }
-        final bill = bills[_billId];
+        final bill = bills[_billId], past = _billId == _past;
         return AlertDialog(
           title: const Text('קבלה על דרישת תשלום'),
           content: SizedBox(
@@ -343,12 +346,14 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
                     for (final b in bills.values)
                       DropdownMenuItem(
                           value: b.id, child: Text('${b['customerName']} · ${b['number']} · ${shekel(b['due'] as int)}')),
+                    const DropdownMenuItem(value: _past, child: Text('תשלום קודם, בלי דרישה')),
                   ],
                   onChanged: (v) => setState(() {
                     _billId = v;
                     _picked = true;
                   }),
                 ),
+                if (past) ..._pastPicker(r),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   initialValue: _method,
@@ -377,15 +382,15 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
           actions: [
             TextButton(onPressed: () => Navigator.pop(context), child: const Text('ביטול')),
             FilledButton(
-              onPressed: r == null || bill == null
+              onPressed: r == null || (bill == null && !(past && _customerId != null && _chosen.isNotEmpty))
                   ? null
                   : () async {
                       final messenger = ScaffoldMessenger.of(context);
                       Navigator.pop(context);
                       try {
-                        await payBill(bill, r, method: _method, at: _at);
+                        await payBill(bill ?? await _pastBill(), r, method: _method, at: _at);
                         messenger.showSnackBar(SnackBar(
-                            persist: false, content: Text('דרישה ${bill['number']} של ${bill['customerName']} שולמה')));
+                            persist: false, content: Text(bill == null ? 'הקבלה נשמרה' : 'דרישה ${bill['number']} של ${bill['customerName']} שולמה')));
                       } catch (e) {
                         showError(messenger, e, 'שמירת הקבלה נכשלה');
                       }
@@ -396,6 +401,62 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
         );
       },
     );
+  }
+
+  /// The customer (found by the receipt's name once) and their priced orders, paid ones too.
+  List<Widget> _pastPicker(Receipt? r) => [
+        const SizedBox(height: 12),
+        StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+          stream: _customers,
+          builder: (context, snap) {
+            final names = {for (final c in snap.data?.docs ?? <Doc>[]) c.id: '${c['name']}'};
+            if (_customerId == null && r != null && names.isNotEmpty) _customerId = matchCustomer(r.to, names);
+            return DropdownButtonFormField<String>(
+              initialValue: names.containsKey(_customerId) ? _customerId : null,
+              key: ValueKey('c$_customerId'),
+              decoration: const InputDecoration(labelText: 'הלקוח'),
+              items: [for (final e in names.entries) DropdownMenuItem(value: e.key, child: Text(e.value))],
+              onChanged: (v) => setState(() {
+                _customerId = v;
+                _chosen.clear();
+              }),
+            );
+          },
+        ),
+        if (_customerId != null)
+          StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+            key: ValueKey('o$_customerId'),
+            stream: requestsRef.where('customerId', isEqualTo: _customerId).snapshots(),
+            builder: (context, snap) {
+              final orders = [
+                ...?snap.data?.docs.where((d) => (d.data()['approvedQuoteId'] ?? d.data()['quoteId']) != null &&
+                    statuses.indexOf('${d['status']}') >= statuses.indexOf('approved') && d['status'] != 'declined'),
+              ];
+              if (snap.hasData && orders.isEmpty) return const Padding(padding: EdgeInsets.only(top: 8), child: Text('אין ללקוח הזה הזמנות עם מחיר מאושר'));
+              return Column(children: [
+                const SizedBox(height: 8),
+                const Align(alignment: AlignmentDirectional.centerStart, child: Text('על אילו הזמנות הקבלה?')),
+                for (final o in orders)
+                  CheckboxListTile(
+                    dense: true,
+                    contentPadding: EdgeInsets.zero,
+                    value: _chosen.contains(o.id),
+                    title: Text('${o['title']}'),
+                    subtitle: Text(statusLabels['${o['status']}'] ?? '${o['status']}'),
+                    onChanged: (v) => setState(() => v == true ? _chosen.add(o.id) : _chosen.remove(o.id)),
+                  ),
+              ]);
+            },
+          ),
+        const SizedBox(height: 4),
+        Text('נרשם תשלום רק על מה שעוד לא שולם, והלקוח יראה את הקבלה באזור האישי.',
+            style: TextStyle(fontSize: 12, color: context.studio.muted)),
+      ];
+
+  /// The past payment's bill, made on the Pi for the chosen orders; [payBill] then marks it paid.
+  Future<Doc> _pastBill() async {
+    final b = await billNow(_customerId!, requestIds: [..._chosen]);
+    return billsRef.doc('${b!['id']}').get();
   }
 }
 
