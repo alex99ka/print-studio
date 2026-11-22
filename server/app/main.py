@@ -15,7 +15,7 @@ from . import backup, billing, firebase, giftfactory, jobs, studio, telegram, we
 
 logging.basicConfig(level=logging.INFO)
 APP = os.environ.get("APP_NAME") or "האפליקציה"
-VERSION = "0.7.4"  # the release this server ships with; test_api checks it against pubspec.yaml
+VERSION = "0.7.5"  # the release this server ships with; test_api checks it against pubspec.yaml
 
 
 @asynccontextmanager

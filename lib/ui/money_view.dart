@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/errors.dart';
 import '../core/export.dart';
 import '../studio/studio.dart';
+import 'bills.dart';
 import 'requests_view.dart';
 import 'skeleton.dart';
 import 'studio_dialogs.dart';
@@ -183,6 +184,16 @@ class _MoneyViewState extends State<MoneyView> {
         );
 
     return ListView(padding: const EdgeInsets.all(16), children: [
+      // The ribbon's payment buttons, here too: on a phone the ribbon is easy to miss.
+      Wrap(spacing: 8, runSpacing: 8, children: [
+        FilledButton.tonalIcon(
+            icon: const Icon(Icons.receipt_long_outlined),
+            label: const Text('דרישות תשלום וקבלות'),
+            onPressed: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BillsPage()))),
+        OutlinedButton.icon(
+            icon: const Icon(Icons.content_paste), label: const Text('הדבקת קבלה'), onPressed: () => pasteReceipt(context)),
+      ]),
+      const SizedBox(height: 16),
       Wrap(spacing: 12, runSpacing: 12, children: [
         stat('התקבל החודש', inMonth(months.first), 'לפי יום התשלום'),
         stat('נותר לגבייה', owing.fold(0, (a, e) => a + e.$2), '${owing.length} הזמנות שאושרו'),

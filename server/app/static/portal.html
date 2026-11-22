@@ -400,6 +400,8 @@ function list() {
   ] : [
     ['waiting', t().waiting, reqs.filter(r => r.status === 'waiting')],
     ['done', t().approvedTab, reqs.filter(r => r.status !== 'waiting')],
+    // A one-time customer's receipts too, once there is one (bill pages stay under the pay button while open).
+    ...((data.bills || []).length ? [['bills', t().bills, data.bills]] : []),
   ];
   if (!tabs.some(x => x[0] === tab)) tab = 'waiting';
   if (!sel.tabChosen && !tabs.find(x => x[0] === tab)[2].length) tab = (tabs.find(x => x[2].length) || tabs[0])[0];
