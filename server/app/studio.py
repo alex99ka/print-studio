@@ -778,11 +778,11 @@ def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie(
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
     returning = c.get("returning") is True
-    # A returning customer's area also lists their bills and receipts (billing.py), never a trashed or replaced one.
+    # Their bills and receipts (billing.py), never a trashed or replaced one: an open one shows with its pay button.
     bills = sorted(({"number": b.get("number"), "at": _iso(b.get("createdAt")), "total": b.get("total", 0), "due": b.get("due", 0),
                      "state": b.get("state"), "items": len(b.get("lines") or []), "url": f"/b/{b.get('token')}",
                      "receipt": {k: (b.get("receipt") or {}).get(k) for k in ("number", "url")} if b.get("receipt") else None}
-                    for _, b in _mine(cid, "bills") if returning and not b.get("deletedAt") and b.get("state") in ("open", "paid")),
+                    for _, b in _mine(cid, "bills") if not b.get("deletedAt") and b.get("state") in ("open", "paid")),
                    key=lambda b: b["at"] or "", reverse=True)
     return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he"), "kind": c.get("kind"), "returning": returning,
                          "signedIn": signs_in(c), "email": c.get("googleEmail") if returning else None},

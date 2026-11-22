@@ -116,6 +116,7 @@ dialog .row{justify-content:flex-end;margin-top:16px}
 .welcome{padding:28px 22px;display:flex;flex-direction:column;gap:14px;align-items:center;text-align:center}
 .welcome h1{margin:0;font-size:24px}.welcome p{margin:0;max-width:440px}
 .mark{width:56px;height:56px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center}
+.paybtn{display:flex;align-items:center;justify-content:center;min-height:48px;margin-top:6px;border-radius:12px;background:var(--accent);color:var(--on-accent);font-weight:700;text-decoration:none}
 .consent{display:flex;gap:10px;align-items:flex-start;text-align:start;background:var(--sunk);border-radius:12px;padding:12px 14px;cursor:pointer;max-width:440px}
 .consent input{width:20px;height:20px;margin:2px 0 0;accent-color:var(--accent);flex:none}.consent span{display:flex;flex-direction:column;gap:2px}
 .google{display:flex;align-items:center;justify-content:center;gap:10px;min-height:48px;padding:0 22px;border:1px solid var(--line);border-radius:12px;
@@ -181,7 +182,7 @@ const T = {
     receipt:n=>`קבלה מס׳ ${n}`, viewReceipt:'צפייה בקבלה', signOut:'יציאה מהחשבון', signedInAs:'מחוברים בתור',
     invitedTitle:'הוזמנתם לאזור האישי', invited:n=>`שלום ${n}, כל הפרויקטים, העיצובים, דרישות התשלום והקבלות שלכם מחכים כאן במקום אחד. נרשמים פעם אחת עם חשבון Google, ומאז הקישור נפתח רק בחשבון הזה.`,
     welcomeTitle:'כניסה לאזור האישי', welcomeBack:n=>`שלום ${n}, נכנסים עם חשבון Google כדי לראות את הפרויקטים והקבלות.`,
-    signUpBtn:'הרשמה עם Google', remember:'להישאר מחוברים במכשיר הזה',
+    payBill:(n,a)=>`לתשלום דרישה מס׳ ${n} · ${a}`, signUpBtn:'הרשמה עם Google', remember:'להישאר מחוברים במכשיר הזה',
     cookieText:'בחרתם להישאר מחוברים? נשמור בדפדפן הזה עוגייה אחת שמזהה אתכם עד 180 יום. בלי פרסום, בלי מעקב ובלי שיתוף עם אחרים. בלי הסימון, העוגייה נמחקת כשסוגרים את הדפדפן. אפשר לצאת מהחשבון בכל רגע.'},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', choice:'to choose', pickOne:'There are several versions to choose from: pick one and approve it.', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
@@ -216,7 +217,7 @@ const T = {
     invited:n=>`Hi ${n}, every project, design, payment request and receipt of yours is waiting here in one place. Sign up once with Google; from then on the link opens only in that account.`,
     welcomeBack:n=>`Hi ${n}, sign in with Google to open your personal area.`, signUpBtn:'Sign up with Google',
     cookieText:"Ticked: this browser keeps one cookie that recognises you for up to 180 days. No ads, no tracking, never shared. Unticked: the cookie is deleted when you close the browser. You can sign out at any time.",
-    remember:'Keep me signed in on this device', invitedTitle:"You're invited to your personal area", welcomeTitle:'Sign in to your personal area',
+    payBill:(n,a)=>`Pay request no. ${n} · ${a}`, remember:'Keep me signed in on this device', invitedTitle:"You're invited to your personal area", welcomeTitle:'Sign in to your personal area',
     statDue:'To pay', period:'Period', order:'Order', periods:{all:'All time', 30:'Last 30 days', 90:'Last 3 months', year:'This year', last:'Last year', custom:'Date range…'}},
 };
 const base = location.pathname.replace(/\/$/, '');
@@ -274,7 +275,9 @@ function chrome() {
 }
 
 function route() {
-  const rid = new URLSearchParams(location.hash.slice(1)).get('r');
+  const hp = new URLSearchParams(location.hash.slice(1)), rid = hp.get('r');
+  // The bill's WhatsApp link (#tab=bills) picks the tab once; then the address forgets it.
+  if (hp.get('tab')) { tab = hp.get('tab'); sel.tabChosen = true; history.replaceState(null, '', location.pathname + location.search); }
   const req = data && data.requests.find(r => r.id === rid);
   chrome();
   if (viewer) { viewer.dispose(); viewer = null; }
@@ -376,9 +379,12 @@ function list() {
   draw();
   // What is left to pay on approved orders (only the balance: payment records stay with the studio).
   const owing = reqs.filter(r => r.due > 0), owed = owing.reduce((a, r) => a + r.due, 0);
-  const due = owing.length ? h('section', {class: 'card'}, h('h2', {}, t().toPay),
+  // An open payment request (sent on WhatsApp too) opens its page: the details, the bank, Bit and PayBox.
+  const pay = (data.bills || []).filter(b => b.state === 'open').map(b =>
+    h('a', {class: 'paybtn', href: b.url, target: '_blank', rel: 'noopener'}, t().payBill(b.number, shekel(b.due))));
+  const due = owing.length || pay.length ? h('section', {class: 'card'}, h('h2', {}, t().toPay),
     owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
-    owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null) : null;
+    owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null, pay) : null;
   const stat = (label, value) => h('div', {class: 'card stat'}, h('span', {class: 'muted'}, label), h('b', {}, value));
   const head = ret ? [h('h1', {class: 'hello'}, t().hello(c.name.split(' ')[0]), h('span', {class: 'muted'}, t().area)),
     h('div', {class: 'stats'}, stat(t().statOrders, String(reqs.length)), stat(t().statWaiting, String(tabs[0][2].length)),

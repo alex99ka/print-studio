@@ -474,5 +474,6 @@ def test_regular_customer_area_needs_google_and_lists_bills(db, monkeypatch):
     # Signed in again, the screen no longer says "invited"; signing out ends the session.
     browser.post(f"/p/{TOKEN_A}/logout")
     assert browser.get(f"/p/{TOKEN_A}/data").json()["detail"]["invited"] is False
-    # A one-time customer keeps the bare link and sees no bills.
-    assert TestClient(main.app).get(f"/p/{TOKEN_B}/data").json()["bills"] == []
+    # A one-time customer keeps the bare link and sees their open bill too (its pay button on the portal).
+    db.document("bills/b4").set({"customerId": "c2", "number": 1003, "token": "w" * 22, "state": "open", "lines": [{}], "due": 5000})
+    assert [(b["number"], b["due"]) for b in TestClient(main.app).get(f"/p/{TOKEN_B}/data").json()["bills"]] == [(1003, 5000)]

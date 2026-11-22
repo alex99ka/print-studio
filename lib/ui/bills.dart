@@ -23,7 +23,9 @@ Future<void> _send(BuildContext context, Doc bill) async {
   final messenger = ScaffoldMessenger.of(context);
   try {
     final b = bill.data()!;
-    if (!await launchUrl(whatsapp('${b['phone'] ?? ''}', billMessage(b)), mode: LaunchMode.externalApplication)) {
+    final c = (await customersRef.doc('${b['customerId']}').get()).data() ?? const {};
+    final url = '${portalUrl('${c['portalToken']}')}#tab=bills';
+    if (!await launchUrl(whatsapp('${c['phone'] ?? b['phone'] ?? ''}', billMessage(b, url)), mode: LaunchMode.externalApplication)) {
       throw Errors.noConnection;
     }
     await bill.reference.update({'sentAt': FieldValue.serverTimestamp()});
@@ -179,7 +181,7 @@ class _BillsSectionState extends State<BillsSection> {
       stream: _bills,
       builder: (context, snap) {
         final all = [...?snap.data?.docs]..sort((a, b) => (b['number'] as int).compareTo(a['number'] as int));
-        final live = all.where((b) => b['deletedAt'] == null && b['state'] != 'replaced').toList();
+        final live = all.where((b) => b.data()['deletedAt'] == null && b['state'] != 'replaced').toList();
         final old = all.where((b) => !live.contains(b)).toList();
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(children: [
@@ -230,10 +232,10 @@ class BillsPage extends StatelessWidget {
             if (snap.hasError) return Center(child: Text(errorText(snap.error!, 'טעינת הדרישות נכשלה')));
             if (!snap.hasData) return const SkeletonList();
             final all = snap.data!.docs;
-            bool live(Doc b) => b['deletedAt'] == null;
+            bool live(Doc b) => b.data()?['deletedAt'] == null;
             final groups = {
-              'לשליחה': all.where((b) => live(b) && b['state'] == 'open' && b['sentAt'] == null),
-              'נשלחו, ממתינות לתשלום': all.where((b) => live(b) && b['state'] == 'open' && b['sentAt'] != null),
+              'לשליחה': all.where((b) => live(b) && b['state'] == 'open' && b.data()['sentAt'] == null),
+              'נשלחו, ממתינות לתשלום': all.where((b) => live(b) && b['state'] == 'open' && b.data()['sentAt'] != null),
               'שולמו': all.where((b) => live(b) && b['state'] == 'paid'),
               'בסל (נמחקות לצמיתות אחרי $trashDays יום)': all.where((b) => !live(b)),
             };
@@ -300,7 +302,7 @@ class _ReceiptDialogState extends State<ReceiptDialog> {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _open,
       builder: (context, snap) {
-        final bills = [...?snap.data?.docs.where((b) => b['deletedAt'] == null), ?widget.bill]
+        final bills = [...?snap.data?.docs.where((b) => b.data()['deletedAt'] == null), ?widget.bill]
             .fold(<String, Doc>{}, (m, b) => m..[b.id] = b);
         // Pick the bill by the receipt's name once, unless Alex chose one.
         if (!_picked && widget.bill == null && r != null) {

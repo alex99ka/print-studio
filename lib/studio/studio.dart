@@ -547,11 +547,12 @@ const trashDays = 30; // billing.TRASH_DAYS
 
 String billUrl(String token) => '${AppConfig.serverUrl}/b/$token';
 
-String billMessage(Map<String, dynamic> b) {
-  final name = '${b['customerName'] ?? ''}', url = billUrl('${b['token']}'), due = shekel(b['due'] as int);
+/// The bill on WhatsApp: [url] is the customer's portal, where the bill waits with its pay button.
+String billMessage(Map<String, dynamic> b, String url) {
+  final name = '${b['customerName'] ?? ''}', due = shekel(b['due'] as int);
   return b['lang'] == 'en'
-      ? 'Hi $name, here is payment request no. ${b['number']} for $due.\nThe details and the ways to pay are here:\n$url\nThank you!'
-      : 'שלום $name, מצורפת דרישת תשלום מס׳ ${b['number']} על סך $due.\nהפירוט ואפשרויות התשלום כאן:\n$url\nתודה רבה!';
+      ? 'Hi $name, payment request no. ${b['number']} for $due is waiting on your personal page, with the details and the ways to pay:\n$url\nThank you!'
+      : 'שלום $name, דרישת תשלום מס׳ ${b['number']} על סך $due מחכה לך בדף האישי, עם הפירוט ואפשרויות התשלום:\n$url\nתודה רבה!';
 }
 
 /// Makes the customer's bill now (or returns the open one if nothing changed); null when nothing is owed.
