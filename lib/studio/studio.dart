@@ -29,6 +29,35 @@ final paymentsRef = _db.collection('payments');
 
 /// declined: the client cancelled it on the portal (server/app/studio.py); setting it back reopens it.
 const statuses = ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid', 'declined'];
+/// Still being worked on or still owed: not paid, not cancelled.
+bool isActive(String status) => status != 'paid' && status != 'declined';
+
+/// The home screen's "what is waiting for you": (group, request ids), most urgent group first,
+/// empty groups left out. A request can be in two groups (a new comment on an order being printed).
+List<(String, List<String>)> todayGroups(List<(String, Map<String, dynamic>)> requests, DateTime now) {
+  List<String> where(bool Function(Map<String, dynamic> r) f) => [for (final (id, r) in requests) if (f(r)) id];
+  final left = {for (final (id, r) in requests) id: daysLeft(r, now)};
+  final soon = where((r) => isActive('${r['status']}') && r['status'] != 'delivered' && (daysLeft(r, now) ?? 99) <= 7)
+    ..sort((a, b) => left[a]!.compareTo(left[b]!));
+  return [
+    ('reply', where((r) => r['needsReply'] == true)),
+    ('soon', soon),
+    ('print', where((r) => r['status'] == 'approved' || r['status'] == 'printing')),
+    ('ready', where((r) => r['status'] == 'ready')),
+    ('owed', where((r) => r['status'] == 'delivered')),
+    ('draft', where((r) => r['status'] == 'draft')),
+    ('client', where((r) => r['status'] == 'waiting')),
+  ].where((g) => g.$2.isNotEmpty).toList();
+}
+
+/// "דנה כהן" → "דכ", one word → its first two letters.
+String initials(String name) {
+  final words = name.trim().split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+  if (words.isEmpty) return '?';
+  // shortcut: UTF-16 units, so an emoji name may split; names here are Hebrew/Latin.
+  return words.length == 1 ? words.first.substring(0, min(2, words.first.length)) : '${words.first[0]}${words[1][0]}';
+}
+
 const statusLabels = {
   'draft': 'טיוטה',
   'waiting': 'ממתין לאישור',

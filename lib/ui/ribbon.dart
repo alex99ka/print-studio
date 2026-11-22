@@ -12,7 +12,8 @@ import 'theme.dart';
 class Ribbon extends StatelessWidget {
   const Ribbon({super.key, this.compact = false});
 
-  /// On a phone's request page: only what acts on that request.
+  /// compact: the open request's actions (at the top of the request). Otherwise the home screen's:
+  /// what works with nothing selected (new, printer, customers, payments).
   final bool compact;
 
   @override
@@ -29,19 +30,24 @@ class Ribbon extends StatelessWidget {
                 _Button(Icons.calendar_month_outlined, 'לוח מדפסת',
                     () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SchedulePage()))),
               ]),
-            _Group('Flag Maker', [
+            if (!compact)
+              _Group('לקוחות', [
+                _Button(Icons.sell_outlined, 'מחירון מיקרופון', () => sendMicPrices(context, null)),
+              ]),
+            if (compact) _Group('Flag Maker', [
               _Button(Icons.upload_file_outlined, 'ייבוא גרסה',
                   s != null && s.open ? () => importVersion(context, s) : null),
               if (isWindows)
                 _Button(Icons.open_in_new, 'פתיחה ב-Flag Maker',
                     s != null && (withRecipe(s) != null || s.open) ? () => openFlagMaker(context, s) : null),
             ]),
-            if (isWindows)
+            if (compact && isWindows)
               _Group('Gift Factory', [
                 _Button(Icons.redeem_outlined, 'פתח ב-Gift Factory', s != null ? () => openGiftFactory(context, s) : null),
               ]),
-            TourTarget(
-              'home.client',
+            if (compact)
+              TourTarget(
+              'order.actions',
               child: _Group('לקוח', [
                 _Button(Icons.send_outlined, 'פרסם ללקוח',
                     s != null && publishable(s) != null ? () => publishVersion(context, s) : null),
@@ -57,7 +63,7 @@ class Ribbon extends StatelessWidget {
                     () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BillsPage()))),
                 _Button(Icons.content_paste, 'הדבקת קבלה', () => pasteReceipt(context)),
               ]),
-            _Group('הדפסה', [
+            if (compact) _Group('הדפסה', [
               _Button(isWindows ? Icons.print_outlined : Icons.download_outlined,
                   isWindows ? 'פתיחה ב-Bambu' : 'הורדת 3MF', s != null && printable(s) != null ? () => openSlicer(context, s) : null),
             ]),

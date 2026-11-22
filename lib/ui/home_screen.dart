@@ -23,7 +23,7 @@ import 'theme.dart';
 import 'update_banner.dart';
 import 'website_view.dart';
 
-/// Tabs along the top like Word's (בית · לקוחות · כספים · אתר · הגדרות), the ribbon under
+/// Tabs along the top like Word's (הזמנות · לקוחות · כספים · אתר · הגדרות), the ribbon under
 /// them, and the tab's page below.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -32,7 +32,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-const _tabs = ['בית', 'לקוחות', 'כספים', 'אתר', 'הגדרות'];
+const _tabs = ['הזמנות', 'לקוחות', 'כספים', 'אתר', 'הגדרות'];
 const _websiteTab = 3, _settingsTab = 4;
 
 class _HomeScreenState extends State<HomeScreen> {
@@ -144,9 +144,6 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(width: 10),
               Text(AppConfig.name, style: TextStyle(color: s.barInk, fontWeight: FontWeight.w700, fontSize: 16)),
               const Spacer(),
-              Text(AppInfo.version, textDirection: TextDirection.ltr,
-                  style: TextStyle(color: s.barInk.withValues(alpha: .75), fontSize: 12)),
-              const SizedBox(width: 16),
             ]),
           ),
         ),

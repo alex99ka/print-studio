@@ -256,4 +256,19 @@ void main() {
     expect(both.indexOf('https://x/p/t'), lessThan(both.indexOf('https://x/b/k')));
     expect(billMessage(b, 'https://x/p/t#tab=bills'), isNot(contains('/b/')));
   });
+
+  test('what is waiting: groups in urgency order, a deadline soonest first, empty ones left out', () {
+    final now = DateTime(2026, 11, 22);
+    final g = todayGroups([
+      ('a', {'status': 'printing', 'deadline': '2026-11-27'}),
+      ('b', {'status': 'approved', 'deadline': '2026-11-24', 'needsReply': true}),
+      ('c', {'status': 'paid', 'deadline': '2026-11-23'}),
+      ('d', {'status': 'delivered'}),
+    ], now);
+    expect(g.map((x) => x.$1), ['reply', 'soon', 'print', 'owed']);
+    expect(g[1].$2, ['b', 'a']);
+    expect(initials('דנה כהן'), 'דכ');
+    expect(initials('Alex'), 'Al');
+    expect(isActive('paid') || isActive('declined'), isFalse);
+  });
 }

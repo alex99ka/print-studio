@@ -32,12 +32,16 @@ class StatusChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final s = context.studio;
     final ink = Theme.of(context).colorScheme.onSurface;
+    // One colour per kind of work: amber = the client's turn, blue = in the studio,
+    // solid green = ready to hand over, soft green = handed over (money still due), grey = closed.
+    final primary = Theme.of(context).colorScheme.primary;
     final (bg, fg) = switch (status) {
       'waiting' => (s.warnSoft, s.warnInk),
-      'approved' || 'ready' => (s.okSoft, s.okInk),
-      'printing' => (s.accentSoft, ink),
-      'delivered' => (s.sunk, ink),
+      'approved' || 'printing' => (s.accentSoft, primary),
+      'ready' => (s.ok, s.onOk),
+      'delivered' => (s.okSoft, s.okInk),
       'declined' => (s.sunk, Theme.of(context).colorScheme.error),
+      'draft' => (s.sunk, ink),
       _ => (s.sunk, s.muted),
     };
     return Container(
@@ -75,6 +79,18 @@ class DeadlineChip extends StatelessWidget {
   }
 }
 
+/// A picture that won't load: the customer's initials, not an empty-picture icon.
+class _Initials extends StatelessWidget {
+  const _Initials(this.name);
+  final String name;
+
+  @override
+  Widget build(BuildContext context) => Center(
+        child: Text(initials(name),
+            style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16, color: Theme.of(context).colorScheme.primary)),
+      );
+}
+
 /// The home tab: the list beside the open request on a wide screen, the list
 /// alone on a phone (a request opens as its own page there).
 class RequestsView extends StatefulWidget {
@@ -106,11 +122,100 @@ class _RequestsViewState extends State<RequestsView> {
           VerticalDivider(width: 1, color: context.studio.line),
           Expanded(
             child: _open == null
-                ? const Center(child: Text('בוחרים בקשה מהרשימה, או "בקשה חדשה" למעלה.'))
+                ? TodayPanel(onOpen: (id) => setState(() => _open = id))
                 : RequestDetail(key: ValueKey(_open), requestId: _open!),
           ),
         ]);
       });
+}
+
+/// With no request open on a wide screen: what is waiting for Alex, each line opens its request.
+class TodayPanel extends StatefulWidget {
+  const TodayPanel({super.key, required this.onOpen});
+  final void Function(String id) onOpen;
+
+  @override
+  State<TodayPanel> createState() => _TodayPanelState();
+}
+
+class _TodayPanelState extends State<TodayPanel> {
+  final _requests = requestsRef.orderBy('updatedAt', descending: true).snapshots();
+
+  @override
+  Widget build(BuildContext context) => StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+        stream: _requests,
+        builder: (context, snap) {
+          if (!snap.hasData) return const SkeletonList();
+          return TodayList([for (final d in snap.data!.docs) (d.id, d.data())], onOpen: widget.onOpen);
+        },
+      );
+}
+
+/// [TodayPanel]'s content, from plain rows (id, request).
+class TodayList extends StatelessWidget {
+  const TodayList(this.rows, {super.key, required this.onOpen});
+  final List<(String, Map<String, dynamic>)> rows;
+  final void Function(String id) onOpen;
+  static const _looks = {
+    'reply': (Icons.mark_chat_unread_outlined, 'הערות חדשות מלקוחות', 'לקרוא ולענות'),
+    'soon': (Icons.event_outlined, 'תאריכי יעד בשבוע הקרוב', 'כולל כאלה שעברו'),
+    'print': (Icons.print_outlined, 'להדפסה', 'אושרו או בהדפסה'),
+    'ready': (Icons.local_shipping_outlined, 'מוכנות למסירה', 'להודיע ללקוח ולמסור'),
+    'owed': (Icons.payments_outlined, 'נמסרו, ממתינות לתשלום', 'לשלוח דרישת תשלום או לרשום תשלום'),
+    'draft': (Icons.edit_note_outlined, 'טיוטות', 'לסיים ולפרסם ללקוח'),
+    'client': (Icons.hourglass_empty, 'אצל הלקוח', 'מחכות לאישור שלו'),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.studio;
+    final groups = todayGroups(rows, DateTime.now());
+    final byId = {for (final (id, r) in rows) id: r};
+    Widget line(String id) {
+      final r = byId[id]!;
+      return ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text('${r['title']}', maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: Text('${r['customerName'] ?? ''}', style: TextStyle(color: s.muted)),
+        trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (r['deadline'] != null) ...[DeadlineChip(r), const SizedBox(width: 6)],
+          StatusChip('${r['status']}'),
+        ]),
+        onTap: () => onOpen(id),
+      );
+    }
+
+    return ListView(padding: const EdgeInsets.all(24), children: [
+      Text('מה מחכה לך', style: Theme.of(context).textTheme.headlineSmall),
+      const SizedBox(height: 4),
+      Text(groups.isEmpty ? 'אין כרגע שום דבר שמחכה לך. בוחרים בקשה מהרשימה, או "בקשה חדשה" למעלה.'
+          : 'לחיצה על שורה פותחת את הבקשה.', style: TextStyle(color: s.muted)),
+      const SizedBox(height: 16),
+      Wrap(spacing: 16, runSpacing: 16, children: [
+        for (final (key, ids) in groups)
+          SizedBox(
+            width: 360,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Row(children: [
+                    Icon(_looks[key]!.$1, size: 20, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Expanded(child: Text(_looks[key]!.$2, style: const TextStyle(fontWeight: FontWeight.w700))),
+                    Text('${ids.length}', style: TextStyle(color: s.muted, fontWeight: FontWeight.w700)),
+                  ]),
+                  Text(_looks[key]!.$3, style: TextStyle(color: s.muted, fontSize: 12)),
+                  for (final id in ids.take(5)) line(id),
+                  if (ids.length > 5) Text('ועוד ${ids.length - 5}', style: TextStyle(color: s.muted, fontSize: 12)),
+                ]),
+              ),
+            ),
+          ),
+      ]),
+    ]);
+  }
 }
 
 /// On a phone: one request, with the ribbon's actions under its title.
@@ -121,10 +226,7 @@ class RequestPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('בקשה')),
-        body: Column(children: [
-          const Ribbon(compact: true),
-          Expanded(child: RequestDetail(requestId: requestId)),
-        ]),
+        body: RequestDetail(requestId: requestId),
       );
 }
 
@@ -140,7 +242,7 @@ class RequestList extends StatefulWidget {
 class _RequestListState extends State<RequestList> {
   final _requests = requestsRef.orderBy('updatedAt', descending: true).snapshots();
   final _customers = customersRef.snapshots();
-  String? _filter; // a status, 'reply', or null for all
+  String? _filter = 'active'; // 'active' (not paid or cancelled), a status, 'reply', or null for all
   String _query = '', _sort = 'updated';
   static const _sorts = {'updated': 'עודכן לאחרונה', 'created': 'נפתח לאחרונה', 'customer': 'לפי לקוח'};
 
@@ -213,6 +315,7 @@ class _RequestListState extends State<RequestList> {
             final shown = all
                 .where((d) => switch (_filter) {
                       null => true,
+                      'active' => isActive('${d['status']}'),
                       'reply' => d.data()['needsReply'] == true,
                       final f => d['status'] == f,
                     })
@@ -225,14 +328,15 @@ class _RequestListState extends State<RequestList> {
             }
             final counts = <String?, int>{
               null: all.length,
+              'active': all.where((d) => isActive('${d['status']}')).length,
               'reply': all.where((d) => d.data()['needsReply'] == true).length,
               for (final s in statuses) s: all.where((d) => d['status'] == s).length,
             };
             final chips = [
-              for (final f in <String?>[null, 'reply', ...statuses])
-                if (f == null || counts[f]! > 0)
+              for (final f in <String?>['active', 'reply', ...statuses, null])
+                if (f == null || f == 'active' || counts[f]! > 0)
                   ChoiceChip(
-                    label: Text('${f == null ? 'הכול' : f == 'reply' ? 'הערות חדשות' : statusLabels[f]} ${counts[f]}'),
+                    label: Text('${switch (f) { null => 'הכול', 'active' => 'פעילות', 'reply' => 'הערות חדשות', _ => statusLabels[f] }} ${counts[f]}'),
                     selected: _filter == f,
                     onSelected: (_) => setState(() => _filter = f),
                   ),
@@ -275,7 +379,10 @@ class _RequestListState extends State<RequestList> {
                     child: Wrap(spacing: 6, runSpacing: 6, children: chips),
                   ),
                   if (all.isNotEmpty && shown.isEmpty)
-                    const Padding(padding: EdgeInsets.all(32), child: Text('אין בקשות שמתאימות לחיפוש.', textAlign: TextAlign.center)),
+                    Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Text(_filter == 'active' && q.isEmpty ? 'אין הזמנות פעילות. הכול נמסר ושולם.' : 'אין בקשות שמתאימות לחיפוש.',
+                            textAlign: TextAlign.center)),
                   if (all.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
@@ -329,7 +436,7 @@ class _RequestRow extends StatelessWidget {
               clipBehavior: Clip.antiAlias,
               child: shown != null && token.isNotEmpty && hasServer
                   ? Image.network(fileUrl(token, shown, 'preview.png'),
-                      fit: BoxFit.contain, errorBuilder: (_, _, _) => Icon(Icons.image_outlined, color: s.muted))
+                      fit: BoxFit.contain, errorBuilder: (_, _, _) => _Initials('${r['customerName'] ?? r['title']}'))
                   : versions > 0
                       ? Stack(alignment: Alignment.center, children: [
                           Icon(Icons.view_in_ar, color: primary, semanticLabel: 'יש עיצוב, טרם נשלח ללקוח'),
@@ -491,12 +598,7 @@ class _RequestDetailState extends State<RequestDetail> {
     final payments = [...paymentDocs]..sort((a, b) => _at(a['at']).compareTo(_at(b['at'])));
     final paid = payments.fold(0, (a, p) => a + (p['amount'] as int));
 
-    final header = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Expanded(child: Text('${r['title']}', style: Theme.of(context).textTheme.titleLarge)),
-        PopupMenuButton<String>(
-          tooltip: 'שינוי סטטוס',
-          onSelected: (st) {
+    void change(String st) {
             // שולם with money still owed: ask how it was paid and log it, so the balance follows.
             final due = st == 'paid' && quote != null ? leftToPay(quoteMoney(quote.data()).total, paid) : 0;
             if (due > 0) {
@@ -517,7 +619,26 @@ class _RequestDetailState extends State<RequestDetail> {
             }, onError: (Object e) {
               if (mounted) showError(messenger, e, 'שינוי הסטטוס נכשל');
             });
-          },
+    }
+
+    // The one thing to do next, as the big button (the rest stay in the row above and in the cards).
+    final pub = publishable(sel);
+    final (IconData, String, VoidCallback)? next = switch ('${r['status']}') {
+      'draft' when pub != null => (Icons.send_outlined, 'פרסם ללקוח (v${pub['n']})', () => publishVersion(context, sel)),
+      'waiting' when customer != null => (Icons.chat_outlined, 'תזכורת ללקוח בוואטסאפ', () => sendWhatsapp(context, customer)),
+      'approved' => (Icons.print_outlined, 'התחלת הדפסה', () => change('printing')),
+      'printing' => (Icons.check_circle_outline, 'מוכן', () => change('ready')),
+      'ready' => (Icons.local_shipping_outlined, 'נמסר ללקוח', () => change('delivered')),
+      'delivered' => (Icons.payments_outlined, 'שולם', () => change('paid')),
+      _ => null,
+    };
+
+    final header = Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Expanded(child: Text('${r['title']}', style: Theme.of(context).textTheme.titleLarge)),
+        PopupMenuButton<String>(
+          tooltip: 'שינוי סטטוס',
+          onSelected: change,
           itemBuilder: (_) => [for (final st in statuses) PopupMenuItem(value: st, child: Text(statusLabels[st]!))],
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             StatusChip('${r['status']}'),
@@ -526,6 +647,13 @@ class _RequestDetailState extends State<RequestDetail> {
         ),
       ]),
       Text('${r['customerName'] ?? ''} · ${r['qty'] ?? 1} יחידות', style: TextStyle(color: s.muted)),
+      const SizedBox(height: 12),
+      StatusSteps('${r['status']}', onTap: change),
+      if (next != null) ...[
+        const SizedBox(height: 12),
+        FilledButton.icon(onPressed: next.$3, icon: Icon(next.$1), label: Text(next.$2)),
+      ],
+      const SizedBox(height: 8),
       Wrap(crossAxisAlignment: WrapCrossAlignment.center, children: [
         // C-8: by hand or by B5 (Gift Factory / Flag Maker), a ready request offers the client's message.
         if (r['status'] == 'ready' && customer != null)
@@ -906,7 +1034,9 @@ class _RequestDetailState extends State<RequestDetail> {
       ),
     );
 
-    return LayoutBuilder(
+    return Column(children: [
+      const Ribbon(compact: true),
+      Expanded(child: LayoutBuilder(
       builder: (context, box) => ListView(padding: const EdgeInsets.all(16), children: [
         header,
         const SizedBox(height: 16),
@@ -936,6 +1066,52 @@ class _RequestDetailState extends State<RequestDetail> {
           payCard,
           const SizedBox(height: 16),
           talk,
+        ],
+      ]),
+    )),
+    ]);
+  }
+}
+
+/// Where the order is in the flow (in reading order, so right to left in Hebrew); tapping a step sets it.
+class StatusSteps extends StatelessWidget {
+  const StatusSteps(this.status, {super.key, required this.onTap});
+  final String status;
+  final void Function(String) onTap;
+
+  static const _flow = ['draft', 'waiting', 'approved', 'printing', 'ready', 'delivered', 'paid'];
+
+  @override
+  Widget build(BuildContext context) {
+    final s = context.studio;
+    final primary = Theme.of(context).colorScheme.primary;
+    if (status == 'declined') return const StatusChip('declined');
+    final at = _flow.indexOf(status);
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: [
+        for (final (i, st) in _flow.indexed) ...[
+          if (i > 0) Container(width: 14, height: 2, color: i <= at ? primary : s.line),
+          Semantics(
+            button: true,
+            selected: i == at,
+            label: 'סטטוס ${statusLabels[st]}',
+            child: InkWell(
+              borderRadius: BorderRadius.circular(99),
+              onTap: i == at ? null : () => onTap(st),
+              child: i == at
+                  ? StatusChip(st)
+                  : Container(
+                      constraints: const BoxConstraints(minHeight: 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      alignment: Alignment.center,
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        if (i < at) ...[Icon(Icons.check, size: 14, color: primary), const SizedBox(width: 2)],
+                        Text(statusLabels[st]!, style: TextStyle(fontSize: 12, color: i < at ? primary : s.muted)),
+                      ]),
+                    ),
+            ),
+          ),
         ],
       ]),
     );
