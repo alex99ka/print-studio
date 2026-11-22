@@ -333,3 +333,14 @@ def test_one_printer_schedule_backwards_from_the_deadlines():
         "flag": ("2026-11-15T18:00:00", "2026-11-16T00:00:00"),  # ends where the gift run starts
     }
     assert isinstance(jobs.print_schedule(SCHEDULE)["gift"][0], datetime)
+
+
+def test_portal_bill_links_keep_the_server_prefix():
+    """Behind the Funnel the server lives under /print-studio; a bare /b/<token> link from the portal 404s."""
+    import re
+    from pathlib import Path
+    html = (Path(__file__).parent / "app/static/portal.html").read_text(encoding="utf-8")
+    pattern = re.search(r"const root = base\.replace\(/(.+?)/, ''\)", html).group(1)  # the portal's own JS regex
+    assert re.sub(pattern, "", "/print-studio/p/" + "t" * 22) == "/print-studio"
+    assert re.sub(pattern, "", "/p/" + "t" * 22) == ""
+    assert "href: b.url" not in html and html.count("href: root + b.url") == 2

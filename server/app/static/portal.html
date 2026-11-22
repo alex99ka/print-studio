@@ -221,6 +221,7 @@ const T = {
     statDue:'To pay', period:'Period', order:'Order', periods:{all:'All time', 30:'Last 30 days', 90:'Last 3 months', year:'This year', last:'Last year', custom:'Date range…'}},
 };
 const base = location.pathname.replace(/\/$/, '');
+const root = base.replace(/\/p\/[^/]*$/, '');  // the server's own prefix (/print-studio behind the Funnel), for its root links like /b/<token>
 const preview = new URLSearchParams(location.search).get('preview') || '';
 const $ = id => document.getElementById(id);
 let filt = {q: '', period: 'all', from: '', to: '', sort: 'new'};
@@ -309,7 +310,7 @@ function billCard(b) {
       h('div', {class: 'row'}, h('span', {class: paid ? 'chip done' : 'chip waiting'}, paid ? t().billPaid : t().billOpen),
         h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(paid ? b.total : b.due))),
       h('div', {class: 'row'},
-        h('a', {class: 'pill', href: b.url, target: '_blank', rel: 'noopener'}, t().viewBill),
+        h('a', {class: 'pill', href: root + b.url, target: '_blank', rel: 'noopener'}, t().viewBill),
         b.receipt && /^https:\/\//.test(b.receipt.url || '') ? h('a', {class: 'pill', href: b.receipt.url, target: '_blank', rel: 'noopener'}, t().viewReceipt) : null)));
 }
 
@@ -382,7 +383,7 @@ function list() {
   const owing = reqs.filter(r => r.due > 0), owed = owing.reduce((a, r) => a + r.due, 0);
   // An open payment request (sent on WhatsApp too) opens its page: the details, the bank, Bit and PayBox.
   const pay = (data.bills || []).filter(b => b.state === 'open').map(b =>
-    h('a', {class: 'paybtn', href: b.url, target: '_blank', rel: 'noopener'}, t().payBill(b.number, shekel(b.due))));
+    h('a', {class: 'paybtn', href: root + b.url, target: '_blank', rel: 'noopener'}, t().payBill(b.number, shekel(b.due))));
   const due = owing.length || pay.length ? h('section', {class: 'card'}, h('h2', {}, t().toPay),
     owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
     owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null, pay) : null;
