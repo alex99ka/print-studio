@@ -58,6 +58,10 @@ add_subdirectory("runner")
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+# firebase_auth 6 (the starter's pin) trips C4238 on newer MSVC (GitHub's runner, 22.11.2026), and /WX makes it an error.
+if(TARGET firebase_auth_plugin)
+  target_compile_options(firebase_auth_plugin PRIVATE /wd4238)
+endif()
 
 
 # === Installation ===
