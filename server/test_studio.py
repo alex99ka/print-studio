@@ -20,7 +20,7 @@ from google.auth.credentials import AnonymousCredentials
 from google.cloud import firestore as gfirestore
 from PIL import Image
 
-from app import firebase, jobs, main, studio
+from app import billing, firebase, jobs, main, studio
 
 def picture(fmt: str, size: tuple[int, int]) -> bytes:
     out = io.BytesIO()
@@ -51,6 +51,29 @@ def test_money_rounds_vat_half_up():
     assert {k: studio.money(18000, 2, 18, 3600)[k] for k in ("net", "vat", "total")} == {"net": 32400, "vat": 5832, "total": 38232}
     assert studio.money(18000, 2, 0, 40000)["total"] == 0
     assert studio.quote_total({"unit": 18000, "qty": 2, "vatPercent": 18}) == 42480  # a quote from before discounts
+
+
+def test_bill_lines_finished_orders_less_paid():
+    q = {"unit": 10000, "qty": 2, "vatPercent": 18, "discount": 0}
+    reqs = [("r1", {"status": "delivered", "quoteId": "q1", "title": "דגל", "createdAt": "2"}),
+            ("r2", {"status": "ready", "quoteId": "q2", "title": "מתנה", "createdAt": "1"}),
+            ("r3", {"status": "printing", "quoteId": "q1"}),  # not finished: not billed yet
+            ("r4", {"status": "delivered", "quoteId": "q1"}),  # paid in full
+            ("r5", {"status": "delivered"})]  # no price
+    lines = billing.bill_lines(reqs, {"q1": q, "q2": {**q, "vatPercent": 0}}, {"r1": 5000, "r4": 23600})
+    assert [x["requestId"] for x in lines] == ["r2", "r1"]  # oldest first
+    assert lines[1] == {"requestId": "r1", "title": "דגל", "qty": 2, "net": 20000, "vat": 3600, "total": 23600, "paid": 5000, "due": 18600}
+    assert lines[0]["due"] == 20000
+
+
+def test_bill_page_shows_only_switched_on_ways_and_escapes():
+    b = {"number": 1001, "customerName": "<b>דנה</b>", "lang": "he", "state": "open", "net": 100, "vat": 0, "total": 100, "paid": 0, "due": 100,
+         "lines": [{"requestId": "r", "title": "x", "qty": 1, "net": 100, "vat": 0, "total": 100, "paid": 0, "due": 100}]}
+    page = billing.bill_html(b, {"account": "123456", "bitOn": False, "bitPhone": "0501111111", "payboxOn": True, "payboxLink": "https://pay.example/x"})
+    assert "123456" in page and "0501111111" not in page and "https://pay.example/x" in page
+    assert "&lt;b&gt;דנה" in page and "מע״מ" not in page  # no VAT on the bill: no VAT column
+    paid = billing.bill_html({**b, "state": "paid", "receipt": {"number": "60021", "url": "https://yeshbe.co/x"}}, {"account": "123456"})
+    assert "https://yeshbe.co/x" in paid and "123456" not in paid
 
 
 @pytest.fixture
@@ -395,3 +418,61 @@ def test_logo_photos_on_a_customer(client, db, tmp_path):
 
 def test_logo_photos_need_sign_in(db):
     assert TestClient(main.app).get("/studio/customers/c1/logos").status_code == 401
+
+
+def test_bill_made_once_replaced_when_owed_changes_and_trash_empties(client, db, pushes):
+    db.document("quotes/q1").set({"requestId": "r1", "customerId": "c1", "unit": 10000, "qty": 2, "vatPercent": 0})
+    assert client.post("/studio/customers/c1/bill").status_code == 409  # a draft owes nothing
+    db.document("requests/r1").update({"status": "delivered", "quoteId": "q1"})
+    first = client.post("/studio/customers/c1/bill").json()
+    assert (first["number"], first["due"], first["new"]) == (1001, 20000, True)
+    assert client.post("/studio/customers/c1/bill").json()["id"] == first["id"]  # nothing changed: the same bill
+    page = client.get(f"/b/{first['token']}")
+    assert page.status_code == 200 and "1001" in page.text and "₪200.00" in page.text
+    db.document("payments/p1").set({"requestId": "r1", "customerId": "c1", "amount": 5000})
+    second = client.post("/studio/customers/c1/bill").json()
+    assert (second["number"], second["due"]) == (1002, 15000)
+    assert db.document(f"bills/{first['id']}").get().to_dict()["state"] == "replaced"
+    # The monthly run skips a customer whose bill hasn't changed, and one who turned it off.
+    db.document("config/billing").set({"day": 1})
+    assert billing.daily(datetime(2026, 12, 2).date()) == 0
+    assert billing.daily(datetime(2026, 12, 1).date()) == 0 and pushes == []
+    db.document("payments/p2").set({"requestId": "r1", "customerId": "c1", "amount": 1000})
+    db.document("customers/c2").update({"billing": False})
+    assert billing.daily(datetime(2026, 12, 1).date()) == 1 and pushes[0][0] == "billing"
+    # In the trash: the link stops working; after 30 days the bill is gone.
+    db.document(f"bills/{first['id']}").update({"deletedAt": datetime(2026, 1, 1, tzinfo=timezone.utc)})
+    assert client.get(f"/b/{first['token']}").status_code == 404
+    billing.daily(datetime(2026, 12, 2).date())
+    assert not db.document(f"bills/{first['id']}").get().exists
+
+
+def test_regular_customer_area_needs_google_and_lists_bills(db, monkeypatch):
+    """Alex, 22.11: a regular customer (לקוח קבוע) signs up with Google from the invitation; their area lists bills."""
+    monkeypatch.setattr(firebase.auth, "verify_id_token", lambda token, app=None: {"uid": "u-l", "email": "l@gmail.com", "email_verified": True})
+    monkeypatch.setattr(firebase, "app", lambda: None)
+    monkeypatch.setattr(firebase, "access", lambda: ({"alex@example.com"}, set()))
+    db.document("customers/c1").update({"returning": True, "name": "לינוי רייזר"})
+    db.document("bills/b1").set({"customerId": "c1", "number": 1001, "token": "t" * 22, "state": "paid", "total": 100, "due": 100,
+                                 "lines": [{}], "receipt": {"number": "60021", "url": "https://yeshbe.co/x", "to": "x"}})
+    db.document("bills/b2").set({"customerId": "c1", "number": 1000, "token": "u" * 22, "state": "replaced", "lines": []})
+    db.document("bills/b3").set({"customerId": "c1", "number": 1002, "token": "v" * 22, "state": "open", "lines": [],
+                                 "deletedAt": datetime(2026, 1, 1, tzinfo=timezone.utc)})
+    browser = TestClient(main.app, base_url="https://testserver")
+    r = browser.get(f"/p/{TOKEN_A}/data")
+    assert r.status_code == 401 and r.json()["detail"] == {"signIn": True, "name": "לינוי", "invited": True, "returning": True}
+    assert browser.post(f"/p/{TOKEN_A}/session", json={"idToken": "x"}).status_code == 200
+    data = browser.get(f"/p/{TOKEN_A}/data").json()
+    assert data["customer"]["returning"] and data["customer"]["email"] == "l@gmail.com"
+    assert [b["number"] for b in data["bills"]] == [1001]  # never a replaced or trashed one
+    assert data["bills"][0]["receipt"] == {"number": "60021", "url": "https://yeshbe.co/x"} and data["bills"][0]["url"] == "/b/" + "t" * 22
+    # The consent's "this visit only": a cookie the browser drops when it closes (no Max-Age).
+    once = TestClient(main.app, base_url="https://testserver")
+    r = once.post(f"/p/{TOKEN_A}/session", json={"idToken": "x", "remember": False})
+    assert r.status_code == 200 and "max-age" not in r.headers["set-cookie"].lower() and once.get(f"/p/{TOKEN_A}/data").status_code == 200
+    assert "max-age=15552000" in browser.post(f"/p/{TOKEN_A}/session", json={"idToken": "x"}).headers["set-cookie"].lower()
+    # Signed in again, the screen no longer says "invited"; signing out ends the session.
+    browser.post(f"/p/{TOKEN_A}/logout")
+    assert browser.get(f"/p/{TOKEN_A}/data").json()["detail"]["invited"] is False
+    # A one-time customer keeps the bare link and sees no bills.
+    assert TestClient(main.app).get(f"/p/{TOKEN_B}/data").json()["bills"] == []

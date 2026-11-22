@@ -295,6 +295,8 @@ def delete_customer(cid: str, _: User) -> dict:
         raise HTTPException(404, "No such customer")
     for d in db.collection("requests").where(filter=FieldFilter("customerId", "==", cid)).stream():
         _delete_request(db, d.id)
+    for d in db.collection("bills").where(filter=FieldFilter("customerId", "==", cid)).stream():
+        d.reference.delete()
     db.document(f"customers/{cid}").delete()
     shutil.rmtree(_data() / "logos" / cid, ignore_errors=True)
     return {"ok": True}
@@ -587,8 +589,9 @@ def _find(token: str) -> tuple[str, dict]:
     return found[0].id, found[0].to_dict() or {}
 
 
-# A gift customer's link opens only after Google sign-in (Alex, 18.11): the first account to sign in owns
-# the link (googleUid); the browser then holds a signed cookie "ps" for this link's paths. Alex's own
+# A gift customer's link, and a returning customer's personal area (Alex, 22.11: customer.returning), opens only
+# after Google sign-in (Alex, 18.11): the first account to sign in owns the link (googleUid); the app's "reset"
+# removes it, and the next account to sign in (the invited one) owns it; the browser then holds a signed cookie "ps" for this link's paths. Alex's own
 # allowlisted accounts get in too, as "studio". Microphone customers keep the bare link.
 SESSION_DAYS = 180
 
@@ -613,15 +616,27 @@ def _session_who(token: str, ps: str | None) -> str | None:
     return who if hmac.compare_digest(rest, _sign(token, who, int(exp))) else None
 
 
+def signs_in(c: dict) -> bool:
+    return c.get("kind") == "gift" or c.get("returning") is True
+
+
 def _customer(token: str, ps: str | None) -> tuple[str, dict]:
     cid, c = _find(token)
-    if c.get("kind") == "gift" and (who := _session_who(token, ps)) != "studio" and (not who or who != c.get("googleUid")):
-        raise HTTPException(401, "Sign in with Google")
+    if signs_in(c) and (who := _session_who(token, ps)) != "studio" and (not who or who != c.get("googleUid")):
+        # The sign-in screen greets them by first name, and as invited while no account owns the link yet.
+        raise HTTPException(401, {"signIn": True, "name": (c.get("name") or "").split(" ")[0],
+                                  "invited": not c.get("googleUid"), "returning": c.get("returning") is True})
     return cid, c
 
 
 class SignIn(BaseModel):
     idToken: str = Field(min_length=1, max_length=4096)
+    # The portal's cookie consent (22.11): stay signed in (SESSION_DAYS) or this visit only (a browser-session
+    # cookie, at most VISIT_HOURS).
+    remember: bool = True
+
+
+VISIT_HOURS = 12
 
 
 @router.post("/p/{token}/session")
@@ -646,11 +661,18 @@ def portal_session(token: str, body: SignIn, response: Response) -> dict:
         who = user["uid"]
     else:
         raise HTTPException(403, "This link belongs to another Google account")
-    exp = int(time.time()) + SESSION_DAYS * 86400
-    # No Path: the browser keeps it for this link's own paths only.
-    response.set_cookie("ps", f"{who}.{exp}.{_sign(token, who, exp)}", max_age=SESSION_DAYS * 86400,
+    life = SESSION_DAYS * 86400 if body.remember else VISIT_HOURS * 3600
+    exp = int(time.time()) + life
+    # Signed for this link only (_sign includes the token); without max_age the browser drops it when it closes.
+    response.set_cookie("ps", f"{who}.{exp}.{_sign(token, who, exp)}", max_age=life if body.remember else None,
                         httponly=True, secure=True, samesite="lax")
     return {"email": email, "studio": who == "studio"}
+
+
+@router.post("/p/{token}/logout")
+def portal_logout(token: str, response: Response) -> dict:
+    response.delete_cookie("ps", secure=True, httponly=True, samesite="lax")
+    return {"ok": True}
 
 
 _posts: dict[str, deque] = defaultdict(deque)
@@ -733,7 +755,7 @@ def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie(
         paid = sum(payments[rid])
         out.append({
             "id": rid, "title": r.get("title", ""), "qty": r.get("qty", 1), "status": r.get("status", "draft"),
-            "updated": _iso(r.get("updatedAt")),
+            "updated": _iso(r.get("updatedAt")), "created": _iso(r.get("createdAt")),
             "currentVersionId": r.get("publishedVersionId"),
             "offered": offered(r),
             "versions": sorted(versions[rid], key=lambda v: v["n"] or 0),
@@ -754,7 +776,16 @@ def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie(
             if (p := (r.get("production") or {}).get("progress")) and r.get("status") in ("approved", "printing") else None,
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
-    return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he"), "kind": c.get("kind")}, "requests": out}
+    returning = c.get("returning") is True
+    # A returning customer's area also lists their bills and receipts (billing.py), never a trashed or replaced one.
+    bills = sorted(({"number": b.get("number"), "at": _iso(b.get("createdAt")), "total": b.get("total", 0), "due": b.get("due", 0),
+                     "state": b.get("state"), "items": len(b.get("lines") or []), "url": f"/b/{b.get('token')}",
+                     "receipt": {k: (b.get("receipt") or {}).get(k) for k in ("number", "url")} if b.get("receipt") else None}
+                    for _, b in _mine(cid, "bills") if returning and not b.get("deletedAt") and b.get("state") in ("open", "paid")),
+                   key=lambda b: b["at"] or "", reverse=True)
+    return {"customer": {"name": c.get("name", ""), "lang": c.get("lang", "he"), "kind": c.get("kind"), "returning": returning,
+                         "signedIn": signs_in(c), "email": c.get("googleEmail") if returning else None},
+            "requests": out, "bills": bills}
 
 
 @router.get("/p/{token}/f/{vid}/{name}")

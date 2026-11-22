@@ -62,7 +62,11 @@ service cloud.firestore {
       allow read, delete: if allowed();
       allow create, update: if allowed()
         && request.resource.data.keys().hasOnly(['name', 'phone', 'lang', 'kind', 'portalToken', 'notes', 'createdAt',
-             'googleUid', 'googleEmail'])
+             'googleUid', 'googleEmail', 'billing', 'returning'])
+        // A regular customer (לקוח קבוע): a personal area behind Google sign-in (studio.py signs_in).
+        && (!('returning' in request.resource.data) || request.resource.data.returning is bool)
+        // The monthly payment request (server/app/billing.py): off only when false.
+        && (!('billing' in request.resource.data) || request.resource.data.billing is bool)
         // The Google account that owns a gift link is set by the server only; the app may keep or remove it.
         && kept('googleUid') && kept('googleEmail')
         && shortText(request.resource.data.name, 200) && request.resource.data.name.size() > 0
@@ -159,6 +163,36 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['done', 'doneAt'])
         && request.resource.data.done is bool;
       allow delete: if allowed() && resource.data.from == 'studio';
+    }
+
+    // The studio's details on a payment request (server/app/billing.py): business, bank, Bit, PayBox, billing day.
+    match /config/billing {
+      allow read: if allowed();
+      allow write: if allowed()
+        && request.resource.data.keys().hasOnly(['businessName', 'businessId', 'contact', 'bankName', 'bankNumber', 'branch',
+             'account', 'accountName', 'bitOn', 'bitPhone', 'payboxOn', 'payboxLink', 'day', 'updatedAt'])
+        && request.resource.data.day is int && request.resource.data.day >= 1 && request.resource.data.day <= 28
+        && request.resource.data.bitOn is bool && request.resource.data.payboxOn is bool
+        && shortText(request.resource.data.get('businessName', ''), 200) && shortText(request.resource.data.get('businessId', ''), 100)
+        && shortText(request.resource.data.get('contact', ''), 200) && shortText(request.resource.data.get('bankName', ''), 100)
+        && shortText(request.resource.data.get('bankNumber', ''), 10) && shortText(request.resource.data.get('branch', ''), 10)
+        && shortText(request.resource.data.get('account', ''), 30) && shortText(request.resource.data.get('accountName', ''), 200)
+        && shortText(request.resource.data.get('bitPhone', ''), 30) && shortText(request.resource.data.get('payboxLink', ''), 300);
+    }
+
+    // Payment requests: the server makes and numbers them. The app marks one sent; marks an open one paid
+    // with its receipt; moves one to the trash (deletedAt) or back. The Pi deletes it after 30 days there.
+    match /bills/{id} {
+      allow read: if allowed();
+      allow update: if allowed()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['sentAt', 'state', 'paidAt', 'receipt', 'deletedAt'])
+        && (request.resource.data.state == resource.data.state
+            || (resource.data.state == 'open' && request.resource.data.state == 'paid'
+                && request.resource.data.paidAt is timestamp
+                && request.resource.data.receipt.keys().hasOnly(['number', 'url', 'to'])
+                && request.resource.data.receipt.url is string && request.resource.data.receipt.url.matches('https://.{1,500}')
+                && shortText(request.resource.data.receipt.number, 30) && shortText(request.resource.data.receipt.to, 200)))
+        && (!('deletedAt' in request.resource.data) || request.resource.data.deletedAt == null || request.resource.data.deletedAt is timestamp);
     }
 
     // Problem reports when there is no home server: write-only; the notifier

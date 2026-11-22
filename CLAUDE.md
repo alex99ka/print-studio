@@ -19,6 +19,11 @@ Improvements to `lib/core/` go back into the starter.
   public `/gifts/<slug>/<file>` pictures, Supabase over PostgREST with the service role key from the Pi's `.env` only),
   `lib/studio/website.dart`, `lib/ui/website_view.dart` (the "אתר" tab). README › Shop website is the route contract;
   `node tool/site_texts.mjs` refreshes the wording defaults when the website's `site.ts` changes.
+- Payment requests (דרישות תשלום): `server/app/billing.py` (bills of מוכן/נמסר orders, `/b/<token>` page, daily 09:00 job:
+  billing day from `config/billing`, 30-day trash via `deletedAt`), `lib/ui/bills.dart` (send, paste receipt, settings).
+- Regular customers (לקוח קבוע, `customers.returning`, 22.11): the portal link is a personal area behind Google sign-in
+  (`studio.signs_in`: gift or returning; first account owns it, "איפוס חיבור" frees it, "הזמנה לאזור האישי" sends it):
+  waiting / in progress / history / receipts tabs, search, date range, sort. One-time customers keep the bare link.
 - Money is integer **agorot**; VAT 18% rounded half up, computed identically in
   `lib/studio/studio.dart` and `studio.py` (both have the same test cases).
 - Keep green: `flutter analyze`, `flutter test`, `firestore-tests`, server

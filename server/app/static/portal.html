@@ -103,6 +103,15 @@ dialog .row{justify-content:flex-end;margin-top:16px}
 .quiet{border:0;background:none;padding:0;min-height:44px;align-self:flex-start;color:var(--danger);text-decoration:underline;font-size:14px}
 #decline textarea{width:100%;min-height:72px;margin-top:12px;border:1px solid var(--line);border-radius:10px;padding:8px 10px;background:transparent;resize:vertical}
 #decline .row{flex-wrap:wrap}
+.hello{margin:4px 0 0;font-size:24px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}.stat{padding:10px 12px;display:flex;flex-direction:column;gap:2px}.stat b{font-size:18px}
+.filters{padding:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:end}
+.filters input,.filters select{border:1px solid var(--line);border-radius:10px;min-height:40px;padding:0 10px;background:transparent;font:inherit;color:inherit}
+.filters .q{flex:1 1 100%}.filters label{display:flex;flex-direction:column;gap:2px;flex:1 1 130px}.filters select{flex:1 1 130px}.filters .ghost{min-height:40px}
+.results{display:flex;flex-direction:column;gap:14px}
+.pill{border:1px solid var(--line);border-radius:99px;padding:4px 12px;font-size:13px;color:var(--accent);text-decoration:none}
+.link{border:0;background:none;padding:0;color:var(--accent);text-decoration:underline;font-size:13px}
+.consent{background:var(--sunk);border-radius:12px;padding:12px 14px}.consent p{margin:4px 0 0}
 .sk{background:var(--sunk);border-radius:14px;height:96px;animation:pulse 1.2s ease-in-out infinite}
 @keyframes pulse{50%{opacity:.55}}
 @media (prefers-reduced-motion:reduce){.sk{animation:none}}
@@ -151,7 +160,16 @@ const T = {
     saveAs:'שמרו את הקובץ כ-xlsx או כ-csv ונסו שוב.', badAmount:(row,v)=>`שורה ${row}: הכמות "${v}" אינה מספר שלם.`,
     noNames:'לא נמצאו שמות בקובץ.', tooBig:'הקובץ גדול מ-2MB.', tooManyRows:'יותר מ-5000 שורות.',
     badFile:'לא הצלחנו לקרוא את הקובץ. שמרו אותו כ-xlsx או כ-csv ונסו שוב.', guestsLocked:'ההזמנה כבר בהדפסה. לשינוי ברשימה פנו לסטודיו.',
-    st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם', declined:'בוטל'}},
+    st:{draft:'טיוטה', waiting:'ממתין לאישור', approved:'אושר', printing:'בהדפסה', ready:'מוכן', delivered:'נמסר', paid:'שולם', declined:'בוטל'},
+    hello:n=>`שלום ${n}`, area:'האזור האישי שלך', active:'בעבודה', history:'היסטוריה', bills:'קבלות ותשלומים',
+    statOrders:'פרויקטים', statWaiting:'ממתינים לאישור', search:'חיפוש לפי שם הפרויקט', from:'מתאריך', to:'עד תאריך',
+    newest:'מהחדש לישן', oldest:'מהישן לחדש', clear:'ניקוי', noMatch:'אין תוצאות לסינון הזה.', noBills:'עוד אין דרישות תשלום או קבלות.',
+    bill:n=>`דרישת תשלום ${n}`, items:n=>`${n} פריטים`, billOpen:'ממתינה לתשלום', billPaid:'שולמה', viewBill:'לדרישה',
+    receipt:n=>`קבלה ${n}`, viewReceipt:'לקבלה', signOut:'יציאה מהחשבון', signedInAs:e=>`מחובר/ת כ-${e}`,
+    invited:n=>`שלום ${n}! הוזמנת לאזור האישי שלך בסטודיו: כל הפרויקטים, העיצובים, הקבלות ודרישות התשלום במקום אחד. נרשמים פעם אחת עם חשבון Google, ומאז הקישור נפתח רק בחשבון הזה.`,
+    welcomeBack:n=>`שלום ${n}, נכנסים עם חשבון Google כדי לפתוח את האזור האישי.`, signUpBtn:'הרשמה עם Google',
+    cookieTitle:'עוגיות', cookieText:'כדי שלא תצטרכו להתחבר בכל פעם, נשמרת בדפדפן הזה עוגייה אחת שמזהה את הכניסה שלכם ל-180 יום. היא משמשת רק לכניסה לאזור האישי: בלי פרסום, בלי מעקב ובלי שיתוף עם אחרים. חלון הכניסה של Google שומר מידע משלו בזמן הכניסה בלבד. אפשר לצאת מהחשבון בכל רגע, והעוגייה נמחקת.',
+    remember:'מסכים/ה, להישאר מחובר/ת', visitOnly:'כניסה לביקור הזה בלבד', visitNote:'בביקור בלבד: העוגייה נמחקת כשסוגרים את הדפדפן (או אחרי 12 שעות), ובפעם הבאה מתחברים שוב.'},
   en: {studio:'Print Studio', ordersOf:n=>`Orders for ${n}`, waiting:'Awaiting approval', approvedTab:'Approved', back:'Back to the list',
     version:'Version', units:'pcs', updated:'updated', now:'current', choice:'to choose', pickOne:'There are several versions to choose from: pick one and approve it.', versions:'Versions:', view2d:'2D', view3d:'3D', asm:'On the mic',
     drag:'Drag left and right to turn', dragAll:'Drag sideways to turn, up and down to look from above and below', pin:'Comment on the model', pinHint:'Press, then tap the spot on the model', pinTap:'Tap the spot on the model',
@@ -176,11 +194,21 @@ const T = {
     saveAs:'Save it as .xlsx or .csv and try again.', badAmount:(row,v)=>`Row ${row}: the amount "${v}" is not a whole number.`,
     noNames:'No names found in the file.', tooBig:'The file is over 2 MB.', tooManyRows:'Over 5000 rows.',
     badFile:"We couldn't read the file. Save it as .xlsx or .csv and try again.", guestsLocked:'The order is already printing. Ask the studio to change the list.',
-    st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid', declined:'Cancelled'}},
+    st:{draft:'Draft', waiting:'Awaiting approval', approved:'Approved', printing:'Printing', ready:'Ready', delivered:'Delivered', paid:'Paid', declined:'Cancelled'},
+    hello:n=>`Hi ${n}`, area:'Your personal area', active:'In progress', history:'History', bills:'Receipts & payments',
+    statOrders:'Projects', statWaiting:'Awaiting approval', search:'Search by project name', from:'From', to:'To',
+    newest:'Newest first', oldest:'Oldest first', clear:'Clear', noMatch:'Nothing matches this filter.', noBills:'No payment requests or receipts yet.',
+    bill:n=>`Payment request ${n}`, items:n=>`${n} items`, billOpen:'Awaiting payment', billPaid:'Paid', viewBill:'View request',
+    receipt:n=>`Receipt ${n}`, viewReceipt:'View receipt', signOut:'Sign out', signedInAs:e=>`Signed in as ${e}`,
+    invited:n=>`Hi ${n}! You're invited to your personal area at the studio: every project, design, receipt and payment request in one place. Sign up once with Google; from then on the link opens only in that account.`,
+    welcomeBack:n=>`Hi ${n}, sign in with Google to open your personal area.`, signUpBtn:'Sign up with Google',
+    cookieTitle:'Cookies', cookieText:"So you don't have to sign in every time, this browser keeps one cookie that remembers your sign-in for 180 days. It is used only to open your personal area: no ads, no tracking, never shared. Google's sign-in window keeps its own data only while you sign in. You can sign out at any time, which deletes the cookie.",
+    remember:'I agree, keep me signed in', visitOnly:'Sign in for this visit only', visitNote:'This visit only: the cookie is deleted when you close the browser (or after 12 hours), and you sign in again next time.'},
 };
 const base = location.pathname.replace(/\/$/, '');
 const preview = new URLSearchParams(location.search).get('preview') || '';
 const $ = id => document.getElementById(id);
+let filt = {q: '', from: '', to: '', sort: 'new'};
 let data = null, lang = null, tab = 'waiting', sel = {}, picking = false, draftPin = null, viewer = null, focus = null, sent = {};
 const t = () => T[lang];
 
@@ -210,7 +238,7 @@ const statusClass = s => s === 'waiting' ? 'chip waiting' : (s === 'draft' || s 
 async function load() {
   const r = await fetch(`${base}/data${preview ? '?preview=' + encodeURIComponent(preview) : ''}`, {cache: 'no-store'});
   if (r.status === 404) throw 'gone';
-  if (r.status === 401) throw 'signin';
+  if (r.status === 401) { const j = await r.json().catch(() => ({})); throw {signin: (j && j.detail) || {}}; }
   if (!r.ok) throw 'failed';
   data = await r.json();
   if (!lang) { try { lang = localStorage.getItem('lang'); } catch {} lang = T[lang] ? lang : (data.customer.lang === 'en' ? 'en' : 'he'); }
@@ -228,33 +256,95 @@ function route() {
   window.scrollTo(0, 0);
 }
 
+function orderCard(r) {
+  const v = r.versions.find(x => x.id === r.currentVersionId) || r.versions[r.versions.length - 1];
+  return h('a', {href: `#r=${r.id}`, class: 'card order', style: 'color:inherit;text-decoration:none'},
+    h('div', {class: 'thumb'}, has(v, 'preview.png') ? h('img', {src: file(v, 'preview.png'), alt: '', loading: 'lazy'}) : null),
+    h('div', {class: 'grow'},
+      h('b', {}, r.title),
+      h('span', {class: 'muted'}, `${t().version} ${v.n} · ${r.qty} ${t().units} · ${t().updated} `, ltr(day(r.updated))),
+      h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status),
+        r.quote ? h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(r.quote.total)) : null)),
+    icon(CHEVRON));
+}
+
+// A regular customer's payment requests and receipts (billing.py's pages; the receipt app's link).
+function billCard(b) {
+  const paid = b.state === 'paid';
+  return h('div', {class: 'card order'},
+    h('div', {class: 'grow'},
+      h('b', {}, t().bill(b.number)),
+      h('span', {class: 'muted'}, ltr(dayYear(b.at)), ` · ${t().items(b.items)}`, b.receipt && b.receipt.number ? ` · ${t().receipt(b.receipt.number)}` : ''),
+      h('div', {class: 'row'}, h('span', {class: paid ? 'chip done' : 'chip waiting'}, paid ? t().billPaid : t().billOpen),
+        h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(paid ? b.total : b.due))),
+      h('div', {class: 'row'},
+        h('a', {class: 'pill', href: b.url, target: '_blank', rel: 'noopener'}, t().viewBill),
+        b.receipt && /^https:\/\//.test(b.receipt.url || '') ? h('a', {class: 'pill', href: b.receipt.url, target: '_blank', rel: 'noopener'}, t().viewReceipt) : null)));
+}
+
+const dayYear = iso => iso ? new Date(iso).toLocaleDateString('he-IL', {day: '2-digit', month: '2-digit', year: 'numeric'}) : '';
+// The local day of an ISO time, YYYY-MM-DD, to compare with the date inputs.
+const localDay = iso => { if (!iso) return ''; const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
+const matches = (title, iso) => { const d = localDay(iso);
+  return (!filt.q || (title || '').toLowerCase().includes(filt.q.toLowerCase())) && (!filt.from || d >= filt.from) && (!filt.to || d <= filt.to); };
+
+// A regular customer's filters: a name search, a date range (the day the project began) and the order.
+function filters(draw) {
+  const inp = (key, attrs) => h('input', {...attrs, value: filt[key], oninput: e => { filt[key] = e.target.value; draw(); }});
+  const sort = h('select', {'aria-label': t().newest, onchange: e => { filt.sort = e.target.value; draw(); }},
+    h('option', {value: 'new', selected: filt.sort === 'new'}, t().newest), h('option', {value: 'old', selected: filt.sort === 'old'}, t().oldest));
+  return h('div', {class: 'filters card'},
+    inp('q', {type: 'search', placeholder: t().search, 'aria-label': t().search, class: 'q'}),
+    h('label', {}, h('span', {class: 'muted'}, t().from), inp('from', {type: 'date'})),
+    h('label', {}, h('span', {class: 'muted'}, t().to), inp('to', {type: 'date'})),
+    sort,
+    h('button', {type: 'button', class: 'ghost', onclick: () => { filt = {q: '', from: '', to: '', sort: 'new'}; route(); }}, t().clear));
+}
+
 function list() {
   $('back').hidden = true; $('logo').style.display = ''; $('bar').hidden = true;
-  $('title').textContent = t().studio; $('subtitle').textContent = t().ordersOf(data.customer.name);
-  const waiting = data.requests.filter(r => r.status === 'waiting'), done = data.requests.filter(r => r.status !== 'waiting');
-  if (!waiting.length && done.length && tab === 'waiting' && !sel.tabChosen) tab = 'done';
-  const shown = tab === 'waiting' ? waiting : done;
-  const seg = h('div', {class: 'seg', role: 'tablist'},
-    h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === 'waiting'), onclick: () => { tab = 'waiting'; sel.tabChosen = true; route(); }}, `${t().waiting} · ${waiting.length}`),
-    h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === 'done'), onclick: () => { tab = 'done'; sel.tabChosen = true; route(); }}, `${t().approvedTab} · ${done.length}`));
-  const cards = shown.map(r => {
-    const v = r.versions.find(x => x.id === r.currentVersionId) || r.versions[r.versions.length - 1];
-    return h('a', {href: `#r=${r.id}`, class: 'card order', style: 'color:inherit;text-decoration:none'},
-      h('div', {class: 'thumb'}, has(v, 'preview.png') ? h('img', {src: file(v, 'preview.png'), alt: '', loading: 'lazy'}) : null),
-      h('div', {class: 'grow'},
-        h('b', {}, r.title),
-        h('span', {class: 'muted'}, `${t().version} ${v.n} · ${r.qty} ${t().units} · ${t().updated} `, ltr(day(r.updated))),
-        h('div', {class: 'row'}, h('span', {class: statusClass(r.status)}, t().st[r.status] || r.status),
-          r.quote ? h('span', {class: 'ltr', style: 'margin-inline-start:auto;font-size:13px'}, shekel(r.quote.total)) : null)),
-      icon(CHEVRON));
-  });
+  const c = data.customer, ret = c.returning;
+  $('title').textContent = t().studio; $('subtitle').textContent = ret ? t().area : t().ordersOf(c.name);
+  const reqs = data.requests;
+  const tabs = ret ? [
+    ['waiting', t().waiting, reqs.filter(r => r.status === 'waiting')],
+    ['active', t().active, reqs.filter(r => ['approved', 'printing', 'ready'].includes(r.status))],
+    ['history', t().history, reqs.filter(r => !['waiting', 'approved', 'printing', 'ready'].includes(r.status))],
+    ['bills', t().bills, data.bills || []],
+  ] : [
+    ['waiting', t().waiting, reqs.filter(r => r.status === 'waiting')],
+    ['done', t().approvedTab, reqs.filter(r => r.status !== 'waiting')],
+  ];
+  if (!tabs.some(x => x[0] === tab)) tab = 'waiting';
+  if (!sel.tabChosen && !tabs.find(x => x[0] === tab)[2].length) tab = (tabs.find(x => x[2].length) || tabs[0])[0];
+  const seg = h('div', {class: 'seg' + (ret ? ' plates' : ''), role: 'tablist'}, tabs.map(([k, label, items]) =>
+    h('button', {type: 'button', role: 'tab', 'aria-selected': String(tab === k), onclick: () => { tab = k; sel.tabChosen = true; route(); }}, `${label} · ${items.length}`)));
+  const results = h('div', {class: 'results'});
+  // Redraws only the results, so typing in the search keeps its focus.
+  const draw = () => {
+    const items = tabs.find(x => x[0] === tab)[2], isBills = tab === 'bills';
+    const key = x => (isBills ? x.at : x.created || x.updated) || '';
+    let shown = ret ? items.filter(x => matches(isBills ? t().bill(x.number) : x.title, key(x))) : items;
+    if (ret) shown = [...shown].sort((a, b) => filt.sort === 'old' ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a)));
+    const empty = items.length ? t().noMatch : isBills ? t().noBills : tab === 'waiting' ? t().none : t().noneApproved;
+    results.replaceChildren(...(shown.length ? shown.map(isBills ? billCard : orderCard) : [h('p', {class: 'empty'}, empty)]));
+  };
+  draw();
   // What is left to pay on approved orders (only the balance: payment records stay with the studio).
-  const owing = data.requests.filter(r => r.due > 0), owed = owing.reduce((a, r) => a + r.due, 0);
+  const owing = reqs.filter(r => r.due > 0), owed = owing.reduce((a, r) => a + r.due, 0);
   const due = owing.length ? h('section', {class: 'card'}, h('h2', {}, t().toPay),
     owing.map(r => h('a', {href: `#r=${r.id}`, class: 'line', style: 'color:inherit;text-decoration:none'}, h('span', {}, r.title), ltr(shekel(r.due)))),
     owing.length > 1 ? h('div', {class: 'line total'}, h('span', {}, t().toPayAll), ltr(shekel(owed))) : null) : null;
-  $('main').replaceChildren(...(due ? [due] : []), seg, ...(cards.length ? cards : [h('p', {class: 'empty'}, tab === 'waiting' ? t().none : t().noneApproved)]),
-    h('p', {class: 'muted', style: 'text-align:center'}, data.customer.kind === 'gift' ? t().footerGoogle : t().footer));
+  const stat = (label, value) => h('div', {class: 'card stat'}, h('span', {class: 'muted'}, label), h('b', {}, value));
+  const head = ret ? [h('h1', {class: 'hello'}, t().hello(c.name.split(' ')[0])),
+    h('div', {class: 'stats'}, stat(t().statOrders, String(reqs.length)), stat(t().statWaiting, String(tabs[0][2].length)),
+      stat(t().toPayAll, ltr(shekel(owed))))] : [];
+  const foot = [h('p', {class: 'muted', style: 'text-align:center'}, c.signedIn ? t().footerGoogle : t().footer)];
+  if (c.signedIn) foot.push(h('p', {class: 'muted', style: 'text-align:center'},
+    c.email ? ltr(t().signedInAs(c.email)) : null, c.email ? ' · ' : null,
+    h('button', {type: 'button', class: 'link', onclick: async () => { await fetch(`${base}/logout`, {method: 'POST'}); signInCard.who = {}; refresh(); }}, t().signOut)));
+  $('main').replaceChildren(...head, ...(due ? [due] : []), seg, ...(ret ? [filters(draw)] : []), results, ...foot);
 }
 
 function detail(r) {
@@ -441,33 +531,40 @@ function alertBox(text) { const p = h('p', {class: 'error', role: 'alert'}, text
 async function refresh() { try { await load(); } catch (e) { return fail(e); } route(); }
 function fail(e) {
   $('bar').hidden = true;
-  if (e === 'signin') return signInCard();
+  if (e && e.signin) return signInCard(null, e.signin);
   $('main').replaceChildren(h('p', {class: 'empty'}, e === 'gone' ? T[lang || 'he'].gone : T[lang || 'he'].failed));
 }
 
 // A gift customer's link opens only in the Google account that signed in on it first (studio.py portal_session).
-function signInCard(error) {
-  const L = T[lang || (/^he/.test(navigator.language) ? 'he' : 'en')];
-  const btn = h('button', {type: 'button', class: 'pick', style: 'align-self:center'}, L.signInBtn);
-  btn.onclick = async () => {
-    btn.disabled = true;
+function signInCard(error, who = signInCard.who || {}) {
+  signInCard.who = who;
+  const L = T[lang || (/^he/.test(navigator.language) ? 'he' : 'en')];
+  const text = who.invited && who.name ? L.invited(who.name) : who.returning && who.name ? L.welcomeBack(who.name) : L.signIn;
+  // The consent is the choice of button: keep me signed in (a 180-day cookie) or this visit only (a session cookie).
+  const btn = h('button', {type: 'button', class: 'pick', style: 'align-self:center'}, `${who.invited ? L.signUpBtn : L.signInBtn} · ${L.remember}`);
+  const once = h('button', {type: 'button', class: 'ghost', style: 'align-self:center'}, L.visitOnly);
+  const go = remember => async () => {
+    btn.disabled = once.disabled = true;
     try {
       const {initializeApp} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js');
       const {getAuth, GoogleAuthProvider, signInWithPopup, signOut} = await import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js');
       const auth = getAuth(initializeApp({apiKey: 'AIzaSyDLYcFtRQ7-leIsE0_jYnkdkPpDaEIS8fQ', authDomain: 'print-studio-1786a.firebaseapp.com', projectId: 'print-studio-1786a'}));
       const cred = await signInWithPopup(auth, new GoogleAuthProvider());
-      const res = await fetch(`${base}/session`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({idToken: await cred.user.getIdToken()})});
+      const res = await fetch(`${base}/session`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({idToken: await cred.user.getIdToken(), remember})});
       await signOut(auth);  // the server's cookie is the sign-in from now on
       if (res.status === 403) return signInCard(L.otherAccount);
       if (!res.ok) throw new Error(res.status);
       return refresh();
     } catch (err) {
-      if (err && err.code === 'auth/popup-closed-by-user') { btn.disabled = false; return; }
+      if (err && err.code === 'auth/popup-closed-by-user') { btn.disabled = once.disabled = false; return; }
       return signInCard(L.failed);
     }
   };
+  btn.onclick = go(true); once.onclick = go(false);
   $('main').replaceChildren(h('section', {class: 'card', style: 'padding:20px;display:flex;flex-direction:column;gap:14px'},
-    h('p', {style: 'margin:0'}, L.signIn), error ? h('p', {class: 'error', role: 'alert', style: 'margin:0'}, error) : null, btn));
+    who.invited ? h('h2', {}, L.area) : null, h('p', {style: 'margin:0'}, text), error ? h('p', {class: 'error', role: 'alert', style: 'margin:0'}, error) : null,
+    h('div', {class: 'consent', role: 'group', 'aria-labelledby': 'cookieTitle'}, h('b', {id: 'cookieTitle'}, L.cookieTitle), h('p', {class: 'muted'}, L.cookieText)),
+    btn, once, h('p', {class: 'muted', style: 'margin:0;text-align:center'}, L.visitNote)));
 }
 
 // The views are pictures drawn on a canvas: the 2D image, or a sheet of cols x rows tiles for 3D.

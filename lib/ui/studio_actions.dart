@@ -134,6 +134,18 @@ Future<void> sendWhatsapp(BuildContext context, Doc customer) async {
   }
 }
 
+/// The invitation to a regular customer's personal area, on WhatsApp.
+Future<void> sendInvite(BuildContext context, Doc customer) async {
+  final c = customer.data() ?? const {};
+  final messenger = ScaffoldMessenger.of(context);
+  try {
+    await _open(whatsapp('${c['phone'] ?? ''}',
+        inviteMessage('${c['name'] ?? ''}', portalUrl('${c['portalToken']}'), lang: '${c['lang'] ?? 'he'}')));
+  } catch (e) {
+    showError(messenger, e, 'וואטסאפ לא נפתח');
+  }
+}
+
 /// C-8: "it's ready" with the portal link, opened in WhatsApp (the phone's app, WhatsApp Web on the PC).
 Future<void> sendReady(BuildContext context, Selection s) async {
   final c = s.customer?.data() ?? const {};

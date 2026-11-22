@@ -13,6 +13,7 @@ import '../core/update.dart';
 import '../core/web_update.dart';
 import 'customers_view.dart';
 import 'money_view.dart';
+import 'bills.dart';
 import 'requests_view.dart';
 import 'ribbon.dart';
 import 'schedule_page.dart';
@@ -61,6 +62,9 @@ class _HomeScreenState extends State<HomeScreen> {
     final id = data['id'];
     if (data['route'] == '/request' && id is String && mounted) {
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => RequestPage(requestId: id)));
+    }
+    if (data['route'] == '/bills' && mounted) {
+      Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BillsPage()));
     }
     if (data['route'] == '/schedule' && mounted) {
       Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const SchedulePage()));

@@ -21,6 +21,7 @@ import '../core/web_update.dart';
 import '../studio/desktop.dart';
 import '../studio/studio.dart';
 import '../studio/website.dart';
+import 'bills.dart';
 import 'skeleton.dart';
 
 /// The standard set, in this order: updates, sign-in and security, look,
@@ -268,6 +269,12 @@ class _SettingsPageState extends State<SettingsPage> {
           ),
 
         _Section('Flag Maker'),
+        ListTile(
+          leading: const Icon(Icons.receipt_long_outlined),
+          title: const Text('דרישות תשלום'),
+          subtitle: const Text('פרטי העסק והבנק, ביט ופייבוקס, יום החיוב בחודש'),
+          onTap: () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BillingSettingsPage())),
+        ),
         ListTile(
           leading: const Icon(Icons.link),
           title: const Text('חיבור ה-Flag Maker'),

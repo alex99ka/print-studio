@@ -214,4 +214,39 @@ void main() {
         }),
         (24, 7, 24, 48));
   });
+
+  test('a pasted receipt message: name, number, link', () {
+    final r = parseReceipt('לכבוד : לינוי רייזר \nקיבלת קבלה מספר : 60021 \nמאביטל חכם \nhttps://yeshbe.co/4pukND1eH3Ry6fvj2V');
+    expect(r, (to: 'לינוי רייזר', number: '60021', url: 'https://yeshbe.co/4pukND1eH3Ry6fvj2V'));
+    expect(parseReceipt('לכבוד : דנה, בלי קישור'), isNull);
+    expect(parseReceipt('http://not-secure.example'), isNull);
+  });
+
+  test('the receipt name finds one customer, never a guess between two', () {
+    const names = {'a': 'לינוי רייזר', 'b': 'דנה כהן', 'c': 'דנה לוי'};
+    expect(matchCustomer('לינוי  רייזר', names), 'a');
+    expect(matchCustomer('לינוי רייזר בע"מ', names), 'a'); // contains a customer's name
+    expect(matchCustomer('דנה', names), isNull); // two Danas
+    expect(matchCustomer('דנה כהן', names), 'b');
+    expect(matchCustomer('', names), isNull);
+  });
+
+  test('a receipt pays each bill line, but never more than is still owed', () {
+    final bill = {
+      'lines': [
+        {'requestId': 'r1', 'due': 10000},
+        {'requestId': 'r2', 'due': 5000},
+        {'requestId': 'r3', 'due': 2000},
+      ],
+    };
+    final now = {'r1': (status: 'delivered', left: 10000), 'r2': (status: 'ready', left: 3000), 'r3': (status: 'paid', left: 0)};
+    expect(billPayments(bill, now), [(requestId: 'r1', amount: 10000), (requestId: 'r2', amount: 3000)]);
+  });
+
+  test('who signs in with Google: gift customers and regular ones', () {
+    expect(signsIn({'kind': 'gift'}), isTrue);
+    expect(signsIn({'kind': 'mic', 'returning': true}), isTrue);
+    expect(signsIn({'kind': 'mic'}), isFalse);
+    expect(inviteMessage('לינוי', 'https://x/p/t'), contains('https://x/p/t'));
+  });
 }

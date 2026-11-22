@@ -11,11 +11,11 @@ from fastapi import Depends, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-from . import backup, firebase, giftfactory, jobs, studio, telegram, website
+from . import backup, billing, firebase, giftfactory, jobs, studio, telegram, website
 
 logging.basicConfig(level=logging.INFO)
 APP = os.environ.get("APP_NAME") or "האפליקציה"
-VERSION = "0.6.1"  # the release this server ships with; test_api checks it against pubspec.yaml
+VERSION = "0.7.0"  # the release this server ships with; test_api checks it against pubspec.yaml
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ async def lifespan(_: FastAPI):
             asyncio.create_task(jobs.every_day(jobs.daily_backup, 3)),
             # shortcut: a Pi restarted after 09:00 skips that morning's reminders; the app's list shows them anyway.
             asyncio.create_task(jobs.every_day(jobs.deadline_reminders, 9, "תזכורות תאריך יעד")),
+            asyncio.create_task(jobs.every_day(billing.daily, 9, "דרישות תשלום")),
         ]
     yield
     for t in tasks:
@@ -35,6 +36,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None)
 app.include_router(studio.router)
+app.include_router(billing.router)
 app.include_router(giftfactory.router)
 app.include_router(website.router)
 # The web app calls from its Hosting origin; tokens, not cookies, so no credentials.

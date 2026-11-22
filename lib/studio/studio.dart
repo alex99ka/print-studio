@@ -225,16 +225,26 @@ const micPriceList = '''היי, תודה על ההתעניינות! 🎤
 
 // --- writes -------------------------------------------------------------------------
 
+/// A gift customer, or a regular one (לקוח קבוע, `returning`), opens the link only in their Google account
+/// (studio.py signs_in); a regular one's link is a personal area: every project, bills and receipts.
+bool signsIn(Map<String, dynamic>? c) => c?['kind'] == 'gift' || c?['returning'] == true;
+
+/// The invitation to a regular customer's personal area (their portal link; the first Google account to sign up owns it).
+String inviteMessage(String customerName, String url, {String lang = 'he'}) => lang == 'en'
+    ? 'Hi $customerName, you have a personal area at the studio now: every project, design, payment request and receipt in one place.\nSign up once with Google here:\n$url'
+    : 'שלום $customerName, פתחתי לך אזור אישי בסטודיו: כל הפרויקטים, העיצובים, דרישות התשלום והקבלות במקום אחד.\nנרשמים פעם אחת עם Google כאן:\n$url';
+
 /// A customer's kind: what they order.
 const customerKinds = {'mic': 'מיקרופון', 'gift': 'מתנות'};
 
 Future<DocumentReference<Map<String, dynamic>>> addCustomer(
-        {required String name, required String phone, required String lang, required String kind}) =>
+        {required String name, required String phone, required String lang, required String kind, bool returning = false}) =>
     customersRef.add({
       'name': name.trim(),
       'phone': phone.trim(),
       'lang': lang,
       'kind': kind,
+      if (returning) 'returning': true,
       'portalToken': newPortalToken(),
       'createdAt': FieldValue.serverTimestamp(),
     });
@@ -525,3 +535,116 @@ List<String> namesFrom(String title) => title
     .map((n) => n.trim())
     .where((n) => n.isNotEmpty)
     .toList();
+
+// --- payment requests (server/app/billing.py makes them; the app sends, pays and trashes them) ---
+
+final billsRef = _db.collection('bills');
+
+/// The studio's business, bank, Bit and PayBox details and the monthly billing day.
+final billingRef = _db.doc('config/billing');
+const billStates = {'open': 'פתוחה', 'paid': 'שולמה', 'replaced': 'הוחלפה'};
+const trashDays = 30; // billing.TRASH_DAYS
+
+String billUrl(String token) => '${AppConfig.serverUrl}/b/$token';
+
+String billMessage(Map<String, dynamic> b) {
+  final name = '${b['customerName'] ?? ''}', url = billUrl('${b['token']}'), due = shekel(b['due'] as int);
+  return b['lang'] == 'en'
+      ? 'Hi $name, here is payment request no. ${b['number']} for $due.\nThe details and the ways to pay are here:\n$url\nThank you!'
+      : 'שלום $name, מצורפת דרישת תשלום מס׳ ${b['number']} על סך $due.\nהפירוט ואפשרויות התשלום כאן:\n$url\nתודה רבה!';
+}
+
+/// Makes the customer's bill now (or returns the open one if nothing changed); null when nothing is owed.
+Future<Map<String, dynamic>?> billNow(String customerId) async {
+  try {
+    return await server('POST', '/studio/customers/$customerId/bill');
+  } on ServerException catch (e) {
+    if (e.status == 409) return null;
+    rethrow;
+  }
+}
+
+typedef Receipt = ({String to, String number, String url});
+
+/// The receipt app's message: "לכבוד : X", "קיבלת קבלה מספר : N", a line with the issuer, the link.
+Receipt? parseReceipt(String text) {
+  final url = RegExp(r'https://\S+').firstMatch(text)?[0];
+  if (url == null) return null;
+  return (
+    to: RegExp(r'לכבוד\s*:?\s*(.+)').firstMatch(text)?[1]?.trim() ?? '',
+    number: RegExp(r'קבלה\s*(?:מספר|מס[׳\x27]?)\s*:?\s*(\d+)').firstMatch(text)?[1] ?? '',
+    url: url,
+  );
+}
+
+/// The one customer whose name is [to] (spaces and case aside), else the one name containing it or contained in it.
+String? matchCustomer(String to, Map<String, String> names) {
+  String n(String s) => s.replaceAll(RegExp(r'\s+'), ' ').trim().toLowerCase();
+  final t = n(to);
+  if (t.isEmpty) return null;
+  for (final test in [(String x) => x == t, (String x) => x.isNotEmpty && (x.contains(t) || t.contains(x))]) {
+    final hits = names.entries.where((e) => test(n(e.value))).toList();
+    if (hits.length == 1) return hits.first.key;
+    if (hits.length > 1) return null;
+  }
+  return null;
+}
+
+/// Each request's status and what it still owes now (payments may have come in since the bill).
+Future<Map<String, ({String status, int left})>> leftNow(String customerId) async {
+  final rs = await requestsRef.where('customerId', isEqualTo: customerId).get();
+  final qs = await quotesRef.where('customerId', isEqualTo: customerId).get();
+  final ps = await paymentsRef.where('customerId', isEqualTo: customerId).get();
+  final totals = {for (final q in qs.docs) q.id: quoteMoney(q.data()).total};
+  final paid = <String, int>{};
+  for (final p in ps.docs) {
+    paid['${p['requestId']}'] = (paid['${p['requestId']}'] ?? 0) + (p['amount'] as int);
+  }
+  return {
+    for (final r in rs.docs)
+      r.id: (
+        status: '${r['status']}',
+        left: leftToPay(totals[r.data()['approvedQuoteId'] ?? r.data()['quoteId']] ?? 0, paid[r.id] ?? 0),
+      ),
+  };
+}
+
+/// The payments a receipt for [bill] logs: each line's due, but never more than the request still owes [now].
+List<({String requestId, int amount})> billPayments(Map<String, dynamic> bill, Map<String, ({String status, int left})> now) => [
+      for (final l in (bill['lines'] as List).cast<Map>())
+        if (now[l['requestId']] case final cur? when min(l['due'] as int, cur.left) > 0)
+          (requestId: l['requestId'] as String, amount: min(l['due'] as int, cur.left)),
+    ];
+
+/// The receipt pasted on a bill: logs a payment per line, settles delivered requests, marks the bill paid. One write.
+Future<void> payBill(Doc bill, Receipt receipt, {required String method, required DateTime at}) async {
+  final b = bill.data()!;
+  final now = await leftNow('${b['customerId']}');
+  final batch = _db.batch();
+  for (final p in billPayments(b, now)) {
+    batch.set(paymentsRef.doc(), {
+      'requestId': p.requestId,
+      'customerId': b['customerId'],
+      'amount': p.amount,
+      'method': method,
+      'note': 'קבלה ${receipt.number} · דרישה ${b['number']}',
+      'at': Timestamp.fromDate(at),
+      'createdAt': FieldValue.serverTimestamp(),
+    });
+    final cur = now[p.requestId]!;
+    batch.update(requestsRef.doc(p.requestId), {
+      if (settles(status: cur.status, left: cur.left, amount: p.amount)) 'status': 'paid',
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+  }
+  batch.update(bill.reference, {
+    'state': 'paid',
+    'paidAt': Timestamp.fromDate(at),
+    'receipt': {'number': receipt.number, 'url': receipt.url, 'to': receipt.to},
+  });
+  await batch.commit();
+}
+
+/// To the trash (the Pi deletes it after [trashDays] days) or back; the link stops working while there.
+Future<void> trashBill(Doc bill, bool trash) =>
+    bill.reference.update({'deletedAt': trash ? FieldValue.serverTimestamp() : null});

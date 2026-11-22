@@ -146,6 +146,7 @@ class _CustomerDialogState extends State<CustomerDialog> {
   late final _phone = TextEditingController(text: '${widget.customer?.data()?['phone'] ?? ''}');
   late String _lang = '${widget.customer?.data()?['lang'] ?? 'he'}';
   late String _kind = '${widget.customer?.data()?['kind'] ?? 'mic'}';
+  late bool _returning = widget.customer?.data()?['returning'] == true;
   final _photos = <XFile>[]; // a new customer's logo photos, sent once the customer exists
 
   @override
@@ -161,13 +162,13 @@ class _CustomerDialogState extends State<CustomerDialog> {
     try {
       final c = widget.customer;
       if (c == null) {
-        final ref = await addCustomer(name: _name.text, phone: _phone.text, lang: _lang, kind: _kind);
+        final ref = await addCustomer(name: _name.text, phone: _phone.text, lang: _lang, kind: _kind, returning: _returning);
         if (_photos.isNotEmpty) {
           await addPhotos(logosOf(ref.id), _photos);
           messenger.showSnackBar(SnackBar(content: Text('${_photos.length} תמונות לוגו נשמרו')));
         }
       } else {
-        await c.reference.update({'name': _name.text.trim(), 'phone': _phone.text.trim(), 'lang': _lang, 'kind': _kind});
+        await c.reference.update({'name': _name.text.trim(), 'phone': _phone.text.trim(), 'lang': _lang, 'kind': _kind, 'returning': _returning});
       }
     } catch (e) {
       showError(messenger, e, 'שמירת הלקוח נכשלה');
@@ -201,6 +202,13 @@ class _CustomerDialogState extends State<CustomerDialog> {
               ],
               selected: {_kind},
               onSelectionChanged: (v) => setState(() => _kind = v.first),
+            ),
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              title: const Text('לקוח קבוע'),
+              subtitle: const Text('אזור אישי עם כניסת Google: כל הפרויקטים, דרישות התשלום והקבלות. לקוח חד-פעמי נשאר עם הקישור הרגיל'),
+              value: _returning,
+              onChanged: (v) => setState(() => _returning = v),
             ),
             const SizedBox(height: 12),
             SegmentedButton<String>(

@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/errors.dart';
 import '../studio/studio.dart';
+import 'bills.dart';
 import 'logo_photos.dart';
 import 'requests_view.dart';
 import 'skeleton.dart';
@@ -143,6 +144,7 @@ class _CustomerCard extends StatelessWidget {
             Text(
               [
                 ?customerKinds[kind],
+                if (c.data()?['returning'] == true) 'לקוח קבוע',
                 if (phone.isNotEmpty) ltr(phone),
                 '${requests.length} בקשות',
                 if (waiting > 0) '$waiting ממתינות לאישור',
@@ -215,11 +217,12 @@ class _CustomerDetailState extends State<CustomerDetail> {
     final yes = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('לשחרר את חשבון ה-Google?'),
-        content: Text('החשבון ${c.data()?['googleEmail']} לא ייכנס יותר. החשבון הבא שייכנס בקישור של ${c['name']} יהיה הבעלים שלו.'),
+        title: const Text('לאפס את החיבור?'),
+        content: Text('החשבון ${c.data()?['googleEmail']} לא ייכנס יותר. החשבון הבא שייכנס בקישור של ${c['name']} יהיה הבעלים שלו, '
+            'אז שולחים הזמנה מיד אחרי האיפוס. אם הקישור עצמו דלף, מחליפים גם אותו ("החלפת קישור").'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('ביטול')),
-          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('שחרור')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('איפוס')),
         ],
       ),
     );
@@ -227,8 +230,13 @@ class _CustomerDetailState extends State<CustomerDetail> {
     final messenger = ScaffoldMessenger.of(context);
     try {
       await c.reference.update({'googleUid': FieldValue.delete(), 'googleEmail': FieldValue.delete()});
+      messenger.showSnackBar(SnackBar(
+          content: const Text('החיבור אופס'),
+          action: c.data()?['returning'] == true
+              ? SnackBarAction(label: 'שליחת הזמנה', onPressed: () => sendInvite(context, c))
+              : null));
     } catch (e) {
-      showError(messenger, e, 'השחרור נכשל');
+      showError(messenger, e, 'האיפוס נכשל');
     }
   }
 
@@ -328,25 +336,32 @@ class _CustomerDetailState extends State<CustomerDetail> {
         IconButton(tooltip: 'מחיקה', icon: const Icon(Icons.delete_outline), onPressed: () => _delete(c, requests.length)),
       ]),
       Text(
-        [?customerKinds[c.data()?['kind']], if (phone.isNotEmpty) ltr(phone), c.data()?['lang'] == 'en' ? 'פורטל באנגלית' : 'פורטל בעברית'].join(' · '),
+        [?customerKinds[c.data()?['kind']], if (c.data()?['returning'] == true) 'לקוח קבוע', if (phone.isNotEmpty) ltr(phone), c.data()?['lang'] == 'en' ? 'פורטל באנגלית' : 'פורטל בעברית'].join(' · '),
         style: TextStyle(color: s.muted),
       ),
       // A gift link opens only for the Google account that signed in on it first (server: portal_session).
-      if (c.data()?['kind'] == 'gift')
+      if (signsIn(c.data()))
         Row(children: [
           Icon(Icons.lock_outline, size: 16, color: s.muted),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
                 c.data()?['googleEmail'] == null
-                    ? 'הפורטל ייפתח לחשבון Google הראשון שייכנס בקישור'
+                    ? (c.data()?['returning'] == true
+                        ? 'עוד לא נרשם: האזור האישי יהיה של חשבון ה-Google הראשון שייכנס בהזמנה'
+                        : 'הפורטל ייפתח לחשבון Google הראשון שייכנס בקישור')
                     : 'הפורטל פתוח רק ל-${ltr('${c.data()?['googleEmail']}')}',
                 style: TextStyle(color: s.muted)),
           ),
-          if (c.data()?['googleEmail'] != null) TextButton(onPressed: () => _unbindGoogle(c), child: const Text('שחרור')),
+          if (c.data()?['googleEmail'] != null) TextButton(onPressed: () => _unbindGoogle(c), child: const Text('איפוס חיבור')),
         ]),
       const SizedBox(height: 12),
       Wrap(spacing: 8, runSpacing: 8, children: [
+        if (c.data()?['returning'] == true)
+          FilledButton.icon(
+              onPressed: () => sendInvite(context, c),
+              icon: const Icon(Icons.mark_email_unread_outlined),
+              label: const Text('הזמנה לאזור האישי')),
         FilledButton.tonalIcon(
             onPressed: () => sendWhatsapp(context, c), icon: const Icon(Icons.chat_outlined), label: const Text('וואטסאפ')),
         OutlinedButton.icon(
@@ -369,6 +384,8 @@ class _CustomerDetailState extends State<CustomerDetail> {
         stat('שולם', b.paid, color: s.okInk),
         stat('נותר לתשלום', b.left, color: b.left > 0 ? s.warnInk : null),
       ]),
+      const SizedBox(height: 16),
+      BillsSection(key: ValueKey('bills-${c.id}'), customer: c),
       const SizedBox(height: 16),
       Row(children: [
         Expanded(child: Text('בקשות (${requests.length})', style: Theme.of(context).textTheme.titleMedium)),

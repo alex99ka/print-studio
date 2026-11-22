@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/tour.dart';
 import '../studio/desktop.dart';
+import 'bills.dart';
 import 'schedule_page.dart';
 import 'studio_actions.dart';
 import 'theme.dart';
@@ -50,6 +51,12 @@ class Ribbon extends StatelessWidget {
                 _Button(Icons.sell_outlined, 'מחירון מיקרופון', () => sendMicPrices(context, customer)),
               ]),
             ),
+            if (!compact)
+              _Group('תשלומים', [
+                _Button(Icons.receipt_long_outlined, 'דרישות תשלום',
+                    () => Navigator.push(context, MaterialPageRoute<void>(builder: (_) => const BillsPage()))),
+                _Button(Icons.content_paste, 'הדבקת קבלה', () => pasteReceipt(context)),
+              ]),
             _Group('הדפסה', [
               _Button(isWindows ? Icons.print_outlined : Icons.download_outlined,
                   isWindows ? 'פתיחה ב-Bambu' : 'הורדת 3MF', s != null && printable(s) != null ? () => openSlicer(context, s) : null),

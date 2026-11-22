@@ -233,3 +233,41 @@ test('quotes: a correction is a yes/no flag', async () => {
   await assertSucceeds(addDoc(collection(db(ALEX), 'quotes'), { ...q, correction: true }));
   await assertFails(addDoc(collection(db(ALEX), 'quotes'), { ...q, correction: 'yes' }));
 });
+
+test('billing settings: Alex edits them, typed and short; strangers see nothing', async () => {
+  const s = { businessName: 'סטודיו', bankNumber: '12', branch: '345', account: '678901', bitOn: true, bitPhone: '0501234567',
+    payboxOn: false, payboxLink: '', day: 1 };
+  await assertSucceeds(setDoc(doc(db(ALEX), 'config/billing'), s));
+  await assertSucceeds(getDoc(doc(db(ALEX), 'config/billing')));
+  await assertFails(setDoc(doc(db(ALEX), 'config/billing'), { ...s, day: 31 }));
+  await assertFails(setDoc(doc(db(ALEX), 'config/billing'), { ...s, bitOn: 'yes' }));
+  await assertFails(setDoc(doc(db(ALEX), 'config/billing'), { ...s, nextNumber: 5 }));
+  await assertFails(getDoc(doc(db(STRANGER), 'config/billing')));
+  await assertFails(setDoc(doc(db(STRANGER), 'config/billing'), s));
+});
+
+test('bills: the server makes them; the app sends, pays once with a receipt, trashes and restores', async () => {
+  await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'bills/b1'),
+    { customerId: 'c1', number: 1001, token: 't'.repeat(22), state: 'open', due: 100, lines: [] }));
+  const receipt = { number: '60021', url: 'https://yeshbe.co/x', to: 'דנה' };
+  await assertFails(setDoc(doc(db(ALEX), 'bills/b2'), { customerId: 'c1', number: 1, state: 'open' }));
+  await assertFails(updateDoc(doc(db(ALEX), 'bills/b1'), { due: 1 }));
+  await assertFails(updateDoc(doc(db(ALEX), 'bills/b1'), { state: 'paid', paidAt: new Date(), receipt: { ...receipt, url: 'javascript:x' } }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'bills/b1'), { sentAt: new Date() }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'bills/b1'), { state: 'paid', paidAt: new Date(), receipt }));
+  await assertFails(updateDoc(doc(db(ALEX), 'bills/b1'), { state: 'open' }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'bills/b1'), { deletedAt: new Date() }));
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'bills/b1'), { deletedAt: null }));
+  await assertFails(deleteDoc(doc(db(ALEX), 'bills/b1')));
+  await assertFails(getDoc(doc(db(STRANGER), 'bills/b1')));
+});
+
+test('customers: the monthly bill switch is a yes/no', async () => {
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { billing: false }));
+  await assertFails(updateDoc(doc(db(ALEX), 'customers/c1'), { billing: 'off' }));
+});
+
+test('customers: a regular customer (returning) is a yes/no', async () => {
+  await assertSucceeds(updateDoc(doc(db(ALEX), 'customers/c1'), { returning: true }));
+  await assertFails(updateDoc(doc(db(ALEX), 'customers/c1'), { returning: 'yes' }));
+});
