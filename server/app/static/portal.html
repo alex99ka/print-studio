@@ -275,6 +275,7 @@ function chrome() {
 }
 
 function route() {
+  if (!data) return;  // the sign-in screen is up: nothing to route yet
   const hp = new URLSearchParams(location.hash.slice(1)), rid = hp.get('r');
   // The bill's WhatsApp link (#tab=bills) picks the tab once; then the address forgets it.
   if (hp.get('tab')) { tab = hp.get('tab'); sel.tabChosen = true; history.replaceState(null, '', location.pathname + location.search); }

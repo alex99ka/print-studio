@@ -477,3 +477,46 @@ def test_regular_customer_area_needs_google_and_lists_bills(db, monkeypatch):
     # A one-time customer keeps the bare link and sees their open bill too (its pay button on the portal).
     db.document("bills/b4").set({"customerId": "c2", "number": 1003, "token": "w" * 22, "state": "open", "lines": [{}], "due": 5000})
     assert [(b["number"], b["due"]) for b in TestClient(main.app).get(f"/p/{TOKEN_B}/data").json()["bills"]] == [(1003, 5000)]
+
+
+def test_e2e_bill_from_delivery_to_receipt(client, db, monkeypatch):
+    """End to end, through the real routes: a delivered order with a part paid → the bill → its page → the
+    regular customer's portal → the receipt (written as the app's payBill does) → paid everywhere → trash."""
+    monkeypatch.setattr(firebase.auth, "verify_id_token", lambda token, app=None: {"uid": "u-l", "email": "l@gmail.com", "email_verified": True})
+    monkeypatch.setattr(firebase, "app", lambda: None)
+    monkeypatch.setattr(firebase, "access", lambda: ({"alex@example.com"}, set()))
+    db.document("config/billing").set({"businessName": "סטודיו בדיקה", "account": "678901", "branch": "345", "bankNumber": "12",
+                                       "bitOn": False, "bitPhone": "0501111111", "payboxOn": True, "payboxLink": "https://pay.example/x", "day": 1})
+    db.document("customers/c1").update({"returning": True, "name": "לינוי רייזר"})
+    db.document("quotes/q1").set({"requestId": "r1", "customerId": "c1", "unit": 10000, "qty": 2, "vatPercent": 18})
+    db.document("requests/r1").update({"status": "delivered", "quoteId": "q1", "title": "דגל"})
+    db.document("payments/p0").set({"requestId": "r1", "customerId": "c1", "amount": 3600})
+
+    made = client.post("/studio/customers/c1/bill").json()
+    assert (made["number"], made["due"]) == (1001, 20000)  # 236.00 with VAT, less 36.00 paid
+    page = client.get(f"/b/{made['token']}").text
+    assert all(x in page for x in ("סטודיו בדיקה", "678901", "https://pay.example/x", "₪200.00", "−₪36.00", "מע״מ"))
+    assert "0501111111" not in page  # Bit is off
+
+    browser = TestClient(main.app, base_url="https://testserver")
+    assert browser.post(f"/p/{TOKEN_A}/session", json={"idToken": "x", "remember": True}).status_code == 200
+    bills = browser.get(f"/p/{TOKEN_A}/data").json()["bills"]
+    assert [(b["number"], b["state"], b["due"], b["url"]) for b in bills] == [(1001, "open", 20000, f"/b/{made['token']}")]
+
+    # The receipt pasted in the app: a payment per line and the bill paid with its receipt (lib/studio payBill).
+    bill = db.document(f"bills/{made['id']}")
+    for line in bill.get().to_dict()["lines"]:
+        db.collection("payments").add({"requestId": line["requestId"], "customerId": "c1", "amount": line["due"], "method": "transfer"})
+    db.document("requests/r1").update({"status": "paid"})
+    bill.update({"state": "paid", "paidAt": datetime.now(timezone.utc), "receipt": {"number": "60021", "url": "https://yeshbe.co/x", "to": "לינוי רייזר"}})
+
+    page = client.get(f"/b/{made['token']}").text
+    assert "https://yeshbe.co/x" in page and "60021" in page and "678901" not in page  # paid: the receipt, no payment details
+    portal = browser.get(f"/p/{TOKEN_A}/data").json()
+    assert portal["bills"][0]["state"] == "paid" and portal["bills"][0]["receipt"] == {"number": "60021", "url": "https://yeshbe.co/x"}
+    assert portal["requests"] == [] or all(r["due"] == 0 for r in portal["requests"])
+    assert client.post("/studio/customers/c1/bill").status_code == 409  # nothing owed any more
+
+    bill.update({"deletedAt": datetime.now(timezone.utc)})
+    assert client.get(f"/b/{made['token']}").status_code == 404
+    assert browser.get(f"/p/{TOKEN_A}/data").json()["bills"] == []
