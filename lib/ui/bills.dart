@@ -25,7 +25,8 @@ Future<void> _send(BuildContext context, Doc bill) async {
     final b = bill.data()!;
     final c = (await customersRef.doc('${b['customerId']}').get()).data() ?? const {};
     final url = '${portalUrl('${c['portalToken']}')}#tab=bills';
-    if (!await launchUrl(whatsapp('${c['phone'] ?? b['phone'] ?? ''}', billMessage(b, url)), mode: LaunchMode.externalApplication)) {
+    if (!await launchUrl(whatsapp('${c['phone'] ?? b['phone'] ?? ''}', billMessage(b, url,
+        payUrl: signsIn(c) && b['token'] != null ? billUrl('${b['token']}') : null)), mode: LaunchMode.externalApplication)) {
       throw Errors.noConnection;
     }
     await bill.reference.update({'sentAt': FieldValue.serverTimestamp()});

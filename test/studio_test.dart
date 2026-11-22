@@ -249,4 +249,11 @@ void main() {
     expect(signsIn({'kind': 'mic'}), isFalse);
     expect(inviteMessage('לינוי', 'https://x/p/t'), contains('https://x/p/t'));
   });
+
+  test('a bill to a customer who signs in invites to the portal and offers the pay page', () {
+    final b = {'customerName': 'דנה', 'number': 7, 'due': 12000, 'lang': 'he'};
+    final both = billMessage(b, 'https://x/p/t#tab=bills', payUrl: 'https://x/b/k');
+    expect(both.indexOf('https://x/p/t'), lessThan(both.indexOf('https://x/b/k')));
+    expect(billMessage(b, 'https://x/p/t#tab=bills'), isNot(contains('/b/')));
+  });
 }

@@ -548,8 +548,19 @@ const trashDays = 30; // billing.TRASH_DAYS
 String billUrl(String token) => '${AppConfig.serverUrl}/b/$token';
 
 /// The bill on WhatsApp: [url] is the customer's portal, where the bill waits with its pay button.
-String billMessage(Map<String, dynamic> b, String url) {
+/// [payUrl] (the bill's own page) is given for a customer who signs in: the portal link
+/// invites them to join, the bill's page lets them pay without it.
+String billMessage(Map<String, dynamic> b, String url, {String? payUrl}) {
   final name = '${b['customerName'] ?? ''}', due = shekel(b['due'] as int);
+  if (payUrl != null) {
+    return b['lang'] == 'en'
+        ? 'Hi $name, payment request no. ${b['number']} for $due is waiting in your personal area. '
+            'Sign up once with Google and every project, payment request and receipt of yours is in one place:\n$url\n'
+            'Rather not sign up now? Pay directly here:\n$payUrl\nThank you!'
+        : 'שלום $name, דרישת תשלום מס׳ ${b['number']} על סך $due מחכה לך באזור האישי. '
+            'נרשמים פעם אחת עם Google, ומאז כל הפרויקטים, דרישות התשלום והקבלות שלך במקום אחד:\n$url\n'
+            'מעדיפים לא להירשם עכשיו? אפשר לשלם ישירות כאן:\n$payUrl\nתודה רבה!';
+  }
   return b['lang'] == 'en'
       ? 'Hi $name, payment request no. ${b['number']} for $due is waiting on your personal page, with the details and the ways to pay:\n$url\nThank you!'
       : 'שלום $name, דרישת תשלום מס׳ ${b['number']} על סך $due מחכה לך בדף האישי, עם הפירוט ואפשרויות התשלום:\n$url\nתודה רבה!';
