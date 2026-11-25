@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -1042,6 +1043,10 @@ class _RequestDetailState extends State<RequestDetail> {
         const SizedBox(height: 16),
         preview,
         const SizedBox(height: 16),
+        if ((r['artwork'] as Map?)?.isNotEmpty ?? false) ...[
+          _Artwork(requestId: request.id, artwork: (r['artwork'] as Map).cast<String, dynamic>()),
+          const SizedBox(height: 16),
+        ],
         // The printed product as it came out (camera, gallery / Google Photos, or a file on the PC); studio only.
         if (const {'printing', 'ready', 'delivered', 'paid'}.contains(r['status'])) ...[
           Card(
@@ -1344,4 +1349,58 @@ class _Tile extends CustomPainter {
 
   @override
   bool shouldRepaint(_Tile old) => old.image != image || old.src != src;
+}
+
+// shortcut: kept for the session (a few pictures per request); clear it if memory ever matters.
+final _artCache = <String, Future<Uint8List>>{};
+
+/// C-11: the client's design pictures from Gift Factory (watermarked); the switch says whether the portal shows each.
+class _Artwork extends StatelessWidget {
+  const _Artwork({required this.requestId, required this.artwork});
+  final String requestId;
+  final Map<String, dynamic> artwork;
+
+  @override
+  Widget build(BuildContext context) {
+    final messenger = ScaffoldMessenger.of(context);
+    final ids = artwork.keys.toList()..sort((a, b) => '${artwork[a]['name']}'.compareTo('${artwork[b]['name']}'));
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('עיצוב ללקוח (${ids.length})', style: Theme.of(context).textTheme.titleMedium),
+          const SizedBox(height: 8),
+          Wrap(spacing: 12, runSpacing: 12, children: [
+            for (final id in ids)
+              SizedBox(
+                width: 160,
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(6),
+                    child: AspectRatio(
+                      aspectRatio: 1,
+                      child: FutureBuilder<Uint8List>(
+                        // Keyed by the time Gift Factory sent it, so a replaced picture loads again.
+                        future: _artCache['$requestId/$id/${artwork[id]['at']}'] ??= artworkAt(requestId, id),
+                        builder: (context, s) => s.hasData
+                            ? Image.memory(s.data!, fit: BoxFit.contain)
+                            : ColoredBox(color: context.studio.sunk, child: s.hasError ? const Icon(Icons.broken_image_outlined) : null),
+                      ),
+                    ),
+                  ),
+                  Text('${artwork[id]['name']}', maxLines: 2, overflow: TextOverflow.ellipsis),
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    title: const Text('בפורטל'),
+                    value: artwork[id]['show'] == true,
+                    onChanged: (v) => showArtwork(requestId, id, v).catchError((Object e) => showError(messenger, e, 'השמירה נכשלה')),
+                  ),
+                ]),
+              ),
+          ]),
+        ]),
+      ),
+    );
+  }
 }

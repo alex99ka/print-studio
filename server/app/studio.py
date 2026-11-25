@@ -276,6 +276,7 @@ def _delete_request(db, rid: str) -> None:
         shutil.rmtree(_data() / "files" / vid, ignore_errors=True)
     shutil.rmtree(_data() / "guests" / rid, ignore_errors=True)
     shutil.rmtree(_data() / "photos" / rid, ignore_errors=True)
+    shutil.rmtree(_data() / "artwork" / rid, ignore_errors=True)
 
 
 @router.delete("/studio/requests/{rid}")
@@ -775,6 +776,9 @@ def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie(
             # While printing: units and the day only; costs and plate details stay in the studio.
             "progress": {k: p.get(k) for k in ("unitsOk", "unitsTarget", "finishDate")}
             if (p := (r.get("production") or {}).get("progress")) and r.get("status") in ("approved", "printing") else None,
+            # C-11: the client's design pictures Gift Factory sent, those switched on (giftfactory.portal_artwork).
+            "artwork": sorted(({"id": aid, "name": a.get("name", ""), "at": _iso(a.get("at"))}
+                               for aid, a in (r.get("artwork") or {}).items() if a.get("show")), key=lambda a: a["at"] or ""),
         })
     out.sort(key=lambda r: r["updated"] or "", reverse=True)
     returning = c.get("returning") is True

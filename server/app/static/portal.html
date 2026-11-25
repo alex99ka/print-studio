@@ -196,7 +196,7 @@ const T = {
     declinedAt:d=>`ביטלת את ההזמנה ב-${d}. שינית את דעתך? כתבו לסטודיו כאן למטה.`,
     names:'בדיקת שמות', namesNote:'בדקו בבקשה את האיות של כל שם לפני האישור: מה שכתוב כאן הוא מה שיודפס.',
     printing:(ok,all,d)=>`בהדפסה: ${ok} מתוך ${all}${d ? ` · מוכן עד ${d}` : ''}`,
-    guests:'רשימת אורחים', guestsHow:'מורידים את התבנית, ממלאים שם וכמות לכל אורח (כמות ריקה = עותק אחד, 0 = לא מגיע/ה) ומעלים. אפשר גם קובץ xlsx או csv משלכם.',
+    artwork:'העיצוב שלכם', guests:'רשימת אורחים', guestsHow:'מורידים את התבנית, ממלאים שם וכמות לכל אורח (כמות ריקה = עותק אחד, 0 = לא מגיע/ה) ומעלים. אפשר גם קובץ xlsx או csv משלכם.',
     template:'הורדת תבנית', upload:'העלאת הרשימה', replace:'העלאת רשימה מעודכנת', sending:'שולחים…',
     guestsNow:(n,g,d)=>`התקבלה ב-${d}: ${n} שמות, ${g} מתנות`, guestsSent:(n,g)=>`הרשימה התקבלה: ${n} שמות, ${g} מתנות.`,
     skipped:(row,why)=>`שורה ${row} דולגה: ${why}`, why:{'no name':'אין שם', 'amount 0':'כמות 0 (לא מגיע/ה)'},
@@ -234,7 +234,7 @@ const T = {
     declinedAt:d=>`You cancelled this order on ${d}. Changed your mind? Write to the studio below.`,
     names:'Name check', namesNote:'Please check the spelling of every name before approving: what you see here is what gets printed.',
     printing:(ok,all,d)=>`Printing: ${ok} of ${all}${d ? ` · ready by ${d}` : ''}`,
-    guests:'Guest list', guestsHow:'Download the template, fill in a name and an amount for each guest (empty amount = one copy, 0 = not coming) and upload it. Your own .xlsx or .csv works too.',
+    artwork:'Your design', guests:'Guest list', guestsHow:'Download the template, fill in a name and an amount for each guest (empty amount = one copy, 0 = not coming) and upload it. Your own .xlsx or .csv works too.',
     template:'Download template', upload:'Upload the list', replace:'Upload an updated list', sending:'Sending…',
     guestsNow:(n,g,d)=>`Received on ${d}: ${n} names, ${g} gifts`, guestsSent:(n,g)=>`List received: ${n} names, ${g} gifts.`,
     skipped:(row,why)=>`Row ${row} skipped: ${why}`, why:{'no name':'no name', 'amount 0':'amount 0 (not coming)'},
@@ -502,6 +502,10 @@ function detail(r) {
     open && has(v, 'names.jpg') ? h('span', {class: 'muted'}, t().namesNote) : null,
   ] : h('span', {class: 'muted'}, t().noQuote),
   open && !preview ? h('button', {type: 'button', class: 'quiet', onclick: () => confirmDecline(r)}, t().declineBtn) : null));
+  // C-11: the client's design pictures (watermarked PNGs), those the studio switched on.
+  if ((r.artwork || []).length) kids.push(h('section', {class: 'card'}, h('h2', {}, t().artwork),
+    r.artwork.map(a => h('img', {src: `${base}/art/${r.id}/${a.id}?v=${encodeURIComponent(a.at || '')}`, alt: a.name, loading: 'lazy',
+      style: 'width:100%;display:block;border-radius:8px;background:#fff'}))));
   const guests = guestCard(r);
   if (guests) kids.push(guests);
 

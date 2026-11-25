@@ -9,7 +9,9 @@ portal); firestore.rules refuse both to the app.
 """
 
 import csv
+import hashlib
 import io
+import json
 import re
 import tempfile
 import zipfile
@@ -24,10 +26,12 @@ from fastapi.responses import FileResponse, Response
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import FieldFilter
 from openpyxl.styles import Font
+from PIL import Image
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from . import firebase, jobs
-from .studio import TABS, Problem, Upload, User, _customer, _data, _iso, _limit, advance, check_key, create_version, pair, problem, tab_field
+from .studio import (TABS, Problem, Upload, User, _customer, _data, _iso, _limit, _request, _watermark, advance, check_key,
+                     create_version, pair, problem, tab_field)
 
 router = APIRouter()
 LISTED = ("draft", "waiting", "approved", "printing")  # Gift Factory's request list
@@ -58,7 +62,7 @@ GiftFactory = Annotated[None, Depends(giftfactory)]
 def gf_info(_: GiftFactory) -> dict:
     """Gift Factory sends a proof with views only once this says views: true."""
     # The C-0 additions (B4, B5, B7, B10, B11, B12): an older server answers 404 on their routes.
-    return {"contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem"]}
+    return {"contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem", "artwork", "design"]}
 
 
 def _ref(rid: str):
@@ -81,10 +85,125 @@ def gf_requests(_: GiftFactory) -> list[dict]:
     out = [
         {"id": d.id, "title": r.get("title", ""), "customer": r.get("customerName", ""), "qty": r.get("qty", 1),
          "status": r.get("status"), "latestVersion": r.get("latestVersion", 0), "updated": _iso(r.get("updatedAt")),
-         "guests": _guests(r), "gift": r.get("gift")}
+         "guests": _guests(r), "gift": r.get("gift"), "design": design(r.get("design"))}
         for d in docs if (r := d.to_dict() or {})
     ]
     return sorted(out, key=lambda r: r["updated"] or "", reverse=True)
+
+
+class Design(BaseModel):
+    """C-12: what the client chose in the website's editor, kept on the request (copied from the lead)."""
+
+    model_config = ConfigDict(extra="forbid", strict=True)
+    template: str = Field(min_length=1, max_length=100)
+    texts: dict[Annotated[str, Field(max_length=40)], Annotated[str, Field(max_length=500)]] = Field(default_factory=dict)
+    fonts: dict[Annotated[str, Field(max_length=40)], Annotated[str, Field(max_length=100)]] = Field(default_factory=dict)
+    colours: dict[Annotated[str, Field(max_length=40)], Annotated[str, Field(pattern=r"^#[0-9A-Fa-f]{6}$")]] = Field(default_factory=dict)
+
+
+MAX_DESIGN = 4096
+
+
+def design(d) -> dict | None:
+    """The request's design if it keeps the shape and the 4 KB, else none: Gift Factory never gets a bad one."""
+    if not isinstance(d, dict) or len(json.dumps(d, ensure_ascii=False).encode()) > MAX_DESIGN:
+        return None
+    try:
+        return Design.model_validate(d).model_dump()
+    except ValidationError:
+        return None
+
+
+# --- C-11: the client's design picture on the portal (a PNG; the SVG never leaves the PC) ---
+
+MAX_ART = 2 * 1024 * 1024
+MAX_ARTS = 20  # per request
+MAX_ART_PIXELS = 4096 * 4096
+
+
+def art_id(name: str) -> str:
+    """The same name again is the same picture (it replaces it); the id is safe as a file name and a field path."""
+    return hashlib.sha256(name.encode()).hexdigest()[:16]
+
+
+def art_file(rid: str, aid: str) -> Path:
+    if not (rid.isalnum() and aid.isalnum()):
+        raise HTTPException(404, "No such picture")
+    return _data() / "artwork" / rid / f"{aid}.png"
+
+
+@router.put("/gf/requests/{rid}/artwork/{name}")
+def put_artwork(rid: str, name: str, _: GiftFactory, picture: Annotated[UploadFile, File()],
+                show: Annotated[bool, Form()]) -> dict:
+    if not 1 <= len(name) <= 80:
+        raise HTTPException(422, "name: 1-80 characters")
+    ref, r = _ref(rid)
+    aid = art_id(name)
+    if aid not in (r.get("artwork") or {}) and len(r.get("artwork") or {}) >= MAX_ARTS:
+        raise HTTPException(413, f"At most {MAX_ARTS} pictures on a request")
+    body = picture.file.read(MAX_ART + 1)
+    if len(body) > MAX_ART:
+        raise HTTPException(413, "The picture is over 2 MB")
+    try:
+        with Image.open(io.BytesIO(body)) as im:
+            if im.format != "PNG" or im.width * im.height > MAX_ART_PIXELS:
+                raise ValueError
+            im.load()
+            # A transparent drawing goes on white (the watermark would turn it black).
+            flat = Image.alpha_composite(Image.new("RGBA", im.size, "white"), im.convert("RGBA")).convert("RGB")
+    except (ValueError, OSError, SyntaxError, Image.DecompressionBombError):
+        raise HTTPException(422, "picture: a PNG up to 4096 x 4096") from None
+    path = art_file(rid, aid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp = path.with_suffix(".part.png")
+    flat.save(tmp, "PNG")
+    _watermark(tmp)
+    tmp.replace(path)
+    ref.update({f"artwork.{aid}": {"name": name, "show": show, "at": firestore.SERVER_TIMESTAMP}})
+    return {"ok": True, "id": aid}
+
+
+@router.delete("/gf/requests/{rid}/artwork/{name}")
+def delete_artwork(rid: str, name: str, _: GiftFactory) -> dict:
+    """Gone from the portal and the app; an unknown name is already gone."""
+    ref, _r = _ref(rid)
+    aid = art_id(name)
+    ref.update({f"artwork.{aid}": firestore.DELETE_FIELD})
+    art_file(rid, aid).unlink(missing_ok=True)
+    return {"ok": True}
+
+
+class Shown(BaseModel):
+    show: bool
+
+
+@router.put("/studio/requests/{rid}/artwork/{aid}")
+def studio_show_artwork(rid: str, aid: str, body: Shown, _: User) -> dict:
+    """The app's show/hide switch (Gift Factory's switch sends the picture again)."""
+    ref, r = _ref(rid)
+    if aid not in (r.get("artwork") or {}):
+        raise HTTPException(404, "No such picture")
+    ref.update({f"artwork.{aid}.show": body.show})
+    return {"ok": True}
+
+
+@router.get("/studio/requests/{rid}/artwork/{aid}")
+def studio_artwork(rid: str, aid: str, _: User) -> FileResponse:
+    path = art_file(rid, aid)
+    if not path.is_file():
+        raise HTTPException(404, "No such picture")
+    return FileResponse(path, media_type="image/png")
+
+
+@router.get("/p/{token}/art/{rid}/{aid}")
+def portal_artwork(token: str, rid: str, aid: str, ps: Annotated[str | None, Cookie()] = None) -> FileResponse:
+    """Shown pictures only; the portal adds ?v=<time> so a replaced one is fetched again."""
+    cid, _c = _customer(token, ps)
+    r = _request(cid, rid)[1]
+    path = art_file(rid, aid)
+    if not ((r.get("artwork") or {}).get(aid) or {}).get("show") or not path.is_file():
+        raise HTTPException(404, "No such picture")
+    return FileResponse(path, media_type="image/png", headers={"Cache-Control": "private, max-age=86400"})
 
 
 # --- C2: a version with the name proof sheet -----------------------------------------

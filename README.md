@@ -153,6 +153,9 @@ website's `supabase/schema.sql`, `src/data/site.ts` and `src/data/gifts.ts`; thi
   then marks the lead `opened`. Since 0.5.0 (B3) a lead may carry `gift` (the product slug the form was sent
   from, `text`, nullable) and `qty` (`int`, nullable): the website adds both columns to `leads` and sends them;
   without them nothing changes. The request keeps the slug as `gift` (B4; Alex can also pick it on the request).
+  Since 0.7.7 (C-12) a lead may also carry `design` (`jsonb`, nullable, ≤ 4 KB): `{"template", "texts": {key: text},
+  "fonts": {key: name}, "colours": {key: "#RRGGBB"}}` from the website's editor. The request keeps it as `design` and
+  Gift Factory reads it (`server/GIFT_FACTORY.md`); a lead without it, or with another shape, opens the request without one.
 - **New lead alert**: the site calls `POST /website/lead` (its `LEAD_WEBHOOK_URL`) with `{name, guests,
   wedding_date, gift, qty}` (all optional) and the shared key in `x-key` (`LEAD_WEBHOOK_KEY` on both sides, compared in constant time); the studio gets a `client` push
   that opens the list. The phone number is not in the push.

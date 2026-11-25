@@ -249,7 +249,7 @@ class _WebsiteViewState extends State<WebsiteView> {
         if (!mounted) return;
         final from = requestFromLead(l, DateTime.now());
         final id = await newRequest(context,
-            customer: customer, qty: from.qty, notes: from.notes, deadline: from.deadline, gift: from.gift);
+            customer: customer, qty: from.qty, notes: from.notes, deadline: from.deadline, gift: from.gift, design: from.design);
         if (id == null) return;
         await setLeadStatus(l['id'], 'opened');
         if (mounted) setState(() => l['status'] = 'opened');

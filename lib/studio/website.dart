@@ -42,13 +42,14 @@ String pictureUrl(String slug, String file, Object? version) =>
 /// What a new CRM request takes from a lead: the amount asked for (else the guests) as the
 /// quantity, the product it was sent from, the wedding day as the deadline when the calendar
 /// can show it, and the rest as notes.
-({int qty, DateTime? deadline, String notes, String? gift}) requestFromLead(Map<String, dynamic> lead, DateTime today) {
+({int qty, DateTime? deadline, String notes, String? gift, Map<String, dynamic>? design}) requestFromLead(Map<String, dynamic> lead, DateTime today) {
   final day = DateTime.tryParse('${lead['wedding_date'] ?? ''}');
   final from = DateTime(today.year, today.month, today.day);
   final guests = lead['guests'], qty = lead['qty'], gift = '${lead['gift'] ?? ''}';
   return (
     qty: qty is int && qty > 0 ? qty : guests is int && guests > 0 ? guests : 1,
     gift: validSlug(gift) ? gift : null,
+    design: leadDesign(lead['design']),
     deadline: day != null && !day.isBefore(from) && day.isBefore(DateTime(today.year + 2)) ? day : null,
     notes: [
       'פנייה מהאתר',
@@ -59,6 +60,15 @@ String pictureUrl(String slug, String file, Object? version) =>
     ].join(' · '),
   );
 }
+
+/// C-12: the website editor's choice as the request keeps it (the rules' four parts, at most 4 KB),
+/// else none; the server checks it fully before Gift Factory reads it.
+Map<String, dynamic>? leadDesign(Object? d) => d is Map &&
+        d['template'] is String &&
+        d.keys.every(const {'template', 'texts', 'fonts', 'colours'}.contains) &&
+        utf8.encode(jsonEncode(d)).length <= 4096
+    ? d.cast<String, dynamic>()
+    : null;
 
 /// The server's own words for what went wrong, from FastAPI's `detail`.
 String _detail(String body) {

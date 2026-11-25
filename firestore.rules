@@ -82,8 +82,11 @@ service cloud.firestore {
       allow read: if allowed();
       allow create: if allowed()
         && request.resource.data.keys().hasOnly(['customerId', 'customerName', 'title', 'qty', 'notes', 'status',
-             'latestVersion', 'createdAt', 'updatedAt', 'deadline', 'gift'])
+             'latestVersion', 'createdAt', 'updatedAt', 'deadline', 'gift', 'design'])
         && deadlineOk(request.resource.data) && giftOk(request.resource.data)
+        // C-12: the website editor's choice, copied from the lead; the server checks it fully (giftfactory.design).
+        && (!('design' in request.resource.data) || (request.resource.data.design is map
+            && request.resource.data.design.keys().hasOnly(['template', 'texts', 'fonts', 'colours'])))
         && shortText(request.resource.data.title, 200) && request.resource.data.title.size() > 0
         && request.resource.data.qty is int && request.resource.data.qty >= 1
         && request.resource.data.status == 'draft'

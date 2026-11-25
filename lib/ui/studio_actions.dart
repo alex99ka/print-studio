@@ -256,10 +256,10 @@ Future<void> pickGift(BuildContext context, Doc request) => _guard(context, 'ר�
 
 /// Returns the new request's id; [customer] picks the customer up front.
 Future<String?> newRequest(BuildContext context,
-    {Doc? customer, int qty = 1, String notes = '', DateTime? deadline, String? gift}) async {
+    {Doc? customer, int qty = 1, String notes = '', DateTime? deadline, String? gift, Map<String, dynamic>? design}) async {
   final id = await showDialog<String>(
       context: context,
-      builder: (_) => NewRequestDialog(customer: customer, qty: qty, notes: notes, deadline: deadline, gift: gift));
+      builder: (_) => NewRequestDialog(customer: customer, qty: qty, notes: notes, deadline: deadline, gift: gift, design: design));
   if (id != null && context.mounted) say(context, 'הבקשה נוצרה. עכשיו מייצאים אליה עיצוב מה-Flag Maker');
   return id;
 }

@@ -143,6 +143,14 @@ test('requests: an approved one keeps its version, price and quantity; moves alo
   await assertSucceeds(deleteDoc(doc(db(ALEX), 'requests/draft')));
 });
 
+test('requests: a design from the lead is a map of the four parts, set only at creation', async () => {
+  const design = { template: 'heart', texts: { a: 'דנה' }, fonts: {}, colours: { a: '#112233' } };
+  await assertSucceeds(addDoc(collection(db(ALEX), 'requests'), { ...request, design }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, design: 'heart' }));
+  await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, design: { ...design, svg: '<svg/>' } }));
+  await assertFails(updateDoc(doc(db(ALEX), 'requests/done'), { design }));
+});
+
 test("requests: production and guests are the server's, and survive the app's writes", async () => {
   await env.withSecurityRulesDisabled(async (ctx) => {
     await setDoc(doc(ctx.firestore(), 'requests/gift'),
@@ -152,6 +160,7 @@ test("requests: production and guests are the server's, and survive the app's wr
   await assertFails(updateDoc(ref, { production: { quote: { units: 1 } } }));
   await assertFails(updateDoc(ref, { 'production.progress': { platesDone: 9 } }));
   await assertFails(updateDoc(ref, { guests: null }));
+  await assertFails(updateDoc(ref, { 'artwork.abc.show': true }));  // C-11: the switch goes through the server
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, production: {} }));
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, guests: {} }));
   // A whole-document set would drop them: refused. update() and set(..., merge) keep them.

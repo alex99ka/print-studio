@@ -47,6 +47,16 @@ void main() {
     expect(past.notes, contains('1.1.2026'));
     expect(requestFromLead({'wedding_date': '2029-01-01', 'call_time': 'any'}, today).deadline, isNull);
     expect(r.gift, isNull);
+    expect(r.design, isNull);
+  });
+
+  test('a lead design is kept only in its four parts and 4 KB', () {
+    final d = {'template': 'heart', 'texts': {'a': 'דנה'}, 'colours': {'a': '#AA0033'}};
+    expect(requestFromLead({'design': d, 'call_time': 'any'}, DateTime(2026, 11, 25)).design, d);
+    expect(leadDesign({...d, 'svg': '<svg/>'}), isNull);
+    expect(leadDesign({'texts': {}}), isNull);
+    expect(leadDesign('heart'), isNull);
+    expect(leadDesign({'template': 'x' * 4100}), isNull);
   });
 
   test('a lead sent from a product brings its slug and amount (B3)', () {

@@ -8,7 +8,7 @@ import 'logo_photos.dart';
 
 /// A new request: who it's for, what (the names on the flag), how many.
 class NewRequestDialog extends StatefulWidget {
-  const NewRequestDialog({super.key, this.customer, this.qty = 1, this.notes = '', this.deadline, this.gift});
+  const NewRequestDialog({super.key, this.customer, this.qty = 1, this.notes = '', this.deadline, this.gift, this.design});
   final Doc? customer;
 
   /// What a call-back request from the website already says (lib/ui/website_view.dart).
@@ -16,6 +16,7 @@ class NewRequestDialog extends StatefulWidget {
   final String notes;
   final DateTime? deadline;
   final String? gift;
+  final Map<String, dynamic>? design; // C-12, from a website lead
 
   @override
   State<NewRequestDialog> createState() => _NewRequestDialogState();
@@ -43,7 +44,7 @@ class _NewRequestDialogState extends State<NewRequestDialog> {
   Future<void> _save() async {
     setState(() => _busy = true);
     try {
-      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text, deadline: _deadline, gift: widget.gift);
+      final id = await addRequest(customer: _customer!, title: _title.text, qty: _quantity!, notes: _notes.text, deadline: _deadline, gift: widget.gift, design: widget.design);
       if (mounted) Navigator.pop(context, id);
     } catch (e) {
       if (mounted) {

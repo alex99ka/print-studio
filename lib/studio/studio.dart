@@ -283,7 +283,7 @@ Future<void> replacePortalLink(Doc customer) =>
     customer.reference.update({'portalToken': newPortalToken()});
 
 Future<String> addRequest(
-    {required Doc customer, required String title, required int qty, String notes = '', DateTime? deadline, String? gift}) async {
+    {required Doc customer, required String title, required int qty, String notes = '', DateTime? deadline, String? gift, Map<String, dynamic>? design}) async {
   final ref = await requestsRef.add({
     'customerId': customer.id,
     'customerName': customer.data()?['name'] ?? '',
@@ -292,6 +292,7 @@ Future<String> addRequest(
     'notes': notes.trim(),
     if (deadline != null) 'deadline': isoDate(deadline),
     'gift': ?gift,
+    'design': ?design,
     'status': 'draft',
     'latestVersion': 0,
     'createdAt': FieldValue.serverTimestamp(),
@@ -454,6 +455,11 @@ String productPhotosOf(String requestId) => '/studio/requests/$requestId/photos'
 
 Future<List<Map<String, dynamic>>> photosAt(String base) async =>
     (jsonDecode(utf8.decode(await _download(base))) as List).cast<Map<String, dynamic>>();
+
+/// C-11: the client's design pictures Gift Factory sent (watermarked PNGs, `requests.artwork`, written by the server).
+String artworkOf(String requestId, String id) => '/studio/requests/$requestId/artwork/$id';
+Future<Uint8List> artworkAt(String requestId, String id) => _download(artworkOf(requestId, id));
+Future<void> showArtwork(String requestId, String id, bool show) => server('PUT', artworkOf(requestId, id), {'show': show});
 
 /// The original, or with [thumb] a small upright JPEG of about that many pixels.
 Future<Uint8List> photoAt(String base, String id, {int? thumb}) => _download('$base/$id${thumb == null ? '' : '?thumb=$thumb'}');

@@ -160,5 +160,21 @@ Bodies are checked strictly like `production` (an unknown field → 422).
 | B11 | `POST /gf/backup` | multipart `file`: a zip of `%LOCALAPPDATA%\GiftFactory`, ≤ 200 MB | Kept as `DATA_DIR/gf_backups/giftfactory-YYYY-MM-DD.zip` (UTC day; a second one that day replaces it), newest 30 kept; each new one goes to Drive with the 03:00 backup. 413 too big, 422 not a zip. Answer `{"ok", "file", "bytes"}`. Once a day is enough. |
 | B12 | `POST /gf/problem` | `{"version": "1.0.0", "code": "GF-SLICE-3", "message": "…"}`; `message` 1–2000 chars, `version`/`code` ≤ 50; from CRM 0.6.0 also optional `title` (≤ 200, what failed) and `todo` (≤ 500, what to do), codes `GF-<letter><n>` (root `ERRORS.md`); old codes still accepted | To Alex's Telegram: `🐞 <code> Gift Factory <version>: <title>. <message>. To do: <todo>.` (empty parts left out). At most 10 an hour (429 after); 502 when Telegram refuses. Answer `{"ok", "sent"}` (`sent: false` = Telegram not set up on the Pi). |
 
+### C-11 / C-12 additions (CRM 0.7.7, 25.11.2026)
+
+Still `contract: 1`; `GET /gf/info` `additions` also lists `"artwork"` and `"design"` (check it first: an older server
+answers 404). Gift Factory's `X-Studio-Key` on every route.
+
+| | Route | Body | What the CRM does |
+|---|---|---|---|
+| C-11 | `PUT /gf/requests/{rid}/artwork/{name}` | multipart `picture` = a PNG (colour or black on white; transparency becomes white), ≤ 2 MB and ≤ 4096 × 4096 px, **never the SVG**; form `show` = `true` / `false`. `name` 1–80 chars (URL-encode it; no `/`) | Watermarks it and keeps it for that request; the same `name` again replaces the picture and its `show`. At most 20 names per request (413). Answer `{"ok", "id"}`. 404 unknown request, 413 over 2 MB, 422 not a PNG / too large / bad name. |
+| C-11 | `DELETE /gf/requests/{rid}/artwork/{name}` | — | Removes it; an unknown `name` is already gone (`{"ok": true}`). 404 unknown request. |
+| C-12 | `GET /gf/requests` | — | each request also carries `design`: `{"template", "texts": {key: text}, "fonts": {key: name}, "colours": {key: "#RRGGBB"}}` or `null`. Copied from the website lead when Alex opens the request; the CRM passes it on only when it keeps this shape and ≤ 4 KB (keys ≤ 40 chars, text ≤ 500, font ≤ 100, template ≤ 100). |
+
+The portal shows each `show: true` picture under its request, once the request is on the portal (a version
+published), with the name as its alt text. The CRM app shows all of them with a "בפורטל" switch; Alex flipping it there
+is not sent back, so Gift Factory's `show` holds until Gift Factory sends that picture again. Invitations and stickers
+use the same route.
+
 B13 (measured print minutes for the shop) goes with the website pictures: `unit_minutes` in the renders' `meta`
 (README › Shop website).

@@ -181,7 +181,7 @@ def test_gf_info_says_views(client):
     assert client.get("/gf/info").status_code == 401
     assert client.get("/gf/info", headers={"X-Studio-Key": "wrong"}).status_code == 401
     assert client.get("/gf/info", headers=gf(client)).json() == {
-        "contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem"]}
+        "contract": 1, "views": True, "additions": ["gift", "status", "stock", "printer", "backup", "problem", "artwork", "design"]}
 
 
 def test_version_with_one_and_three_tabs(client, db):
@@ -429,3 +429,65 @@ def test_flag_maker_estimate_and_printed(client, db, pushes):
     assert client.post("/fm/requests/r1/printed", headers=fm).json() == {"ok": True, "status": "ready"}
     assert status(db) == "ready" and pushes == [("production", "✅ מוכן: אלכס ❤ אביטל", "INTERVIEW")]
     assert client.post("/fm/requests/r1/printed", headers=fm).status_code == 409
+
+
+# --- C-11 / C-12 -------------------------------------------------------------------------------
+
+
+def art(colour=(200, 30, 30, 255), size=(120, 80)) -> bytes:
+    out = io.BytesIO()
+    Image.new("RGBA", size, colour).save(out, "PNG")
+    return out.getvalue()
+
+
+def test_artwork_reaches_the_portal_only_when_shown(client, db):
+    key = gf(client)
+    put = lambda name, show="true", pic=None, k=key: client.put(  # noqa: E731
+        f"/gf/requests/r1/artwork/{name}", headers=k, files={"picture": ("a.png", pic or art(), "image/png")}, data={"show": show})
+    assert client.put("/gf/requests/r1/artwork/x", files={"picture": ("a.png", art(), "image/png")}, data={"show": "true"}).status_code == 401
+    assert put("x", k={"X-Studio-Key": "wrong"}).status_code == 401
+    assert client.put("/gf/requests/nope/artwork/x", headers=key, files={"picture": ("a.png", art(), "image/png")},
+                      data={"show": "true"}).status_code == 404
+    assert put("x", pic=picture("JPEG", (50, 50))).status_code == 422  # a PNG only, never another file
+    assert put("x" * 81).status_code == 422
+    assert put("x", pic=b"\0" * (2 * 1024 * 1024 + 1)).status_code == 413
+    aid = put("לוגו דנה").json()["id"]
+    assert put("לוגו דנה", pic=art((0, 0, 0, 0))).json()["id"] == aid  # the same name replaces it
+    hidden = put("סקיצה", show="false").json()["id"]
+    assert set(db.document("requests/r1").get().to_dict()["artwork"]) == {aid, hidden}
+    # Transparent became white, and it is stamped.
+    with Image.open(io.BytesIO(client.get(f"/studio/requests/r1/artwork/{aid}").content)) as im:
+        assert im.mode == "RGB" and im.getpixel((0, 0))[0] > 200 and len(im.getcolors(1 << 16)) > 1
+
+    vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    publish(db, vid)
+    r = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert [a["name"] for a in r["artwork"]] == ["לוגו דנה"] and r["artwork"][0]["at"]
+    assert client.get(f"/p/{TOKEN_A}/art/r1/{aid}").headers["content-type"] == "image/png"
+    assert client.get(f"/p/{TOKEN_A}/art/r1/{hidden}").status_code == 404
+    assert client.get(f"/p/{TOKEN_B}/art/r1/{aid}").status_code == 404  # another customer's link
+
+    # The app's switch.
+    assert client.put(f"/studio/requests/r1/artwork/{hidden}", json={"show": True}).status_code == 200
+    assert client.put("/studio/requests/r1/artwork/nope", json={"show": True}).status_code == 404
+    assert client.get(f"/p/{TOKEN_A}/art/r1/{hidden}").status_code == 200
+    assert client.delete("/gf/requests/r1/artwork/סקיצה", headers=key).json() == {"ok": True}
+    assert client.delete("/gf/requests/r1/artwork/סקיצה", headers=key).status_code == 200  # already gone
+    assert client.get(f"/p/{TOKEN_A}/art/r1/{hidden}").status_code == 404
+    assert [a["id"] for a in client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["artwork"]] == [aid]
+
+
+def test_design_is_passed_on_only_when_it_keeps_the_shape():
+    d = {"template": "heart", "texts": {"a": "דנה ורון"}, "fonts": {"a": "Heebo"}, "colours": {"a": "#AA0033"}}
+    assert giftfactory.design(d) == d
+    assert giftfactory.design({"template": "heart"}) == {"template": "heart", "texts": {}, "fonts": {}, "colours": {}}
+    for bad in (None, "heart", {**d, "svg": "<svg/>"}, {**d, "colours": {"a": "red"}}, {"texts": {}},
+                {**d, "texts": {f"k{i}": "x" * 400 for i in range(11)}}):  # the last is over 4 KB
+        assert giftfactory.design(bad) is None, bad
+
+
+def test_request_list_carries_the_design(client, db):
+    key = gf(client)
+    db.document("requests/r1").update({"design": {"template": "heart", "texts": {"a": "דנה"}}})
+    got = client.get("/gf/requests", headers=key).json()[0]
+    assert got["design"] == {"template": "heart", "texts": {"a": "דנה"}, "fonts": {}, "colours": {}}
