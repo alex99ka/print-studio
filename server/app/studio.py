@@ -277,6 +277,7 @@ def _delete_request(db, rid: str) -> None:
     shutil.rmtree(_data() / "guests" / rid, ignore_errors=True)
     shutil.rmtree(_data() / "photos" / rid, ignore_errors=True)
     shutil.rmtree(_data() / "artwork" / rid, ignore_errors=True)
+    shutil.rmtree(_data() / "comment_pics" / rid, ignore_errors=True)
 
 
 @router.delete("/studio/requests/{rid}")
@@ -745,6 +746,7 @@ def portal_data(token: str, preview: str = "", ps: Annotated[str | None, Cookie(
         comments[m.get("requestId")].append({
             "id": mid, "from": m.get("from"), "text": m.get("text", ""), "pin": m.get("pin"),
             "versionId": m.get("versionId"), "versionN": m.get("versionN"), "at": _iso(m.get("createdAt")),
+            "picture": m.get("picture") is True,
         })
     for _, p in _mine(cid, "payments"):
         payments[p.get("requestId")].append(int(p.get("amount", 0)))
@@ -828,26 +830,96 @@ def _request(cid: str, rid: str) -> tuple[object, dict]:
     return ref, r
 
 
-@router.post("/p/{token}/requests/{rid}/comments")
-def portal_comment(token: str, rid: str, body: Comment, ps: Annotated[str | None, Cookie()] = None) -> dict:
+def _add_comment(token: str, rid: str, version_id: str, text: str, pin: "Pin | None", ps: str | None,
+                 picture: UploadFile | None = None) -> dict:
     cid, c = _customer(token, ps)
     _limit(token)
     ref, r = _request(cid, rid)
-    v = firebase.db().document(f"versions/{body.versionId}").get().to_dict() or {}
+    v = firebase.db().document(f"versions/{version_id}").get().to_dict() or {}
     if v.get("requestId") != rid or v.get("state") not in ("published", "approved"):
         raise HTTPException(404, "No such version")
-    text = body.text.strip()
-    if not text:
+    text = text.strip()
+    if not text and picture is None:
         raise HTTPException(422, "Empty comment")
-    firebase.db().collection("comments").add({
-        "requestId": rid, "customerId": cid, "versionId": body.versionId, "versionN": v.get("n"),
-        "from": "client", "text": text, "pin": body.pin.model_dump() if body.pin else None,
-        "createdAt": firestore.SERVER_TIMESTAMP,
+    doc = firebase.db().collection("comments").document()
+    if picture is not None:
+        _save_comment_picture(rid, doc.id, picture)
+    doc.set({
+        "requestId": rid, "customerId": cid, "versionId": version_id, "versionN": v.get("n"),
+        "from": "client", "text": text, "pin": pin.model_dump() if pin else None,
+        **({"picture": True} if picture is not None else {}), "createdAt": firestore.SERVER_TIMESTAMP,
     })
     ref.update({"needsReply": True, "updatedAt": firestore.SERVER_TIMESTAMP})
-    jobs.send_to(jobs.users(), "client", f"{c.get('name', 'לקוח')}: הערה על {r.get('title', '')}", text[:150],
-                 {"route": "/request", "id": rid})
+    jobs.send_to(jobs.users(), "client", f"{c.get('name', 'לקוח')}: הערה על {r.get('title', '')}",
+                 (text or "📷 תמונה")[:150], {"route": "/request", "id": rid})
     return {"ok": True}
+
+
+@router.post("/p/{token}/requests/{rid}/comments")
+def portal_comment(token: str, rid: str, body: Comment, ps: Annotated[str | None, Cookie()] = None) -> dict:
+    return _add_comment(token, rid, body.versionId, body.text, body.pin, ps)
+
+
+# --- a picture on the client's comment (a reference photo, a logo): re-encoded, so nothing they sent is served as is ---
+
+MAX_COMMENT_PICTURE = 15 * 1024 * 1024
+MAX_COMMENT_PIXELS = 50_000_000
+COMMENT_SIDE = 2000  # px, the long side kept
+
+
+def _comment_picture(rid: str, mid: str) -> Path:
+    if not (rid.isalnum() and mid.isalnum()):
+        raise HTTPException(404, "No such picture")
+    return _data() / "comment_pics" / rid / f"{mid}.jpg"
+
+
+def _save_comment_picture(rid: str, mid: str, f: UploadFile) -> None:
+    body = f.file.read(MAX_COMMENT_PICTURE + 1)
+    if len(body) > MAX_COMMENT_PICTURE:
+        raise HTTPException(413, "The picture is over 15 MB")
+    try:
+        with Image.open(io.BytesIO(body)) as im:
+            if im.format not in LOGO_TYPES or im.width * im.height > MAX_COMMENT_PIXELS:
+                raise ValueError
+            im = ImageOps.exif_transpose(im)
+            # Transparency on white; a new JPEG drops the phone's EXIF (place, time, device).
+            img = Image.alpha_composite(Image.new("RGBA", im.size, "white"), im.convert("RGBA")).convert("RGB")
+    except (ValueError, OSError, SyntaxError, Image.DecompressionBombError):
+        raise HTTPException(422, "picture: a JPEG, PNG or WebP photo") from None
+    img.thumbnail((COMMENT_SIDE, COMMENT_SIDE))
+    path = _comment_picture(rid, mid)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    img.save(path, "JPEG", quality=85)
+
+
+@router.post("/p/{token}/requests/{rid}/comments/picture")
+def portal_comment_picture(token: str, rid: str, picture: Annotated[UploadFile, File()],
+                           versionId: Annotated[str, Form(max_length=40)], text: Annotated[str, Form(max_length=2000)] = "",
+                           pin: Annotated[str, Form(max_length=500)] = "", ps: Annotated[str | None, Cookie()] = None) -> dict:
+    """The same comment with a photo (multipart); text may be empty."""
+    try:
+        p = Pin.model_validate_json(pin) if pin and pin != "null" else None
+    except ValueError:
+        raise HTTPException(422, "pin") from None
+    return _add_comment(token, rid, versionId, text, p, ps, picture)
+
+
+def _comment_file(mid: str, cid: str | None = None) -> FileResponse:
+    m = (firebase.db().document(f"comments/{mid}").get().to_dict() or {}) if mid.isalnum() else {}
+    path = _comment_picture(m.get("requestId") or "x", mid) if m.get("picture") else None
+    if not path or not path.is_file() or (cid is not None and m.get("customerId") != cid):
+        raise HTTPException(404, "No such picture")
+    return FileResponse(path, media_type="image/jpeg", headers={"Cache-Control": "private, max-age=86400"})
+
+
+@router.get("/p/{token}/c/{mid}")
+def portal_comment_file(token: str, mid: str, ps: Annotated[str | None, Cookie()] = None) -> FileResponse:
+    return _comment_file(mid, _customer(token, ps)[0])
+
+
+@router.get("/studio/comments/{mid}/picture")
+def studio_comment_file(mid: str, _: User) -> FileResponse:
+    return _comment_file(mid)
 
 
 def offered(r: dict) -> list[str]:
@@ -927,4 +999,38 @@ def portal_decline(token: str, rid: str, body: Decline, ps: Annotated[str | None
         })
     jobs.send_to(jobs.users(), "client", f"❌ {c.get('name', 'לקוח')} ביטל/ה את ההזמנה: {r.get('title', '')}",
                  reason[:150] or "בלי סיבה", {"route": "/request", "id": rid})
+    return {"ok": True}
+
+
+# --- reopening an approved request (Alex only) ------------------------------------------------
+
+REOPENS = ("approved", "printing", "ready", "delivered")  # not once paid, nor a declined one
+
+
+@router.post("/studio/requests/{rid}/reopen")
+def reopen(rid: str, _: User) -> dict:
+    """Back to ממתין לאישור: the approval moves to `approvals` (history), its version is on offer
+    again and the client approves anew (the same or a new version and price)."""
+    db = firebase.db()
+    req = db.document(f"requests/{rid}") if rid.isalnum() else None
+    if req is None:
+        raise HTTPException(404, "No such request")
+
+    @firestore.transactional
+    def go(t) -> None:
+        snap = req.get(transaction=t)
+        r = snap.to_dict() or {}
+        if not snap.exists:
+            raise HTTPException(404, "No such request")
+        if not r.get("approvedVersionId") or r.get("status") not in REOPENS:
+            raise HTTPException(409, "Not an approved request")
+        t.update(req, {
+            "status": "waiting", "approvedVersionId": firestore.DELETE_FIELD, "approvedQuoteId": firestore.DELETE_FIELD,
+            "approvedAt": firestore.DELETE_FIELD, "updatedAt": firestore.SERVER_TIMESTAMP,
+            "approvals": firestore.ArrayUnion([{"versionId": r["approvedVersionId"], "quoteId": r.get("approvedQuoteId"),
+                                                "at": r.get("approvedAt"), "reopenedAt": datetime.now(timezone.utc)}]),
+        })
+        t.update(db.document(f"versions/{r['approvedVersionId']}"), {"state": "published"})
+
+    go(db.transaction())
     return {"ok": True}

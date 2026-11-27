@@ -115,9 +115,9 @@ shows on the portal (and takes a guest list) only after a version is published.
 
 ## After the MVP (not built, to decide)
 
-- **Approved 25.11, not built:** image attachment on a portal comment (the client attaches a photo; on the Pi with a
+- ✅ (0.7.8) Image attachment on a portal comment (the client attaches a photo; on the Pi with a
   size limit, shown in the app).
 - ✅ (0.5.4) Gift customers sign in with Google on their link (the first account owns it; "שחרור" in the app). Microphone customers keep the link only.
-- **Approved 25.11, not built:** reopening an approved request, Alex only ("פתח מחדש": back to טיוטה, the approval kept
-  in history, the client sees it waiting again). (Search shipped in 0.1.7.)
+- ✅ (0.7.8) Reopening an approved request, Alex only ("פתח מחדש", or a step before אושר on the step bar: back to
+  ממתין לאישור, the approval kept in `approvals`, the client approves again; not once paid). (Search shipped in 0.1.7.)
 - Decided 25.11: the Vercel plan and the .co.il domain wait (decide before advertising the site).

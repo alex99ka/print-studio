@@ -161,6 +161,7 @@ test("requests: production and guests are the server's, and survive the app's wr
   await assertFails(updateDoc(ref, { 'production.progress': { platesDone: 9 } }));
   await assertFails(updateDoc(ref, { guests: null }));
   await assertFails(updateDoc(ref, { 'artwork.abc.show': true }));  // C-11: the switch goes through the server
+  await assertFails(updateDoc(ref, { approvals: [] }));  // reopening is the server's (studio.reopen)
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, production: {} }));
   await assertFails(addDoc(collection(db(ALEX), 'requests'), { ...request, guests: {} }));
   // A whole-document set would drop them: refused. update() and set(..., merge) keep them.

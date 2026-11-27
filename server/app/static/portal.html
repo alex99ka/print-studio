@@ -185,7 +185,7 @@ const T = {
     pinSet:'ההערה תוצמד לנקודה', quote:'הצעת מחיר', total:'סה״כ לתשלום',
     noQuote:'הצעת המחיר עוד בהכנה', prevQuote:(a,d)=>`המחיר עודכן ב-${d} (קודם: ${a})`, approveNote:'האישור מאשר את הגרסה ואת המחיר יחד. אחרי האישור הגרסה ננעלת ועוברת להדפסה.',
     approve:'אישור העיצוב והמחיר', totalVat:'סה״כ כולל מע״מ', confirmTitle:'לאשר?', confirmText:(v,t,vat)=>`גרסה ${v} במחיר ${t}${vat ? ' כולל מע״מ' : ''}. אחרי האישור אי אפשר לשנות.`,
-    yes:'כן, לאשר', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה',
+    yes:'כן, לאשר', no:'ביטול', approvedAt:(v,d)=>`גרסה ${v} אושרה ב-${d}. תודה!`, comments:'הערות', write:'כתבו הערה…', send:'שליחה', attach:'צירוף תמונה', removePic:'הסרת התמונה', picture:'תמונה', picBad:'אפשר לצרף תמונת JPEG, PNG או WebP עד 15MB.',
     you:'אתם', studioName:'סטודיו הדפסה', none:'אין כרגע עיצובים שמחכים לאישור.', noneApproved:'עוד אין עיצובים שאושרו.',
     footer:'הקישור הזה אישי, אין צורך בסיסמה.', footerGoogle:'הקישור הזה אישי ונפתח רק בחשבון ה-Google שלכם.', signIn:'כדי לראות את ההזמנה, נכנסים עם חשבון Google. בפעם הבאה הקישור ייפתח רק בחשבון הזה.', signInBtn:'כניסה עם Google', otherAccount:'הקישור הזה שייך לחשבון Google אחר. נכנסים עם החשבון שבו נכנסתם בפעם הראשונה, או מבקשים מהסטודיו לשחרר אותו.', gone:'הקישור הזה כבר לא פעיל. בקשו קישור חדש מהסטודיו.',
     failed:'משהו נכשל. בדקו את החיבור ונסו שוב.', changed:'העיצוב או המחיר השתנו. טוענים מחדש…', loading3d:'טוען תלת-ממד…',
@@ -223,7 +223,7 @@ const T = {
     pinSet:'The comment will be pinned there', quote:'Quote', total:'Total',
     noQuote:'The quote is being prepared', prevQuote:(a,d)=>`Price updated on ${d} (was ${a})`, approveNote:'Approving accepts this version and this price together. The version is then locked and goes to print.',
     approve:'Approve design and price', totalVat:'Total incl. VAT', confirmTitle:'Approve?', confirmText:(v,t,vat)=>`Version ${v} for ${t}${vat ? ' incl. VAT' : ''}. This can't be changed afterwards.`,
-    yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send',
+    yes:'Yes, approve', no:'Cancel', approvedAt:(v,d)=>`Version ${v} approved on ${d}. Thank you!`, comments:'Comments', write:'Write a comment…', send:'Send', attach:'Attach a picture', removePic:'Remove the picture', picture:'Picture', picBad:'Attach a JPEG, PNG or WebP picture up to 15 MB.',
     you:'You', studioName:'Print Studio', none:'Nothing is waiting for your approval.', noneApproved:'Nothing approved yet.',
     footer:'This link is personal; no password needed.', footerGoogle:'This link is personal and opens only in your Google account.', signIn:'To see your order, sign in with Google. From then on this link opens only in that account.', signInBtn:'Sign in with Google', otherAccount:'This link belongs to another Google account. Sign in with the one you used the first time, or ask the studio to release it.', gone:'This link is no longer active. Ask the studio for a new one.',
     failed:'Something failed. Check the connection and try again.', changed:'The design or the price changed. Reloading…', loading3d:'Loading 3D…',
@@ -283,6 +283,7 @@ const file = (v, name) => `${base}/f/${v.id}/${name}${v.id === preview ? '?previ
 const has = (v, name) => v.files.includes(name);
 // Static markup only, never data: data always goes through h() and textContent.
 const icon = markup => { const tpl = document.createElement('template'); tpl.innerHTML = markup; return tpl.content.firstChild; };
+const CLIP = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 11.5 12.5 20a5 5 0 0 1-7-7L14 4.5a3.3 3.3 0 0 1 4.7 4.7L10.2 17.7a1.7 1.7 0 0 1-2.4-2.4L15.5 7.6"/></svg>';
 const PIN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 21s-7-6.2-7-12a7 7 0 0 1 14 0c0 5.8-7 12-7 12z"/><circle cx="12" cy="9" r="2.5"/></svg>';
 const CHEVRON = '<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true" style="flex:none;color:var(--muted)"><path d="m15 18-6-6 6-6"/></svg>';
 const GOOGLE = '<svg width="20" height="20" viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9.1 3.6l6.8-6.8C35.8 2.4 30.3 0 24 0 14.6 0 6.6 5.4 2.6 13.3l7.9 6.1C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.1 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.4c-.5 2.9-2.2 5.3-4.6 6.9l7.4 5.8c4.3-4 6.9-9.9 6.9-17.2z"/><path fill="#FBBC05" d="M10.5 28.6c-.5-1.4-.8-2.9-.8-4.6s.3-3.2.8-4.6l-7.9-6.1C.9 16.6 0 20.2 0 24s.9 7.4 2.6 10.7l7.9-6.1z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.4-5.8c-2.1 1.4-4.8 2.3-8.5 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.9 6.1C6.6 42.6 14.6 48 24 48z"/></svg>';
@@ -511,20 +512,39 @@ function detail(r) {
 
   const input = h('input', {type: 'text', placeholder: t().write, 'aria-label': t().write, maxlength: 2000});
   const sendBtn = h('button', {type: 'button', class: 'send'}, t().send);
+  // A photo on the comment (a reference, a logo): the server re-encodes it.
+  const picInput = h('input', {type: 'file', accept: 'image/jpeg,image/png,image/webp', hidden: true});
+  const chip = h('span', {class: 'muted', hidden: true});
+  const clear = () => { picInput.value = ''; chip.hidden = true; chip.replaceChildren(); };
+  picInput.onchange = () => {
+    const f = picInput.files[0]; if (!f) return clear();
+    if (f.size > 15 * 1024 * 1024) { clear(); return alertBox(t().picBad); }
+    chip.replaceChildren(`📷 ${f.name} `, h('button', {type: 'button', class: 'quiet', 'aria-label': t().removePic, onclick: clear}, '×'));
+    chip.hidden = false;
+  };
   const send = async () => {
-    const text = input.value.trim(); if (!text || input.disabled) return;
+    const text = input.value.trim(), pic = picInput.files[0]; if ((!text && !pic) || input.disabled) return;
     input.disabled = sendBtn.disabled = true; // one post per comment, even on a double click
-    const ok = await post(`requests/${r.id}/comments`, {versionId: v.id, text, pin: draftPin});
+    let ok;
+    if (pic) {
+      const form = new FormData();
+      form.append('picture', pic); form.append('versionId', v.id); form.append('text', text); form.append('pin', JSON.stringify(draftPin));
+      ok = await post(`requests/${r.id}/comments/picture`, form);
+    } else ok = await post(`requests/${r.id}/comments`, {versionId: v.id, text, pin: draftPin});
     input.disabled = sendBtn.disabled = false;
-    if (ok) { input.value = ''; draftPin = null; picking = false; await refresh(); }
+    if (ok) { input.value = ''; clear(); draftPin = null; picking = false; await refresh(); }
   };
   input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
   sendBtn.onclick = send;
   kids.push(h('section', {class: 'card'}, h('h2', {}, t().comments),
     r.comments.map(c => h('div', {class: 'msg' + (c.from === 'client' ? ' me' : ''), ...(c.pin ? {role: 'button', tabindex: '0', style: 'cursor:pointer', onclick: () => showPin(r, c), onkeydown: e => { if (e.key === 'Enter') showPin(r, c); }} : {})},
       h('span', {class: 'num' + (c.pin ? ' p' : '')}, c.pin ? numbers.get(c.id) : (c.from === 'client' ? '' : t().studioName[0])),
-      h('div', {class: 'bubble'}, h('span', {class: 'muted'}, `${c.from === 'client' ? t().you : t().studioName} · v${c.versionN ?? ''} · `, ltr(day(c.at))), c.text))),
-    r.status !== 'paid' && !preview ? h('label', {class: 'composer'}, input, sendBtn) : null));
+      h('div', {class: 'bubble'}, h('span', {class: 'muted'}, `${c.from === 'client' ? t().you : t().studioName} · v${c.versionN ?? ''} · `, ltr(day(c.at))), c.text,
+        c.picture ? h('a', {href: `${base}/c/${c.id}`, target: '_blank', rel: 'noopener'},
+          h('img', {src: `${base}/c/${c.id}`, alt: t().picture, loading: 'lazy', style: 'max-width:240px;width:100%;display:block;border-radius:8px;margin-top:4px'})) : null))),
+    r.status !== 'paid' && !preview ? [h('label', {class: 'composer'}, input,
+      h('button', {type: 'button', class: 'quiet', 'aria-label': t().attach, title: t().attach, onclick: e => { e.preventDefault(); picInput.click(); }}, icon(CLIP)),
+      sendBtn), picInput, chip] : null));
   $('main').replaceChildren(...kids);
 
   const canApprove = open && q && r.offered.includes(v.id) && !preview;
@@ -615,8 +635,10 @@ function confirmDecline(r) {
 
 async function post(path, body) {
   try {
-    const res = await fetch(`${base}/${path}`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+    const form = body instanceof FormData; // a comment with a picture
+    const res = await fetch(`${base}/${path}`, form ? {method: 'POST', body} : {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
     if (res.status === 409) { await refresh(); alertBox(t().changed); return false; } // after: refresh redraws #main
+    if (form && (res.status === 413 || res.status === 422)) { alertBox(t().picBad); return false; }
     if (!res.ok) throw new Error(res.status);
     return true;
   } catch { alertBox(t().failed); return false; }

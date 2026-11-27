@@ -599,7 +599,30 @@ class _RequestDetailState extends State<RequestDetail> {
     final payments = [...paymentDocs]..sort((a, b) => _at(a['at']).compareTo(_at(b['at'])));
     final paid = payments.fold(0, (a, p) => a + (p['amount'] as int));
 
+    // Reopening an approved request: the client approves again (the approval stays in the history).
+    Future<void> reopen() async {
+      final messenger = ScaffoldMessenger.of(context);
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('לפתוח מחדש?'),
+          content: const Text('הבקשה תחזור ל"ממתין לאישור" והלקוח יאשר שוב (אותה גרסה ומחיר, או חדשים שתפרסם). '
+              'האישור הקודם נשמר בהיסטוריה. כדאי לשלוח ללקוח הודעה.'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('ביטול')),
+            FilledButton(onPressed: () => Navigator.pop(context, true), child: const Text('פתח מחדש')),
+          ],
+        ),
+      );
+      if (yes == true) await reopenRequest(request.id).catchError((Object e) => showError(messenger, e, 'הפתיחה מחדש נכשלה'));
+    }
+
     void change(String st) {
+            // Back before approval from an approved request: that is reopening it (server: approval to history).
+            if (r['approvedAt'] != null && (st == 'draft' || st == 'waiting')) {
+              reopen();
+              return;
+            }
             // שולם with money still owed: ask how it was paid and log it, so the balance follows.
             final due = st == 'paid' && quote != null ? leftToPay(quoteMoney(quote.data()).total, paid) : 0;
             if (due > 0) {
@@ -818,6 +841,14 @@ class _RequestDetailState extends State<RequestDetail> {
               child: Text('הלקוח אישר את v${versions.where((v) => v.id == r['approvedVersionId']).firstOrNull?['n'] ?? ''} '
                   'ואת המחיר ב-${day(r['approvedAt'])}', style: TextStyle(color: s.okInk, fontWeight: FontWeight.w500)),
             ),
+          if (r['approvedAt'] != null && const {'approved', 'printing', 'ready', 'delivered'}.contains(r['status']))
+            Align(
+              alignment: AlignmentDirectional.centerStart,
+              child: TextButton.icon(onPressed: reopen, icon: const Icon(Icons.lock_open_outlined, size: 18), label: const Text('פתח מחדש')),
+            ),
+          for (final a in (r['approvals'] as List? ?? const []).whereType<Map>())
+            Text('אושר קודם: v${versions.where((v) => v.id == a['versionId']).firstOrNull?['n'] ?? ''} ב-${day(a['at'])}'
+                ' · נפתח מחדש ב-${day(a['reopenedAt'])}', style: TextStyle(color: s.muted, fontSize: 12)),
           if (open) ...[
             const SizedBox(height: 12),
             OutlinedButton(
@@ -1182,7 +1213,27 @@ class _Comment extends StatelessWidget {
           '${done ? ' · ✓ טופל' : ''}',
           style: TextStyle(fontSize: 12, color: done ? s.okInk : s.muted),
         ),
-        SelectableText('${c['text']}', onTap: pin != null ? onShow : null),
+        if ('${c['text']}'.isNotEmpty) SelectableText('${c['text']}', onTap: pin != null ? onShow : null),
+        if (c.data()['picture'] == true)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: FutureBuilder<Uint8List>(
+              future: _artCache['c/${c.id}'] ??= commentPicture(c.id),
+              builder: (context, p) => p.hasData
+                  ? InkWell(
+                      onTap: () => showDialog<void>(
+                          context: context,
+                          builder: (_) => Dialog(child: InteractiveViewer(child: Image.memory(p.data!)))),
+                      child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 240, maxHeight: 240),
+                          child: ClipRRect(borderRadius: BorderRadius.circular(6), child: Image.memory(p.data!))),
+                    )
+                  : SizedBox(
+                      width: 120,
+                      height: 80,
+                      child: ColoredBox(color: s.sunk, child: p.hasError ? const Icon(Icons.broken_image_outlined) : null)),
+            ),
+          ),
       ]),
     );
     return Padding(

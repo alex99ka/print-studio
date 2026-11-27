@@ -244,6 +244,56 @@ def test_approval_is_one_step_and_checks_what_is_current(client, db, pushes):
     assert client.post("/studio/requests/r1/versions", files=files()).status_code == 409
 
 
+def test_a_comment_with_a_picture(client, db, pushes, tmp_path):
+    vid = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    publish(db, vid)
+    photo = io.BytesIO()
+    exif = Image.Exif()
+    exif[0x010F] = "PhoneMaker"  # EXIF the client's phone added
+    Image.new("RGB", (3000, 1000), (10, 120, 200)).save(photo, "JPEG", exif=exif)
+    send = lambda pic=photo.getvalue(), token=TOKEN_A, **form: client.post(  # noqa: E731
+        f"/p/{token}/requests/r1/comments/picture", files={"picture": ("me.jpg", pic, "image/jpeg")}, data={"versionId": vid, **form})
+    assert send(token=TOKEN_B).status_code == 404
+    assert send(pic=b"not a picture").status_code == 422
+    assert send(pic=b"\0" * (15 * 1024 * 1024 + 1)).status_code == 413
+    assert send(pin="{bad").status_code == 422
+    assert send(text="כזה לוגו", pin=json.dumps({"view": "2d", "x": 0.5, "y": 0.5})).status_code == 200
+    assert send().status_code == 200  # a picture alone
+    cs = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["comments"]
+    assert [(c["text"], c["picture"], bool(c["pin"])) for c in cs] == [("כזה לוגו", True, True), ("", True, False)]
+    assert pushes[-1][2] == "📷 תמונה"
+    got = client.get(f"/p/{TOKEN_A}/c/{cs[0]['id']}")
+    with Image.open(io.BytesIO(got.content)) as im:
+        assert got.headers["content-type"] == "image/jpeg" and im.size == (2000, 667) and not im.getexif()
+    assert client.get(f"/p/{TOKEN_B}/c/{cs[0]['id']}").status_code == 404
+    assert client.get(f"/studio/comments/{cs[0]['id']}/picture").status_code == 200
+    client.post(f"/p/{TOKEN_A}/requests/r1/comments", json={"versionId": vid, "text": "בלי תמונה"})
+    plain = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]["comments"][-1]
+    assert plain["picture"] is False and client.get(f"/p/{TOKEN_A}/c/{plain['id']}").status_code == 404
+    client.delete("/studio/requests/r1")
+    assert not (tmp_path / "comment_pics" / "r1").exists()
+
+
+def test_reopen_moves_the_approval_to_history(client, db, pushes):
+    v1 = client.post("/studio/requests/r1/versions", files=files()).json()["id"]
+    publish(db, v1)
+    assert client.post("/studio/requests/r1/reopen").status_code == 409  # waiting: nothing to reopen
+    client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": v1, "quoteId": "q1"})
+    db.document("requests/r1").update({"status": "printing"})
+    assert client.post("/studio/requests/nope/reopen").status_code == 404
+    assert client.post("/studio/requests/r1/reopen").json() == {"ok": True}
+    r = db.document("requests/r1").get().to_dict()
+    assert r["status"] == "waiting" and "approvedVersionId" not in r and "approvedAt" not in r and "approvedQuoteId" not in r
+    assert [(a["versionId"], a["quoteId"]) for a in r["approvals"]] == [(v1, "q1")] and r["approvals"][0]["at"]
+    assert db.document(f"versions/{v1}").get().to_dict()["state"] == "published"
+    p = client.get(f"/p/{TOKEN_A}/data").json()["requests"][0]
+    assert p["status"] == "waiting" and p["approved"] is None and p["due"] == 0
+    # The client approves again; a paid one stays closed.
+    assert client.post(f"/p/{TOKEN_A}/requests/r1/approve", json={"versionId": v1, "quoteId": "q1"}).status_code == 200
+    db.document("requests/r1").update({"status": "paid"})
+    assert client.post("/studio/requests/r1/reopen").status_code == 409
+
+
 def test_client_picks_one_of_the_versions_offered_side_by_side(client, db, pushes):
     v1, v2, v3 = (client.post("/studio/requests/r1/versions", files=files()).json()["id"] for _ in range(3))
     for v in (v1, v2, v3):

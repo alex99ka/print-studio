@@ -456,6 +456,12 @@ String productPhotosOf(String requestId) => '/studio/requests/$requestId/photos'
 Future<List<Map<String, dynamic>>> photosAt(String base) async =>
     (jsonDecode(utf8.decode(await _download(base))) as List).cast<Map<String, dynamic>>();
 
+/// The photo a client attached to a portal comment (re-encoded JPEG on the Pi).
+Future<Uint8List> commentPicture(String commentId) => _download('/studio/comments/$commentId/picture');
+
+/// Back to ממתין לאישור: the approval goes to the request's `approvals` history and the client approves anew.
+Future<void> reopenRequest(String requestId) => server('POST', '/studio/requests/$requestId/reopen');
+
 /// C-11: the client's design pictures Gift Factory sent (watermarked PNGs, `requests.artwork`, written by the server).
 String artworkOf(String requestId, String id) => '/studio/requests/$requestId/artwork/$id';
 Future<Uint8List> artworkAt(String requestId, String id) => _download(artworkOf(requestId, id));
